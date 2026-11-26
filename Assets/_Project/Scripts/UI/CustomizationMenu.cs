@@ -16,6 +16,7 @@ namespace Caos.UI
         const float BottomHeight = 110f;
         const string GameSceneName = "Sandbox";
         const string MissionSceneName = "ChaosExpress";
+        const string ArenaSceneName = "ArenaCaos";
         const string LobbySceneName = "Lobby";
 
         CharacterCustomization _character;
@@ -72,6 +73,13 @@ namespace Caos.UI
             SceneManager.LoadScene(MissionSceneName);
         }
 
+        void PlayArena()
+        {
+            if (_character != null) _character.Save();
+            CaosSession.ResetForMenu();
+            SceneManager.LoadScene(ArenaSceneName);
+        }
+
         void OpenLobby()
         {
             if (_character != null) _character.Save();
@@ -85,7 +93,7 @@ namespace Caos.UI
         {
             EnsureStyles();
 
-            float panelWidth = Mathf.Clamp(Screen.width * 0.38f, 320f, 440f);
+            float panelWidth = Mathf.Clamp(Screen.width * 0.40f, 360f, 500f);
             float panelX = Screen.width - panelWidth;
             float panelHeight = Screen.height - BottomHeight;
 
@@ -119,12 +127,14 @@ namespace Caos.UI
                 if (current != _character.PlayerName) _character.SetName(current);
             }
 
-            const float gap = 12f;
-            float half = (playRect.width - gap) * 0.5f;
-            var missionRect = new Rect(playRect.x, playRect.y, half, playRect.height);
-            var sandboxRect = new Rect(playRect.x + half + gap, playRect.y, half, playRect.height);
+            const float gap = 10f;
+            float third = (playRect.width - gap * 2f) / 3f;
+            var missionRect = new Rect(playRect.x, playRect.y, third, playRect.height);
+            var arenaRect = new Rect(playRect.x + third + gap, playRect.y, third, playRect.height);
+            var sandboxRect = new Rect(playRect.x + (third + gap) * 2f, playRect.y, third, playRect.height);
 
             if (GUI.Button(missionRect, "MISIÓN CAOS", _playStyle)) PlayMission();
+            if (GUI.Button(arenaRect, "ARENA", _playStyle)) PlayArena();
             if (GUI.Button(sandboxRect, "JUGAR", _playStyle)) Play();
         }
 
@@ -165,7 +175,7 @@ namespace Caos.UI
 
             _playStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 20,
+                fontSize = 16,
                 fontStyle = FontStyle.Bold,
             };
         }

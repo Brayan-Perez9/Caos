@@ -1,0 +1,61 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+using Caos.Player;
+
+namespace Caos.Maps
+{
+    /// <summary>
+    /// Apunta el personaje hacia el cursor y dispara con el botón izquierdo.
+    /// Usa el Input System y el plano de la altura del jugador, así que funciona
+    /// tanto en el suelo bajo como en la plataforma alta.
+    /// </summary>
+    public class ArenaAimController : MonoBehaviour
+    {
+        [SerializeField] float aimHeight = 1.15f;
+
+        ArenaDirector _director;
+        PlayerController _controller;
+        Camera _camera;
+        Vector3 _aimPoint;
+
+        public Vector3 AimPoint => _aimPoint;
+
+        void Awake()
+        {
+            _controller = GetComponent<PlayerController>();
+            if (_controller != null) _controller.FaceMovement = false;
+            _director = FindFirstObjectByType<ArenaDirector>();
+            _camera = Camera.main;
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+
+        void Update()
+        {
+            if (_director == null) _director = FindFirstObjectByType<ArenaDirector>();
+            if (_camera == null) _camera = Camera.main;
+            if (_controller == null || _camera == null || _director == null) return;
+            if (!_controller.InputEnabled || _director.UpgradePending || _director.Finished) return;
+
+            Vector2 pointer = Mouse.current != null
+                ? Mouse.current.position.ReadValue()
+                : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+
+            Ray ray = _camera.ScreenPointToRay(pointer);
+            var plane = new Plane(Vector3.up, transform.position + Vector3.up * aimHeight);
+            if (plane.Raycast(ray, out float distance)) _aimPoint = ray.GetPoint(distance);
+
+            Vector3 toAim = _aimPoint - transform.position;
+            toAim.y = 0f;
+            if (toAim.sqrMagnitude > 0.04f)
+            {
+                Quaternion target = Quaternion.LookRotation(toAim.normalized, Vector3.up);
+                float blend = 1f - Mathf.Exp(-18f * Time.deltaTime);
+                transform.rotation = Quaternion.Slerp(transform.rotation, target, blend);
+            }
+
+            if (Mouse.current != null && Mouse.current.leftButton.isPressed)
+                _director.TryFire(transform, _aimPoint);
+        }
+    }
+}

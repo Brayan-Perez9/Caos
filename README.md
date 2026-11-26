@@ -25,6 +25,8 @@ Los dos jugadores deben estar en la misma Wi-Fi o LAN. El código guarda la IP y
 - **WASD**: mover
 - **Espacio**: saltar
 - **Clic izquierdo**: coger / lanzar objetos; con el martillo, golpear
+- **Ratón**: apuntar en la Arena Caos (el personaje mira al cursor)
+- **1 / 2 / 3**: elegir mejora cuando aparece el panel
 - **ESC**: pausa (reanudar / volver al lobby / salir)
 
 ## Objetivos de la misión
@@ -34,6 +36,16 @@ Los dos jugadores deben estar en la misma Wi-Fi o LAN. El código guarda la IP y
 3. Coger el martillo y derrotar al jefe.
 
 Hay monstruos cada vez más rápidos, eventos aleatorios y patitos secretos.
+
+## Arena Caos
+
+En el menú pulsa **ARENA** para entrar en un mapa nuevo con dos pisos. Te acercas a un pedestal para recoger la pistola, la escopeta o el rifle, y apuntas con el ratón mientras disparas con el botón izquierdo. Hay rampas para subir al piso alto.
+
+- Cada 5 bajas aparece un panel con 3 mejoras: más vida, más daño, disparo rápido, velocidad o resistencia.
+- El arma sube de nivel automáticamente con las bajas: más daño, cadencia y, con la escopeta, más perdigones.
+- A los **30 s** los monstruos se vuelven más rápidos y aparecen más.
+- A los **90 s** llega el jefe final con martillo. Al derrotarlo ganas.
+- Los monstruos tienen piernas y sangran; al recibir daño aparece sangre también en pantalla y se oyen efectos generados por código, sin archivos de sonido.
 
 ## Actualizaciones
 
@@ -52,6 +64,7 @@ El proyecto usa Unity 6000.3.29f1. Todas las escenas se regeneran desde `Assets/
 - `MenuSceneBuilder.CreateMenuSceneInternal`
 - `LobbySceneBuilder.CreateLobbySceneInternal`
 - `ChaosExpressBuilder.CreateMapInternal`
+- `ArenaSceneBuilder.CreateArenaSceneInternal`
 - `SandboxSceneBuilder.CreateSandboxSceneInternal`
 
 Build local: `Caos.EditorTools.BuildCaos.BuildWindows` → `Builds/Windows/Caos.exe`.

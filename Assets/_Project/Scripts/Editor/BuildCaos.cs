@@ -105,6 +105,12 @@ namespace Caos.EditorTools
                 Debug.Log("[Caos] La escena de misión no existe; creando Chaos Express…");
                 ChaosExpressBuilder.CreateMapInternal();
             }
+
+            if (!File.Exists(ArenaSceneBuilder.ScenePath))
+            {
+                Debug.Log("[Caos] La arena no existe; creando Arena Caos…");
+                ArenaSceneBuilder.CreateArenaSceneInternal();
+            }
         }
 
         static void ConfigureScenes()
@@ -115,6 +121,7 @@ namespace Caos.EditorTools
                 new EditorBuildSettingsScene(MenuSceneBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(LobbySceneBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(ChaosExpressBuilder.ScenePath, true),
+                new EditorBuildSettingsScene(ArenaSceneBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(SandboxSceneBuilder.ScenePathPublic, true),
             };
 

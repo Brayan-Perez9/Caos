@@ -31,6 +31,9 @@ namespace Caos.UI
             var mission = FindFirstObjectByType<ChaosExpressMission>();
             if (mission != null && !mission.CanPause) return;
 
+            var arena = FindFirstObjectByType<ArenaDirector>();
+            if (arena != null && !arena.CanPause) return;
+
             SetOpen(!_open);
         }
 

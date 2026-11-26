@@ -55,6 +55,9 @@ namespace Caos.Player
         /// <summary>El mapa de misión desactiva el empujón de clic para usarlo con las manos.</summary>
         public bool ShoveEnabled { get; set; } = true;
 
+        /// <summary>La arena desactiva esta rotación para que el cursor mande la mirada.</summary>
+        public bool FaceMovement { get; set; } = true;
+
         public void SetCamera(Transform camera) => cameraReference = camera;
         public void SetSpawnPoint(Transform spawn) => spawnPoint = spawn;
 
@@ -102,7 +105,7 @@ namespace Caos.Player
             _velocity.x = horizontal.x;
             _velocity.z = horizontal.z;
 
-            if (wish.sqrMagnitude > 0.001f)
+            if (FaceMovement && wish.sqrMagnitude > 0.001f)
             {
                 Quaternion targetRotation = Quaternion.LookRotation(wish, Vector3.up);
                 float blend = 1f - Mathf.Exp(-rotationSpeed * Time.deltaTime);

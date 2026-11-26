@@ -39,6 +39,13 @@ namespace Caos.Maps
         public void Heal(float amount) => _current = Mathf.Min(maxHealth, _current + amount);
         public void ResetHealth() => _current = maxHealth;
 
+        /// <summary>Aumenta la vida máxima sin reiniciar la vida actual.</summary>
+        public void IncreaseMax(float amount)
+        {
+            maxHealth += amount;
+            _current = Mathf.Min(maxHealth, _current + amount);
+        }
+
         /// <summary>Ajusta la vida exacta (lo usa la sincronización de red).</summary>
         public void SetCurrent(float value) => _current = Mathf.Clamp(value, 0f, maxHealth);
     }
