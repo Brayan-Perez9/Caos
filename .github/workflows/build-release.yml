@@ -29,11 +29,15 @@ jobs:
         run: |
           $unity = 'C:\Program Files\Unity\Hub\Editor\6000.3.29f1\Editor\Unity.exe'
           $log = Join-Path $env:GITHUB_WORKSPACE 'unity-build.log'
-          & $unity -batchmode -nographics -quit -projectPath $env:GITHUB_WORKSPACE -executeMethod Caos.EditorTools.BuildCaos.BuildWindows -logFile $log
-          if ($LASTEXITCODE -ne 0) {
-            Get-Content $log -Tail 100
-            exit $LASTEXITCODE
-          }
+          $arguments = @(
+            '-batchmode', '-nographics', '-quit',
+            '-projectPath', $env:GITHUB_WORKSPACE,
+            '-executeMethod', 'Caos.EditorTools.BuildCaos.BuildWindows',
+            '-logFile', $log
+          )
+          $process = Start-Process -FilePath $unity -ArgumentList $arguments -Wait -PassThru
+          if (Test-Path $log) { Get-Content $log -Tail 80 }
+          if ($process.ExitCode -ne 0) { exit $process.ExitCode }
 
       - name: Escribir versión (commit)
         shell: powershell
