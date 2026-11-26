@@ -11,9 +11,8 @@ using Caos.UI;
 namespace Caos.EditorTools
 {
     /// <summary>
-    /// Construye "Arena Caos": dos pisos, armas que se apuntan con el cursor,
-    /// oleadas, mejoras por bajas y jefe final con martillo.
-    /// Menú: Caos → Create Arena Caos.
+    /// Construye "Arena Caos": mapa grande de dos pisos con escalera, armas
+    /// elementales por color, jefes y HUD. Menú: Caos → Create Arena Caos.
     /// </summary>
     public static class ArenaSceneBuilder
     {
@@ -54,7 +53,7 @@ namespace Caos.EditorTools
             var root = new GameObject("ArenaCaos");
             var spawn = new GameObject("SpawnPoint");
             spawn.transform.SetParent(root.transform, false);
-            spawn.transform.position = new Vector3(0f, 0.2f, -13f);
+            spawn.transform.position = new Vector3(0f, -0.25f, -18f);
 
             BuildFloors(root.transform);
             BuildCover(root.transform);
@@ -96,110 +95,120 @@ namespace Caos.EditorTools
         static void BuildFloors(Transform parent)
         {
             Box("GroundFloor", new Vector3(0f, -0.3f, 0f),
-                new Vector3(34f, 0.6f, 34f), "MenuFloor", parent);
+                new Vector3(48f, 0.6f, 48f), "MenuFloor", parent);
 
-            // El piso alto se parte dejando un hueco central para la escalera.
-            // Así el jugador no choca con la cara inferior de la plataforma.
-            Box("UpperFloor_W", new Vector3(-6f, 4f, 0.5f),
-                new Vector3(6f, 0.5f, 11f), "Platform", parent);
-            Box("UpperFloor_E", new Vector3(6f, 4f, 0.5f),
-                new Vector3(6f, 0.5f, 11f), "Platform", parent);
-            Box("UpperFloor_S", new Vector3(0f, 4f, 9.5f),
-                new Vector3(18f, 0.5f, 7f), "Platform", parent);
+            // Piso alto en forma de U: deja el hueco central para la escalera.
+            Box("UpperFloor_W", new Vector3(-9f, 4f, -2f),
+                new Vector3(8f, 0.5f, 20f), "Platform", parent);
+            Box("UpperFloor_E", new Vector3(9f, 4f, -2f),
+                new Vector3(8f, 0.5f, 20f), "Platform", parent);
+            Box("UpperFloor_S", new Vector3(0f, 4f, 13f),
+                new Vector3(26f, 0.5f, 8f), "Platform", parent);
 
-            // Escalera de 16 peldaños: 0.28 m de subida, por debajo del stepOffset.
-            const int steps = 16;
-            const float stepDepth = 0.92f;
+            // 15 peldaños de 0.28 m: por debajo del stepOffset del jugador.
+            const int steps = 15;
+            const float stepDepth = 1.3f;
             const float stepRise = 0.28f;
             for (int i = 0; i < steps; i++)
             {
                 float top = stepRise * (i + 1);
-                float z = -7.4f + i * stepDepth;
+                float z = -11f + i * stepDepth;
                 Box("Stair_" + i.ToString("00"), new Vector3(0f, top * 0.5f, z),
-                    new Vector3(4.6f, top, stepDepth), "Ramp", parent);
+                    new Vector3(6f, top, stepDepth), "Ramp", parent);
             }
 
-            // Barandillas: partidas delante para no tapar la escalera.
-            Box("Rail_N_L", new Vector3(-6f, 5.05f, -5f),
-                new Vector3(6f, 0.8f, 0.28f), "Neon", parent);
-            Box("Rail_N_R", new Vector3(6f, 5.05f, -5f),
-                new Vector3(6f, 0.8f, 0.28f), "Neon", parent);
-            Box("Rail_S", new Vector3(0f, 5.05f, 13f),
-                new Vector3(18f, 0.8f, 0.28f), "Neon", parent);
-            Box("Rail_W", new Vector3(-9f, 5.05f, 4f),
-                new Vector3(0.28f, 0.8f, 18f), "Neon", parent);
-            Box("Rail_E", new Vector3(9f, 5.05f, 4f),
-                new Vector3(0.28f, 0.8f, 18f), "Neon", parent);
-            Box("StairRail_L", new Vector3(-3.1f, 5.05f, 0.5f),
-                new Vector3(0.22f, 0.8f, 11f), "Neon", parent);
-            Box("StairRail_R", new Vector3(3.1f, 5.05f, 0.5f),
-                new Vector3(0.22f, 0.8f, 11f), "Neon", parent);
+            // Barandillas del piso alto y de la escalera.
+            Box("Rail_N_L", new Vector3(-9f, 5.05f, -12f),
+                new Vector3(8f, 0.8f, 0.28f), "Neon", parent);
+            Box("Rail_N_R", new Vector3(9f, 5.05f, -12f),
+                new Vector3(8f, 0.8f, 0.28f), "Neon", parent);
+            Box("Rail_S", new Vector3(0f, 5.05f, 17f),
+                new Vector3(26f, 0.8f, 0.28f), "Neon", parent);
+            Box("Rail_W", new Vector3(-13f, 5.05f, 2.5f),
+                new Vector3(0.28f, 0.8f, 29f), "Neon", parent);
+            Box("Rail_E", new Vector3(13f, 5.05f, 2.5f),
+                new Vector3(0.28f, 0.8f, 29f), "Neon", parent);
+            Box("StairRail_L", new Vector3(-3.4f, 5.05f, -1.9f),
+                new Vector3(0.22f, 0.8f, 18.2f), "Neon", parent);
+            Box("StairRail_R", new Vector3(3.4f, 5.05f, -1.9f),
+                new Vector3(0.22f, 0.8f, 18.2f), "Neon", parent);
 
-            // Puntales y muros perimetrales del piso bajo.
-            Box("Wall_N", new Vector3(0f, 1.6f, -17f),
-                new Vector3(34f, 3.2f, 0.5f), "Wall", parent);
-            Box("Wall_S", new Vector3(0f, 1.6f, 17f),
-                new Vector3(34f, 3.2f, 0.5f), "Wall", parent);
-            Box("Wall_W", new Vector3(-17f, 1.6f, 0f),
-                new Vector3(0.5f, 3.2f, 34f), "Wall", parent);
-            Box("Wall_E", new Vector3(17f, 1.6f, 0f),
-                new Vector3(0.5f, 3.2f, 34f), "Wall", parent);
+            // Muros perimetrales del piso bajo.
+            Box("Wall_N", new Vector3(0f, 1.6f, -24f),
+                new Vector3(48f, 3.2f, 0.5f), "Wall", parent);
+            Box("Wall_S", new Vector3(0f, 1.6f, 24f),
+                new Vector3(48f, 3.2f, 0.5f), "Wall", parent);
+            Box("Wall_W", new Vector3(-24f, 1.6f, 0f),
+                new Vector3(0.5f, 3.2f, 48f), "Wall", parent);
+            Box("Wall_E", new Vector3(24f, 1.6f, 0f),
+                new Vector3(0.5f, 3.2f, 48f), "Wall", parent);
 
-            for (int i = 0; i < 4; i++)
+            // Columnas: obstáculos sólidos para que los enemigos esquiven.
+            Vector3[] pillars =
             {
-                float x = i % 2 == 0 ? -7.5f : 7.5f;
-                float z = i < 2 ? -1f : 9f;
-                Box("Pillar", new Vector3(x, 2f, z),
-                    new Vector3(0.5f, 4f, 0.5f), "Pedestal", parent);
-            }
+                new Vector3(-16f, 2f, -6f), new Vector3(16f, 2f, -6f),
+                new Vector3(-16f, 2f, 10f), new Vector3(16f, 2f, 10f),
+                new Vector3(-8f, 2f, 18f), new Vector3(8f, 2f, 18f),
+            };
+            for (int i = 0; i < pillars.Length; i++)
+                Box("Pillar_" + i, pillars[i], new Vector3(0.6f, 4f, 0.6f),
+                    "Pedestal", parent);
 
-            // Franjas de "lava" decorativa para que se note el peligro del suelo.
-            Box("LavaStrip_L", new Vector3(-13f, 0.04f, 0f),
-                new Vector3(2f, 0.08f, 12f), "Lava", parent);
-            Box("LavaStrip_R", new Vector3(13f, 0.04f, 3f),
-                new Vector3(2f, 0.08f, 12f), "Lava", parent);
+            // Franjas decorativas de "lava".
+            Box("LavaStrip_L", new Vector3(-21f, 0.04f, 0f),
+                new Vector3(2f, 0.08f, 20f), "Lava", parent);
+            Box("LavaStrip_R", new Vector3(21f, 0.04f, 2f),
+                new Vector3(2f, 0.08f, 20f), "Lava", parent);
         }
 
         static void BuildCover(Transform parent)
         {
-            Box("Cover_A", new Vector3(-8f, 0.7f, -3f),
-                new Vector3(2.4f, 1.4f, 2.4f), "Crate", parent);
-            Box("Cover_B", new Vector3(8f, 0.7f, -2f),
-                new Vector3(2.4f, 1.4f, 2.4f), "Crate", parent);
-            Box("Cover_C", new Vector3(-7f, 0.7f, 11f),
-                new Vector3(2.4f, 1.4f, 2.4f), "Crate", parent);
-            Box("Cover_D", new Vector3(6f, 0.7f, 12f),
-                new Vector3(2.4f, 1.4f, 2.4f), "Crate", parent);
+            Vector3[] crates =
+            {
+                new Vector3(-12f, 0.7f, 2f), new Vector3(12f, 0.7f, 2f),
+                new Vector3(-10f, 0.7f, 14f), new Vector3(10f, 0.7f, 14f),
+                new Vector3(-19f, 0.7f, -13f), new Vector3(19f, 0.7f, -13f),
+                new Vector3(-4f, 0.7f, 20f), new Vector3(4f, 0.7f, 20f),
+            };
+            for (int i = 0; i < crates.Length; i++)
+                Box("Cover_" + i, crates[i], new Vector3(2.4f, 1.4f, 2.4f),
+                    "Crate", parent);
 
-            Box("UpperCover_A", new Vector3(-4.5f, 4.9f, 7f),
-                new Vector3(1.8f, 1.3f, 1.8f), "Candy", parent);
-            Box("UpperCover_B", new Vector3(4.5f, 4.9f, -1f),
-                new Vector3(1.8f, 1.3f, 1.8f), "Candy", parent);
+            Box("UpperCover_A", new Vector3(-9f, 4.9f, 3f),
+                new Vector3(2f, 1.3f, 2f), "Candy", parent);
+            Box("UpperCover_B", new Vector3(9f, 4.9f, -5f),
+                new Vector3(2f, 1.3f, 2f), "Candy", parent);
+            Box("UpperCover_C", new Vector3(0f, 4.9f, 11f),
+                new Vector3(2.2f, 1.3f, 2.2f), "Candy", parent);
         }
 
         // ----------------------------------------------------------- armas
 
         static void BuildWeapons(Transform parent)
         {
-            WeaponPedestal("PistolaInicio", new Vector3(0f, 1f, -9f),
-                ArenaWeaponKind.Pistola, "Lemon", parent);
-            WeaponPedestal("EscopetaPisoAlto", new Vector3(-6f, 5f, 2f),
-                ArenaWeaponKind.Escopeta, "Lava", parent);
-            WeaponPedestal("RiflePisoAlto", new Vector3(6f, 5f, 10f),
-                ArenaWeaponKind.Rifle, "Neon", parent);
-            WeaponPedestal("PistolaRespaldo", new Vector3(11f, 1f, 7f),
-                ArenaWeaponKind.Pistola, "Lemon", parent);
+            WeaponPedestal("PistolaInicio", new Vector3(0f, 1f, -14f),
+                ArenaWeaponKind.Pistola, ArenaElement.Normal, "Lemon", parent);
+            WeaponPedestal("EscopetaFuego", new Vector3(-18f, 1f, -8f),
+                ArenaWeaponKind.Escopeta, ArenaElement.Fuego, "Lava", parent);
+            WeaponPedestal("RifleAire", new Vector3(18f, 1f, -8f),
+                ArenaWeaponKind.Rifle, ArenaElement.Aire, "Neon", parent);
+            WeaponPedestal("PistolaHielo", new Vector3(-10f, 5.2f, 2f),
+                ArenaWeaponKind.Pistola, ArenaElement.Hielo, "Platform", parent);
+            WeaponPedestal("EscopetaRayo", new Vector3(10f, 5.2f, 2f),
+                ArenaWeaponKind.Escopeta, ArenaElement.Rayo, "Candy", parent);
+            WeaponPedestal("RifleVeneno", new Vector3(0f, 5.2f, 14f),
+                ArenaWeaponKind.Rifle, ArenaElement.Veneno, "Lemon", parent);
         }
 
         static void WeaponPedestal(string name, Vector3 position, ArenaWeaponKind kind,
-            string material, Transform parent)
+            ArenaElement element, string material, Transform parent)
         {
             Cylinder(name + "Base", position + Vector3.down * 0.7f,
                 new Vector3(1.2f, 0.3f, 1.2f), "Pedestal", parent);
 
             GameObject weapon = Box(name, position, new Vector3(0.9f, 0.28f, 0.3f),
                 material, parent, true);
-            weapon.AddComponent<ArenaWeaponPickup>().Configure(kind);
+            weapon.AddComponent<ArenaWeaponPickup>().Configure(kind, element);
         }
 
         // ---------------------------------------------------------- jugador
@@ -242,7 +251,7 @@ namespace Caos.EditorTools
             PlayerCamera follow = cameraObject.AddComponent<PlayerCamera>();
             follow.SetTarget(player.transform);
             var serialized = new SerializedObject(follow);
-            serialized.FindProperty("distance").floatValue = 18f;
+            serialized.FindProperty("distance").floatValue = 20f;
             serialized.ApplyModifiedPropertiesWithoutUndo();
 
             new GameObject("ArenaDirector").AddComponent<ArenaDirector>();

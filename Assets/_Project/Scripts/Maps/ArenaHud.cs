@@ -40,28 +40,32 @@ namespace Caos.Maps
 
         void DrawStatus()
         {
-            float width = Mathf.Min(380f, Screen.width - 40f);
-            var panel = new Rect(20f, 20f, width, 122f);
+            float width = Mathf.Min(430f, Screen.width - 40f);
+            var panel = new Rect(20f, 20f, width, 142f);
             DrawRect(panel, new Color(0.04f, 0.05f, 0.08f, 0.72f));
 
-            GUI.Label(new Rect(36f, 28f, width - 32f, 26f), "ARENA CAOS", _titleStyle);
+            GUI.Label(new Rect(36f, 26f, width - 32f, 26f), "ARENA CAOS", _titleStyle);
 
             float barWidth = width - 32f;
-            DrawRect(new Rect(36f, 62f, barWidth, 15f), new Color(0.20f, 0.05f, 0.07f, 0.95f));
-            DrawRect(new Rect(36f, 62f, barWidth * _director.Health01, 15f),
+            DrawRect(new Rect(36f, 58f, barWidth, 15f), new Color(0.20f, 0.05f, 0.07f, 0.95f));
+            DrawRect(new Rect(36f, 58f, barWidth * _director.Health01, 15f),
                 new Color(0.86f, 0.13f, 0.16f, 0.98f));
 
-            GUI.Label(new Rect(36f, 84f, barWidth, 22f),
+            GUI.Label(new Rect(36f, 78f, barWidth, 22f),
                 $"VIDA {_director.HealthCurrent:0}/{_director.HealthMax:0}    " +
-                $"BAJAS {_director.Kills}    ARMA {_director.WeaponLabel()} Nv{_director.WeaponTier}",
+                $"BAJAS {_director.Kills}    JEFES {_director.BossesDefeated}/{_director.BossesTotal}",
                 _smallStyle);
 
+            GUI.Label(new Rect(36f, 98f, barWidth, 22f),
+                $"ARMA {_director.WeaponLabel()} · {_director.ElementLabel} Nv{_director.WeaponTier} " +
+                $"— {_director.ElementEffect}", _smallStyle);
+
             string state = _director.BossActive
-                ? "JEFE FINAL ACTIVO"
+                ? $"JEFE {_director.CurrentBossIndex}/3 ACTIVO — {_director.CurrentBossTitle}"
                 : _director.HardMode
                     ? "MODO DIFÍCIL"
                     : $"JEFE EN {Countdown()}";
-            GUI.Label(new Rect(36f, 106f, barWidth, 22f), state, _smallStyle);
+            GUI.Label(new Rect(36f, 120f, barWidth, 22f), state, _smallStyle);
         }
 
         string Countdown()
@@ -74,12 +78,14 @@ namespace Caos.Maps
         {
             if (!_director.BossActive) return;
 
-            float width = Mathf.Min(520f, Screen.width - 80f);
+            float width = Mathf.Min(560f, Screen.width - 80f);
             float x = (Screen.width - width) * 0.5f;
-            GUI.Label(new Rect(x, 18f, width, 24f), "JEFE FINAL — MARTILLO", _bannerStyle);
+            GUI.Label(new Rect(x, 18f, width, 24f),
+                $"JEFE {_director.CurrentBossIndex}/3 — {_director.CurrentBossTitle}", _bannerStyle);
+            GUI.Label(new Rect(x, 42f, width, 22f), _director.CurrentBossPower, _textStyle);
 
-            DrawRect(new Rect(x, 46f, width, 16f), new Color(0.18f, 0.04f, 0.06f, 0.95f));
-            DrawRect(new Rect(x, 46f, width * _director.BossHealth01, 16f),
+            DrawRect(new Rect(x, 68f, width, 16f), new Color(0.18f, 0.04f, 0.06f, 0.95f));
+            DrawRect(new Rect(x, 68f, width * _director.BossHealth01, 16f),
                 new Color(0.95f, 0.20f, 0.18f, 0.98f));
         }
 
@@ -148,7 +154,8 @@ namespace Caos.Maps
             GUI.Label(new Rect(x, y + 22f, width, 42f),
                 _director.Victory ? "¡VICTORIA!" : "HAS MUERTO", _titleStyle);
             GUI.Label(new Rect(x, y + 72f, width, 30f),
-                $"BAJAS: {_director.Kills}    ARMA Nv{_director.WeaponTier}", _textStyle);
+                $"BAJAS: {_director.Kills}    JEFES: {_director.BossesDefeated}/3    " +
+                $"ARMA Nv{_director.WeaponTier}", _textStyle);
             GUI.Label(new Rect(x, y + 104f, width, 26f),
                 "Pulsa R para reintentar", _smallStyle);
 

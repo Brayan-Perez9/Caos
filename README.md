@@ -39,12 +39,23 @@ Hay monstruos cada vez más rápidos, eventos aleatorios y patitos secretos.
 
 ## Arena Caos
 
-En el menú pulsa **ARENA** para entrar en un mapa nuevo con dos pisos. Te acercas a un pedestal para recoger la pistola, la escopeta o el rifle, y apuntas con el ratón mientras disparas con el botón izquierdo. Hay rampas para subir al piso alto.
+En el menú pulsa **ARENA** para entrar en un mapa grande con dos pisos. Te acercas a un pedestal para recoger el arma y apuntas con el ratón mientras disparas con el botón izquierdo. Hay una escalera para subir al piso alto; los monstruos y los jefes la usan y respetan paredes, cajas y columnas en vez de atravesarlas.
+
+Cada arma tiene un color y un elemento:
+
+| Color | Arma | Efecto |
+| --- | --- | --- |
+| Amarillo | Pistola normal | Sin efecto especial |
+| Naranja | Escopeta de fuego | Quema al enemigo |
+| Celeste | Rifle de aire | Empuja y dispara más rápido |
+| Azul | Pistola de hielo | Ralentiza al enemigo |
+| Dorado | Escopeta de rayo | El disparo salta a otro enemigo |
+| Verde | Rifle de veneno | Envenena al enemigo |
 
 - Cada 5 bajas aparece un panel con 3 mejoras: más vida, más daño, disparo rápido, velocidad o resistencia.
 - El arma sube de nivel automáticamente con las bajas: más daño, cadencia y, con la escopeta, más perdigones.
 - A los **30 s** los monstruos se vuelven más rápidos y aparecen más.
-- A los **90 s** llega el jefe final con martillo. Al derrotarlo ganas.
+- A los **90 s**, **120 s** y **150 s** llegan tres jefes: **Martillo** (pisotón), **Cañón** (ráfaga de 3 disparos) y **Tormenta** (teletransporte, lluvia de proyectiles y clones). Derrota a los tres para ganar.
 - Los monstruos tienen piernas y sangran; al recibir daño aparece sangre también en pantalla y se oyen efectos generados por código, sin archivos de sonido.
 
 ## Actualizaciones

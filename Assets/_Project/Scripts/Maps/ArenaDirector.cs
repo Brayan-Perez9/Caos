@@ -8,8 +8,9 @@ using Caos.Player;
 namespace Caos.Maps
 {
     /// <summary>
-    /// Director de la arena: oleadas, dificultad, jefe, armas, mejoras por bajas
-    /// y daño/sangre del jugador. Todo se genera en runtime.
+    /// Director de la arena: oleadas rápidas, dificultad, tres jefes, armas
+    /// elementales, mejoras por bajas y daño/sangre del jugador. Todo se genera
+    /// en runtime, sin assets externos.
     /// </summary>
     public class ArenaDirector : MonoBehaviour
     {
@@ -20,26 +21,32 @@ namespace Caos.Maps
         const int UpgradeDamage = 2;
         const int UpgradeSpeed = 3;
         const int UpgradeArmor = 4;
+        const int TotalBosses = 3;
 
         [Header("Oleadas")]
-        [SerializeField] float firstSpawnDelay = 1.4f;
-        [SerializeField] float normalInterval = 2.2f;
-        [SerializeField] float hardInterval = 1.35f;
-        [SerializeField] float bossInterval = 0.85f;
+        [SerializeField] float firstSpawnDelay = 1f;
+        [SerializeField] float normalInterval = 1.35f;
+        [SerializeField] float hardInterval = 0.8f;
+        [SerializeField] float bossInterval = 0.5f;
         [SerializeField] float hardTime = 30f;
         [SerializeField] float bossTime = 90f;
-        [SerializeField] int normalCap = 12;
-        [SerializeField] int hardCap = 18;
-        [SerializeField] int bossCap = 24;
-        [SerializeField] int initialMonsters = 5;
+        [SerializeField] float secondBossTime = 120f;
+        [SerializeField] float thirdBossTime = 150f;
+        [SerializeField] int normalCap = 18;
+        [SerializeField] int hardCap = 26;
+        [SerializeField] int bossCap = 36;
+        [SerializeField] int initialMonsters = 8;
 
         PlayerController _player;
         ChaosHealth _playerHealth;
 
         readonly List<ArenaMonster> _monsters = new List<ArenaMonster>();
-        ArenaBoss _boss;
+        readonly List<ArenaBoss> _bosses = new List<ArenaBoss>();
+        int _spawnedBossCount;
+        int _bossesDefeated;
 
         ArenaWeaponKind _weapon = ArenaWeaponKind.Pistola;
+        ArenaElement _element = ArenaElement.Normal;
         bool _hasWeapon;
         int _kills;
         int _tier = 1;
@@ -51,7 +58,6 @@ namespace Caos.Maps
         float _elapsed;
         float _nextSpawn;
         bool _hard;
-        bool _bossSpawned;
         bool _finished;
         bool _victory;
         bool _upgradePending;
@@ -74,6 +80,10 @@ namespace Caos.Maps
         public int WeaponTier => _tier;
         public bool HasWeapon => _hasWeapon;
         public ArenaWeaponKind Weapon => _weapon;
+        public ArenaElement Element => _element;
+        public string ElementLabel => ArenaElementInfo.Label(_element);
+        public string ElementEffect => ArenaElementInfo.Effect(_element);
+        public Color ElementColor => ArenaElementInfo.Color(_element);
         public float WeaponInterval => FireInterval();
         public float WeaponDamage => FireDamage();
         public int WeaponPellets => PelletCount();
@@ -84,14 +94,35 @@ namespace Caos.Maps
             ? Mathf.Clamp01(_playerHealth.Current / _playerHealth.Max) : 0f;
         public float HealthCurrent => _playerHealth != null ? _playerHealth.Current : 0f;
         public float HealthMax => _playerHealth != null ? _playerHealth.Max : 1f;
-        public bool BossActive => _boss != null && !_boss.IsDead;
-        public float BossHealth01 => _boss != null && _boss.IsDead == false
-            ? Mathf.Clamp01(_boss.GetComponent<ChaosHealth>().Current / _boss.GetComponent<ChaosHealth>().Max)
-            : 0f;
+        public int BossesTotal => TotalBosses;
+        public int BossesDefeated => _bossesDefeated;
+        public bool BossActive => CurrentBoss() != null;
+        public int CurrentBossIndex => CurrentBoss() != null ? CurrentBoss().BossIndex : 0;
+        public string CurrentBossTitle => CurrentBoss() != null ? BossName(CurrentBoss().Kind) : "";
+        public string CurrentBossPower => CurrentBoss() != null ? BossPower(CurrentBoss().Kind) : "";
+        public float BossHealth01
+        {
+            get
+            {
+                ArenaBoss boss = CurrentBoss();
+                if (boss == null) return 0f;
+                ChaosHealth health = boss.GetComponent<ChaosHealth>();
+                return health != null && health.Max > 0f
+                    ? Mathf.Clamp01(health.Current / health.Max) : 0f;
+            }
+        }
         public string[] UpgradeTitles => _upgradeTitles;
         public string[] UpgradeDescriptions => _upgradeDescriptions;
         public bool HardMode => _hard;
-        public float BossCountdown => Mathf.Max(0f, bossTime - _elapsed);
+        public float BossCountdown
+        {
+            get
+            {
+                if (_spawnedBossCount == 0) return Mathf.Max(0f, bossTime - _elapsed);
+                if (_spawnedBossCount == 1) return Mathf.Max(0f, secondBossTime - _elapsed);
+                return Mathf.Max(0f, thirdBossTime - _elapsed);
+            }
+        }
 
         void Awake()
         {
@@ -107,14 +138,14 @@ namespace Caos.Maps
 
             _nextSpawn = firstSpawnDelay;
 
-            // Pistola inicial para que siempre se pueda disparar aunque no se
-            // haya recogido ningún pedestal todavía.
+            // Pistola normal inicial para que siempre se pueda disparar.
             _hasWeapon = true;
             _weapon = ArenaWeaponKind.Pistola;
+            _element = ArenaElement.Normal;
 
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-            ShowBanner("Pistola lista. Acércate a otras armas para cambiar. ¡Corre!", 3.5f);
+            ShowBanner("Pistola lista. Recoge un arma de color para cambiar de elemento.", 3.5f);
         }
 
         void Update()
@@ -158,14 +189,13 @@ namespace Caos.Maps
                 ArenaAudio.Play(ArenaAudio.Sound.Boss, _player.transform.position, 0.55f);
             }
 
-            if (!_bossSpawned && _elapsed >= bossTime)
-            {
-                _bossSpawned = true;
-                SpawnBoss();
-                ShowBanner("¡EL JEFE FINAL HA LLEGADO!", 4f);
-            }
+            if (_spawnedBossCount == 0 && _elapsed >= bossTime) SpawnBoss(1);
+            else if (_spawnedBossCount == 1 && _elapsed >= secondBossTime) SpawnBoss(2);
+            else if (_spawnedBossCount == 2 && _elapsed >= thirdBossTime) SpawnBoss(3);
 
             _monsters.RemoveAll(monster => monster == null);
+            _bosses.RemoveAll(boss => boss == null);
+
             if (_elapsed >= _nextSpawn && _monsters.Count < MonsterCap())
             {
                 SpawnMonster();
@@ -181,14 +211,15 @@ namespace Caos.Maps
         // ------------------------------------------------------------- armas
 
         /// <summary>Equipa un arma recogida y elimina el pedestal.</summary>
-        public void EquipWeapon(ArenaWeaponPickup pickup, ArenaWeaponKind kind)
+        public void EquipWeapon(ArenaWeaponPickup pickup, ArenaWeaponKind kind, ArenaElement element)
         {
             if (pickup == null) return;
 
             _weapon = kind;
+            _element = element;
             _hasWeapon = true;
             _nextFire = Time.time + 0.15f;
-            ShowBanner($"ARMA: {WeaponLabel()}", 2f);
+            ShowBanner($"ARMA: {WeaponLabel()} · {ArenaElementInfo.Label(element)} — {ArenaElementInfo.Effect(element)}", 2.6f);
             ArenaAudio.Play(ArenaAudio.Sound.Upgrade, pickup.transform.position, 0.55f);
             Destroy(pickup.gameObject);
         }
@@ -199,7 +230,9 @@ namespace Caos.Maps
             if (!_hasWeapon || _finished || _upgradePending) return;
             if (Time.time < _nextFire) return;
 
-            _nextFire = Time.time + FireInterval();
+            float interval = FireInterval();
+            if (_element == ArenaElement.Aire) interval *= 0.82f;
+            _nextFire = Time.time + interval;
 
             Vector3 origin = shooter.position + Vector3.up * 0.95f + shooter.forward * 0.5f;
             Vector3 direction = aimPoint - origin;
@@ -209,6 +242,8 @@ namespace Caos.Maps
 
             float speed = _weapon == ArenaWeaponKind.Rifle ? 44f
                 : _weapon == ArenaWeaponKind.Escopeta ? 31f : 36f;
+            if (_element == ArenaElement.Aire) speed *= 1.2f;
+
             float spread = _weapon == ArenaWeaponKind.Escopeta ? 11f
                 : _weapon == ArenaWeaponKind.Rifle ? 2.5f : 0f;
             float damage = FireDamage() / (_weapon == ArenaWeaponKind.Escopeta ? 1.9f : 1f);
@@ -234,19 +269,73 @@ namespace Caos.Maps
             GameObject shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             shot.name = "ArenaBullet";
             shot.transform.position = origin;
-            shot.transform.localScale = Vector3.one * 0.19f;
-            shot.GetComponent<Renderer>().sharedMaterial = ArenaMaterial.Create(BulletColor());
+            shot.transform.localScale = Vector3.one * (_element == ArenaElement.Rayo ? 0.24f : 0.19f);
+            shot.GetComponent<Renderer>().sharedMaterial = ArenaMaterial.Create(
+                ArenaElementInfo.Color(_element), 0f, 0.6f);
 
             var projectile = shot.AddComponent<ArenaProjectile>();
-            projectile.Configure(this, direction, speed, damage);
+            projectile.Configure(this, direction, speed, damage, _element);
             Destroy(shot, 3.2f);
         }
 
-        Color BulletColor()
+        public void SpawnEnemyProjectile(Vector3 origin, Vector3 direction,
+            float speed, float damage, Color color)
         {
-            if (_weapon == ArenaWeaponKind.Escopeta) return new Color(1f, 0.42f, 0.22f);
-            if (_weapon == ArenaWeaponKind.Rifle) return new Color(0.35f, 0.85f, 1f);
-            return new Color(1f, 0.86f, 0.32f);
+            GameObject shot = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            shot.name = "BossBullet";
+            shot.transform.position = origin;
+            shot.transform.localScale = Vector3.one * 0.34f;
+            shot.GetComponent<Renderer>().sharedMaterial = ArenaMaterial.Create(color);
+
+            var projectile = shot.AddComponent<ArenaEnemyProjectile>();
+            projectile.Configure(this, direction, speed, damage);
+            Destroy(shot, 4.2f);
+        }
+
+        /// <summary>El rayo salta al enemigo más cercano que no sea el objetivo.</summary>
+        public void ChainLightning(Vector3 origin, float damage, Component exclude)
+        {
+            Component best = null;
+            float bestDistance = 7f;
+
+            for (int i = 0; i < _monsters.Count; i++)
+            {
+                ArenaMonster monster = _monsters[i];
+                if (monster == null || monster.IsDead) continue;
+                if (exclude != null && monster.gameObject == exclude.gameObject) continue;
+
+                float distance = Vector3.Distance(origin, monster.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = monster;
+                }
+            }
+
+            for (int i = 0; i < _bosses.Count; i++)
+            {
+                ArenaBoss boss = _bosses[i];
+                if (boss == null || boss.IsDead) continue;
+                if (exclude != null && boss.gameObject == exclude.gameObject) continue;
+
+                float distance = Vector3.Distance(origin, boss.transform.position);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = boss;
+                }
+            }
+
+            if (best == null) return;
+
+            Vector3 point = best.transform.position + Vector3.up * 0.6f;
+            ChaosFx.Burst(point, ArenaElementInfo.Color(ArenaElement.Rayo), 8);
+            ArenaAudio.Play(ArenaAudio.Sound.Hit, point, 0.35f);
+
+            if (best is ArenaMonster chainedMonster)
+                chainedMonster.TakeDamage(damage, point, Vector3.forward, ArenaElement.Normal, false);
+            else if (best is ArenaBoss chainedBoss)
+                chainedBoss.TakeDamage(damage, point, Vector3.forward, ArenaElement.Normal, false);
         }
 
         float FireInterval()
@@ -261,7 +350,11 @@ namespace Caos.Maps
         {
             float baseDamage = _weapon == ArenaWeaponKind.Escopeta ? 13f
                 : _weapon == ArenaWeaponKind.Rifle ? 12f : 24f;
-            return baseDamage * _damageBoost * (1f + 0.2f * (_tier - 1));
+            float elementMultiplier = _element == ArenaElement.Fuego ? 1.05f
+                : _element == ArenaElement.Hielo ? 0.95f
+                : _element == ArenaElement.Veneno ? 0.9f : 1f;
+            return baseDamage * _damageBoost * elementMultiplier
+                * (1f + 0.2f * (_tier - 1));
         }
 
         int PelletCount()
@@ -274,97 +367,140 @@ namespace Caos.Maps
 
         // --------------------------------------------------------- monstruos
 
-        int MonsterCap() => _bossSpawned ? bossCap : _hard ? hardCap : normalCap;
+        int MonsterCap()
+        {
+            if (_spawnedBossCount > 0) return bossCap;
+            return _hard ? hardCap : normalCap;
+        }
 
         float SpawnInterval()
         {
-            if (_bossSpawned) return bossInterval;
-            if (_hard) return hardInterval;
-            return normalInterval;
+            if (_spawnedBossCount > 0) return bossInterval;
+            return _hard ? hardInterval : normalInterval;
         }
 
         Vector3 SpawnPosition()
         {
+            // centro del CharacterController: suelo ≈ 0.95, piso alto ≈ 5.15
             Vector3[] ground =
             {
-                new Vector3(-11f, 1f, -8f),
-                new Vector3(11f, 1f, -7f),
-                new Vector3(-9f, 1f, 8f),
-                new Vector3(9f, 1f, 9f),
-                new Vector3(0f, 1f, 13f),
+                new Vector3(-20f, 0.95f, -16f),
+                new Vector3(20f, 0.95f, -14f),
+                new Vector3(-18f, 0.95f, 17f),
+                new Vector3(18f, 0.95f, 18f),
+                new Vector3(0f, 0.95f, 21f),
+                new Vector3(-21f, 0.95f, 6f),
+                new Vector3(21f, 0.95f, 7f),
             };
             Vector3[] upper =
             {
-                new Vector3(-6f, 5.4f, -4f),
-                new Vector3(6f, 5.4f, 4f),
+                new Vector3(-10f, 5.15f, -6f),
+                new Vector3(10f, 5.15f, 5f),
+                new Vector3(0f, 5.15f, 14f),
             };
 
-            Vector3 position = _hard && Random.value < 0.28f
+            Vector3 position = _hard && Random.value < 0.3f
                 ? upper[Random.Range(0, upper.Length)]
                 : ground[Random.Range(0, ground.Length)];
 
-            if (_player != null && Vector3.Distance(position, _player.transform.position) < 5f)
-                position += new Vector3(4f, 0f, 0f);
+            if (_player != null && Vector3.Distance(position, _player.transform.position) < 6f)
+                position += new Vector3(5f, 0f, 0f);
 
             return position;
         }
 
-        void SpawnMonster()
+        void SpawnMonster(Vector3? forcedPosition = null)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             go.name = "ArenaMonster";
-            go.transform.position = SpawnPosition();
+            go.transform.position = forcedPosition ?? SpawnPosition();
             go.transform.localScale = new Vector3(0.82f, 0.9f, 0.82f);
-            go.GetComponent<Collider>().isTrigger = false;
-
-            var body = go.AddComponent<Rigidbody>();
-            body.isKinematic = true;
-            body.useGravity = false;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
 
             var health = go.AddComponent<ChaosHealth>();
-            health.Configure(46f + Mathf.Min(_elapsed * 0.35f, 70f), false);
+            health.Configure(52f + Mathf.Min(_elapsed * 0.45f, 90f), false);
 
             var monster = go.AddComponent<ArenaMonster>();
-            monster.Configure(4.5f + Random.Range(0f, 1.3f), 14f, this);
+            monster.Configure(5.4f + Random.Range(0f, 1.6f), 15f, this);
             _monsters.Add(monster);
         }
 
-        void SpawnBoss()
+        public void SummonMinions(int count, Vector3 origin)
         {
-            float y = _player != null && _player.transform.position.y > 3f ? 5.6f : 1.5f;
-            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-            go.name = "ArenaBoss";
-            go.transform.position = new Vector3(0f, y, 12f);
-            go.transform.localScale = new Vector3(1.25f, 1.15f, 1.25f);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 position = origin + new Vector3(
+                    Random.Range(-4f, 4f), 0f, Random.Range(-4f, 4f));
+                if (_player != null) position.y = _player.transform.position.y;
+                SpawnMonster(position);
+            }
+        }
 
-            var body = go.AddComponent<Rigidbody>();
-            body.isKinematic = true;
-            body.useGravity = false;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
+        ArenaBoss CurrentBoss()
+        {
+            for (int i = _bosses.Count - 1; i >= 0; i--)
+            {
+                if (_bosses[i] != null && !_bosses[i].IsDead) return _bosses[i];
+            }
+            return null;
+        }
+
+        static string BossName(ArenaBossKind kind)
+        {
+            if (kind == ArenaBossKind.Canion) return "CAÑÓN";
+            if (kind == ArenaBossKind.Tormenta) return "TORMENTA";
+            return "MARTILLO";
+        }
+
+        static string BossPower(ArenaBossKind kind)
+        {
+            if (kind == ArenaBossKind.Canion) return "RAFAGA DE 3 DISPAROS";
+            if (kind == ArenaBossKind.Tormenta) return "TELEPORTE + CLONES";
+            return "PISOTÓN";
+        }
+
+        void SpawnBoss(int index)
+        {
+            ArenaBossKind kind = index == 1 ? ArenaBossKind.Martillo
+                : index == 2 ? ArenaBossKind.Canion : ArenaBossKind.Tormenta;
+
+            float hitPoints = index == 1 ? 1400f : index == 2 ? 2200f : 3200f;
+            float speed = index == 1 ? 3.2f : index == 2 ? 3.8f : 4.4f;
+            float damage = index == 1 ? 26f : index == 2 ? 30f : 34f;
+            float scale = index == 1 ? 1.25f : index == 2 ? 1.32f : 1.4f;
+            float y = _player != null && ArenaNavigation.IsUpper(_player.transform.position)
+                ? ArenaNavigation.UpperSurfaceY + 0.9f : 0.95f;
+
+            GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
+            go.name = "ArenaBoss_" + index + "_" + kind;
+            go.transform.position = new Vector3(0f, y, 20f);
+            go.transform.localScale = new Vector3(scale, scale * 0.92f, scale);
 
             var health = go.AddComponent<ChaosHealth>();
-            health.Configure(1600f, false);
+            health.Configure(hitPoints, false);
 
             var boss = go.AddComponent<ArenaBoss>();
-            boss.Configure(3.0f, 26f, this);
-            _boss = boss;
+            boss.Configure(speed, damage, this, kind, index);
+            _bosses.Add(boss);
+            _spawnedBossCount = index;
+
+            ShowBanner($"JEFE {index}/3: {BossName(kind)} — {BossPower(kind)}", 4f);
+            ArenaAudio.Play(ArenaAudio.Sound.Boss, go.transform.position, 0.95f);
         }
 
         public float MonsterSpeed(float baseSpeed)
         {
             float factor = 1f;
-            if (_hard) factor *= 1.35f;
-            if (_bossSpawned) factor *= 1.18f;
-            factor *= 1f + Mathf.Min(0.35f, Mathf.Max(0f, _elapsed - hardTime) / 240f);
+            if (_hard) factor *= 1.45f;
+            if (_spawnedBossCount > 0) factor *= 1.22f;
+            factor *= 1f + Mathf.Min(0.4f, Mathf.Max(0f, _elapsed - hardTime) / 220f);
             return baseSpeed * factor;
         }
 
         public float MonsterDamage(float baseDamage)
         {
             float factor = 1f;
-            if (_hard) factor *= 1.3f;
-            if (_bossSpawned) factor *= 1.15f;
+            if (_hard) factor *= 1.35f;
+            if (_spawnedBossCount > 0) factor *= 1.2f;
             return baseDamage * factor;
         }
 
@@ -380,10 +516,16 @@ namespace Caos.Maps
             if (_kills % 5 == 0 && !_upgradePending && !_finished) OfferUpgrade();
         }
 
-        public void BossDefeated()
+        public void BossDefeated(ArenaBoss boss)
         {
-            _boss = null;
-            End(true);
+            _bosses.Remove(boss);
+            _bossesDefeated++;
+            if (_playerHealth != null) _playerHealth.Heal(25f);
+
+            ShowBanner($"JEFE {boss.BossIndex}/3 DERROTADO — +25 VIDA", 3f);
+            ArenaAudio.Play(ArenaAudio.Sound.Victory, boss.transform.position, 0.7f);
+
+            if (_spawnedBossCount >= TotalBosses && _bossesDefeated >= TotalBosses) End(true);
         }
 
         // ----------------------------------------------------- daño y mejoras
@@ -502,7 +644,7 @@ namespace Caos.Maps
             if (_player != null) _player.InputEnabled = false;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-            ShowBanner(victory ? "¡JEFE DERROTADO!" : "HAS MUERTO", 6f);
+            ShowBanner(victory ? "¡VICTORIA!" : "HAS MUERTO", 6f);
         }
 
         public void Restart()

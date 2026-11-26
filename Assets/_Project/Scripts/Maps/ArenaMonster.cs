@@ -7,8 +7,9 @@ namespace Caos.Maps
 {
     /// <summary>
     /// Monstruo de la arena: cuerpo, cabeza, brazos y piernas procedurales.
-    /// Se mueve con animación de marcha, sangra al recibir disparos y persigue
-    /// al jugador incluso si sube de piso.
+    /// Camina con CharacterController, así que respeta paredes, cajas, columnas
+    /// y plataformas; usa la escalera para cambiar de piso. Sangra al recibir
+    /// disparos y sufre los efectos de las armas elementales.
     /// </summary>
     public class ArenaMonster : MonoBehaviour
     {
@@ -28,7 +29,7 @@ namespace Caos.Maps
         ArenaDirector _director;
         ChaosHealth _health;
         PlayerController _player;
-        Rigidbody _body;
+        CharacterController _controller;
 
         Transform _head;
         Transform[] _legs;
@@ -37,12 +38,21 @@ namespace Caos.Maps
         Color[] _baseColors;
 
         Vector3 _baseScale;
+        Vector3 _knockback;
         float _nextAttack;
         float _lunge;
+        float _verticalSpeed;
+        float _burnTimer;
+        float _burnDps;
+        float _poisonTimer;
+        float _poisonDps;
+        float _slowTimer;
+        float _slowFactor = 1f;
         bool _built;
         bool _flashing;
+        bool _dead;
 
-        public bool IsDead => _health != null && _health.IsDead;
+        public bool IsDead => _dead || (_health != null && _health.IsDead);
 
         public void Configure(float speed, float damage, ArenaDirector director)
         {
@@ -56,11 +66,17 @@ namespace Caos.Maps
             _health = GetComponent<ChaosHealth>();
             if (_health == null) _health = gameObject.AddComponent<ChaosHealth>();
 
-            _body = GetComponent<Rigidbody>();
-            if (_body == null) _body = gameObject.AddComponent<Rigidbody>();
-            _body.isKinematic = true;
-            _body.useGravity = false;
-            _body.interpolation = RigidbodyInterpolation.Interpolate;
+            Collider primitiveCollider = GetComponent<Collider>();
+            if (primitiveCollider != null) Destroy(primitiveCollider);
+
+            _controller = GetComponent<CharacterController>();
+            if (_controller == null) _controller = gameObject.AddComponent<CharacterController>();
+            _controller.height = 1.8f;
+            _controller.radius = 0.34f;
+            _controller.center = Vector3.zero;
+            _controller.slopeLimit = 50f;
+            _controller.stepOffset = 0.34f;
+            _controller.skinWidth = 0.06f;
 
             if (_director == null) _director = FindFirstObjectByType<ArenaDirector>();
         }
@@ -132,9 +148,13 @@ namespace Caos.Maps
         {
             if (IsDead) return;
             if (_player == null) _player = FindFirstObjectByType<PlayerController>();
-            if (_player == null) return;
+            if (_player == null || _controller == null) return;
 
-            Vector3 flat = _player.transform.position - transform.position;
+            if (_director == null) _director = FindFirstObjectByType<ArenaDirector>();
+            if (TickStatus()) return;
+
+            Vector3 target = ArenaNavigation.Target(transform.position, _player.transform.position);
+            Vector3 flat = target - transform.position;
             flat.y = 0f;
             float distance = flat.magnitude;
 
@@ -145,23 +165,38 @@ namespace Caos.Maps
                     1f - Mathf.Exp(-10f * Time.deltaTime));
 
                 float speed = _director != null ? _director.MonsterSpeed(moveSpeed) : moveSpeed;
+                if (_slowTimer > 0f)
+                {
+                    _slowTimer -= Time.deltaTime;
+                    speed *= _slowFactor;
+                }
                 if (_lunge > 0f)
                 {
                     _lunge -= Time.deltaTime;
                     speed += 7f;
                 }
 
-                Vector3 next = transform.position + flat.normalized * (speed * Time.deltaTime);
-                next.y = Mathf.MoveTowards(transform.position.y,
-                    _player.transform.position.y, speed * 0.8f * Time.deltaTime);
+                ArenaNavigation.Move(_controller, transform, target, speed, 0.34f, ref _verticalSpeed);
 
-                if (_body != null) _body.MovePosition(next);
-                else transform.position = next;
+                if (_knockback.sqrMagnitude > 0.01f)
+                {
+                    _controller.Move(_knockback * Time.deltaTime);
+                    _knockback = Vector3.Lerp(_knockback, Vector3.zero,
+                        1f - Mathf.Exp(-6f * Time.deltaTime));
+                }
+            }
+            else
+            {
+                _verticalSpeed += Physics.gravity.y * Time.deltaTime;
+                if (_controller.isGrounded && _verticalSpeed < 0f) _verticalSpeed = -2f;
+                _controller.Move(Vector3.up * (_verticalSpeed * Time.deltaTime));
             }
 
             Animate(distance);
 
-            if (distance <= attackRange && Time.time >= _nextAttack &&
+            bool sameFloor = Mathf.Abs(_player.transform.position.y - transform.position.y) < 2f;
+            bool visible = ArenaNavigation.HasLineOfSight(transform, _player.transform);
+            if (distance <= attackRange && sameFloor && visible && Time.time >= _nextAttack &&
                 _director != null && !_director.Finished)
             {
                 _nextAttack = Time.time + attackCooldown;
@@ -169,6 +204,32 @@ namespace Caos.Maps
                 float damage = _director.MonsterDamage(hitDamage);
                 _director.DamagePlayer(damage, transform.position);
             }
+        }
+
+        /// <summary>Aplica quemadura/veneno. Devuelve true si el monstruo ha muerto.</summary>
+        bool TickStatus()
+        {
+            float damage = 0f;
+            if (_burnTimer > 0f)
+            {
+                _burnTimer -= Time.deltaTime;
+                damage += _burnDps * Time.deltaTime;
+            }
+            if (_poisonTimer > 0f)
+            {
+                _poisonTimer -= Time.deltaTime;
+                damage += _poisonDps * Time.deltaTime;
+            }
+
+            if (damage <= 0f) return false;
+
+            _health.TakeDamage(damage, "estado");
+            if (IsDead)
+            {
+                Die();
+                return true;
+            }
+            return false;
         }
 
         void Animate(float distance)
@@ -201,16 +262,56 @@ namespace Caos.Maps
                 _baseScale.z * breathe);
         }
 
-        public void TakeDamage(float amount, Vector3 hitPoint)
+        public void TakeDamage(float amount, Vector3 hitPoint, Vector3 direction,
+            ArenaElement element, bool allowChain = true)
         {
             if (IsDead || amount <= 0f) return;
 
             _health.TakeDamage(amount, "disparo");
+            ApplyElement(element, direction, amount, allowChain);
+
             ChaosFx.Burst(hitPoint, BloodColor, Random.Range(5, 9));
             ArenaAudio.Play(ArenaAudio.Sound.Hit, hitPoint, 0.45f);
 
             if (_renderers != null && !_flashing) StartCoroutine(Flash());
             if (IsDead) Die();
+        }
+
+        void ApplyElement(ArenaElement element, Vector3 direction, float damage, bool allowChain)
+        {
+            switch (element)
+            {
+                case ArenaElement.Fuego:
+                    _burnTimer = 3f;
+                    _burnDps = Mathf.Max(4f, damage * 0.25f);
+                    ChaosFx.Burst(transform.position + Vector3.up, ArenaElementInfo.Color(element), 5);
+                    break;
+
+                case ArenaElement.Aire:
+                    _knockback = new Vector3(direction.x, 0f, direction.z).normalized * 9f;
+                    break;
+
+                case ArenaElement.Hielo:
+                    _slowTimer = 2.5f;
+                    _slowFactor = 0.5f;
+                    ChaosFx.Burst(transform.position + Vector3.up, ArenaElementInfo.Color(element), 4);
+                    break;
+
+                case ArenaElement.Rayo:
+                    if (allowChain)
+                    {
+                        _director?.ChainLightning(transform.position, damage * 0.6f, this);
+                        ChaosFx.Burst(transform.position + Vector3.up,
+                            ArenaElementInfo.Color(element), 6);
+                    }
+                    break;
+
+                case ArenaElement.Veneno:
+                    _poisonTimer = 4f;
+                    _poisonDps = Mathf.Max(3f, damage * 0.2f);
+                    ChaosFx.Burst(transform.position + Vector3.up, ArenaElementInfo.Color(element), 4);
+                    break;
+            }
         }
 
         IEnumerator Flash()
@@ -228,6 +329,8 @@ namespace Caos.Maps
 
         void Die()
         {
+            if (_dead) return;
+            _dead = true;
             ChaosFx.Burst(transform.position + Vector3.up * 0.7f, BloodColor, 18);
             _director?.MonsterKilled(this);
             Destroy(gameObject);

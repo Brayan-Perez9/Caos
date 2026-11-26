@@ -6,7 +6,8 @@ namespace Caos.Maps
 {
     /// <summary>
     /// Bala: usa SphereCast a lo largo del movimiento para no atravesar a los
-    /// monstruos aunque el disparo sea rápido o el frame largo.
+    /// monstruos aunque el disparo sea rápido o el frame largo. Lleva el
+    /// elemento del arma para aplicar quemadura, hielo, rayo, etc.
     /// </summary>
     public class ArenaProjectile : MonoBehaviour
     {
@@ -14,17 +15,20 @@ namespace Caos.Maps
 
         ArenaDirector _director;
         Vector3 _direction;
+        ArenaElement _element;
         float _speed;
         float _damage;
         float _life;
         bool _spent;
 
-        public void Configure(ArenaDirector director, Vector3 direction, float speed, float damage)
+        public void Configure(ArenaDirector director, Vector3 direction, float speed,
+            float damage, ArenaElement element)
         {
             _director = director;
             _direction = direction.normalized;
             _speed = speed;
             _damage = damage;
+            _element = element;
             _life = 2.8f;
 
             Collider collider = GetComponent<Collider>();
@@ -94,7 +98,7 @@ namespace Caos.Maps
             if (monster != null)
             {
                 _spent = true;
-                monster.TakeDamage(_damage, point);
+                monster.TakeDamage(_damage, point, _direction, _element);
                 return true;
             }
 
@@ -102,13 +106,13 @@ namespace Caos.Maps
             if (boss != null)
             {
                 _spent = true;
-                boss.TakeDamage(_damage, point);
+                boss.TakeDamage(_damage, point, _direction, _element);
                 return true;
             }
 
             if (!hit.isTrigger)
             {
-                ChaosFx.Burst(point, new Color(1f, 0.85f, 0.35f), 3);
+                ChaosFx.Burst(point, ArenaElementInfo.Color(_element), 3);
                 return true;
             }
 
