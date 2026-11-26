@@ -13,7 +13,7 @@ namespace Caos.Maps
                 bit.name = "Confetti";
                 bit.transform.position = position;
                 bit.transform.localScale = Vector3.one * Random.Range(0.08f, 0.18f);
-                bit.GetComponent<Renderer>().material.color = color;
+                bit.GetComponent<Renderer>().sharedMaterial = ArenaMaterial.Create(color);
                 bit.AddComponent<Rigidbody>().linearVelocity = new Vector3(
                     Random.Range(-5f, 5f), Random.Range(2f, 7f), Random.Range(-5f, 5f));
                 Object.Destroy(bit, 1.6f);

@@ -91,39 +91,49 @@ namespace Caos.EditorTools
             return cylinder;
         }
 
-        static void Ramp(string name, Vector3 position, Vector3 scale, Vector3 euler,
-            string material, Transform parent)
-        {
-            GameObject ramp = Box(name, position, scale, material, parent);
-            ramp.transform.rotation = Quaternion.Euler(euler);
-        }
-
         // ------------------------------------------------------------ pisos
 
         static void BuildFloors(Transform parent)
         {
             Box("GroundFloor", new Vector3(0f, -0.3f, 0f),
                 new Vector3(34f, 0.6f, 34f), "MenuFloor", parent);
-            Box("UpperFloor", new Vector3(0f, 4f, 4f),
-                new Vector3(18f, 0.5f, 18f), "Platform", parent);
 
-            // Dos rampas para subir al piso alto desde lados distintos.
-            Ramp("RampNorth", new Vector3(0f, 2.1f, -1.6f),
-                new Vector3(4.6f, 0.45f, 13.6f), new Vector3(-18f, 0f, 0f), "Ramp", parent);
-            Ramp("RampEast", new Vector3(5.2f, 2.1f, 8f),
-                new Vector3(13.6f, 0.45f, 4.2f), new Vector3(0f, 0f, 18f), "Ramp", parent);
+            // El piso alto se parte dejando un hueco central para la escalera.
+            // Así el jugador no choca con la cara inferior de la plataforma.
+            Box("UpperFloor_W", new Vector3(-6f, 4f, 0.5f),
+                new Vector3(6f, 0.5f, 11f), "Platform", parent);
+            Box("UpperFloor_E", new Vector3(6f, 4f, 0.5f),
+                new Vector3(6f, 0.5f, 11f), "Platform", parent);
+            Box("UpperFloor_S", new Vector3(0f, 4f, 9.5f),
+                new Vector3(18f, 0.5f, 7f), "Platform", parent);
 
-            // Barandillas del piso alto (con huecos para las rampas).
-            Box("Rail_N", new Vector3(0f, 5.05f, -5f),
-                new Vector3(18f, 0.8f, 0.28f), "Neon", parent);
+            // Escalera de 16 peldaños: 0.28 m de subida, por debajo del stepOffset.
+            const int steps = 16;
+            const float stepDepth = 0.92f;
+            const float stepRise = 0.28f;
+            for (int i = 0; i < steps; i++)
+            {
+                float top = stepRise * (i + 1);
+                float z = -7.4f + i * stepDepth;
+                Box("Stair_" + i.ToString("00"), new Vector3(0f, top * 0.5f, z),
+                    new Vector3(4.6f, top, stepDepth), "Ramp", parent);
+            }
+
+            // Barandillas: partidas delante para no tapar la escalera.
+            Box("Rail_N_L", new Vector3(-6f, 5.05f, -5f),
+                new Vector3(6f, 0.8f, 0.28f), "Neon", parent);
+            Box("Rail_N_R", new Vector3(6f, 5.05f, -5f),
+                new Vector3(6f, 0.8f, 0.28f), "Neon", parent);
             Box("Rail_S", new Vector3(0f, 5.05f, 13f),
                 new Vector3(18f, 0.8f, 0.28f), "Neon", parent);
             Box("Rail_W", new Vector3(-9f, 5.05f, 4f),
                 new Vector3(0.28f, 0.8f, 18f), "Neon", parent);
-            Box("Rail_E_L", new Vector3(9f, 5.05f, -1.5f),
-                new Vector3(0.28f, 0.8f, 7f), "Neon", parent);
-            Box("Rail_E_R", new Vector3(9f, 5.05f, 11f),
-                new Vector3(0.28f, 0.8f, 4f), "Neon", parent);
+            Box("Rail_E", new Vector3(9f, 5.05f, 4f),
+                new Vector3(0.28f, 0.8f, 18f), "Neon", parent);
+            Box("StairRail_L", new Vector3(-3.1f, 5.05f, 0.5f),
+                new Vector3(0.22f, 0.8f, 11f), "Neon", parent);
+            Box("StairRail_R", new Vector3(3.1f, 5.05f, 0.5f),
+                new Vector3(0.22f, 0.8f, 11f), "Neon", parent);
 
             // Puntales y muros perimetrales del piso bajo.
             Box("Wall_N", new Vector3(0f, 1.6f, -17f),

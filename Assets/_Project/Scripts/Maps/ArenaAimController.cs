@@ -11,7 +11,7 @@ namespace Caos.Maps
     /// </summary>
     public class ArenaAimController : MonoBehaviour
     {
-        [SerializeField] float aimHeight = 1.15f;
+        [SerializeField] float aimHeight = 0.95f;
 
         ArenaDirector _director;
         PlayerController _controller;

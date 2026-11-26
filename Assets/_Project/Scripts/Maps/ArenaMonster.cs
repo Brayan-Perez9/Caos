@@ -6,28 +6,39 @@ using Caos.Player;
 namespace Caos.Maps
 {
     /// <summary>
-    /// Monstruo de la arena: cuerpo, cabeza y piernas procedurales. Sangra al
-    /// recibir disparos y persigue al jugador incluso si sube de piso.
+    /// Monstruo de la arena: cuerpo, cabeza, brazos y piernas procedurales.
+    /// Se mueve con animación de marcha, sangra al recibir disparos y persigue
+    /// al jugador incluso si sube de piso.
     /// </summary>
     public class ArenaMonster : MonoBehaviour
     {
         static readonly Color BloodColor = new Color(0.62f, 0.02f, 0.03f);
+        static readonly Color BodyColor = new Color(0.48f, 0.08f, 0.12f);
+        static readonly Color HeadColor = new Color(0.68f, 0.14f, 0.18f);
+        static readonly Color ArmColor = new Color(0.40f, 0.06f, 0.10f);
+        static readonly Color LegColor = new Color(0.28f, 0.05f, 0.08f);
+        static readonly Color EyeColor = new Color(1f, 0.86f, 0.25f);
 
         [SerializeField] float moveSpeed = 4.8f;
         [SerializeField] float hitDamage = 14f;
         [SerializeField] float attackCooldown = 0.85f;
         [SerializeField] float attackRange = 1.6f;
+        [SerializeField] float headHeight = 0.95f;
 
         ArenaDirector _director;
         ChaosHealth _health;
         PlayerController _player;
         Rigidbody _body;
 
+        Transform _head;
         Transform[] _legs;
+        Transform[] _arms;
         Renderer[] _renderers;
         Color[] _baseColors;
 
+        Vector3 _baseScale;
         float _nextAttack;
+        float _lunge;
         bool _built;
         bool _flashing;
 
@@ -54,7 +65,11 @@ namespace Caos.Maps
             if (_director == null) _director = FindFirstObjectByType<ArenaDirector>();
         }
 
-        void Start() => BuildVisual();
+        void Start()
+        {
+            _baseScale = transform.localScale;
+            BuildVisual();
+        }
 
         void BuildVisual()
         {
@@ -65,53 +80,52 @@ namespace Caos.Maps
             var colors = new List<Color>();
 
             Renderer torso = GetComponent<Renderer>();
-            torso.material.color = new Color(0.48f, 0.08f, 0.12f);
+            torso.sharedMaterial = ArenaMaterial.Create(BodyColor);
             parts.Add(torso);
-            colors.Add(torso.material.color);
+            colors.Add(BodyColor);
 
-            GameObject head = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            head.name = "Head";
-            head.transform.SetParent(transform, false);
-            head.transform.localPosition = new Vector3(0f, 0.95f, 0.08f);
-            head.transform.localScale = Vector3.one * 0.42f;
-            Destroy(head.GetComponent<Collider>());
-            Renderer headRenderer = head.GetComponent<Renderer>();
-            headRenderer.material.color = new Color(0.62f, 0.12f, 0.16f);
-            parts.Add(headRenderer);
-            colors.Add(headRenderer.material.color);
+            _head = Part(PrimitiveType.Sphere, "Head",
+                new Vector3(0f, headHeight, 0.08f), Vector3.one * 0.42f, HeadColor, parts, colors);
 
             for (int side = -1; side <= 1; side += 2)
             {
-                GameObject eye = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                eye.name = "Eye";
-                eye.transform.SetParent(transform, false);
-                eye.transform.localPosition = new Vector3(side * 0.15f, 1f, 0.34f);
-                eye.transform.localScale = Vector3.one * 0.10f;
-                Destroy(eye.GetComponent<Collider>());
-                Renderer eyeRenderer = eye.GetComponent<Renderer>();
-                eyeRenderer.material.color = new Color(1f, 0.86f, 0.25f);
-                parts.Add(eyeRenderer);
-                colors.Add(eyeRenderer.material.color);
+                Part(PrimitiveType.Sphere, "Eye",
+                    new Vector3(side * 0.15f, headHeight + 0.05f, 0.34f),
+                    Vector3.one * 0.10f, EyeColor, parts, colors);
             }
 
             _legs = new Transform[2];
+            _arms = new Transform[2];
             for (int i = 0; i < 2; i++)
             {
-                GameObject leg = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                leg.name = "Leg";
-                leg.transform.SetParent(transform, false);
-                leg.transform.localPosition = new Vector3(i == 0 ? -0.22f : 0.22f, -0.62f, 0f);
-                leg.transform.localScale = new Vector3(0.18f, 0.55f, 0.18f);
-                Destroy(leg.GetComponent<Collider>());
-                Renderer legRenderer = leg.GetComponent<Renderer>();
-                legRenderer.material.color = new Color(0.28f, 0.05f, 0.08f);
-                parts.Add(legRenderer);
-                colors.Add(legRenderer.material.color);
-                _legs[i] = leg.transform;
+                float side = i == 0 ? -1f : 1f;
+                _legs[i] = Part(PrimitiveType.Cube, "Leg",
+                    new Vector3(side * 0.22f, -0.62f, 0f),
+                    new Vector3(0.18f, 0.55f, 0.18f), LegColor, parts, colors);
+                _arms[i] = Part(PrimitiveType.Cube, "Arm",
+                    new Vector3(side * 0.55f, 0.12f, 0.06f),
+                    new Vector3(0.16f, 0.55f, 0.16f), ArmColor, parts, colors);
             }
 
             _renderers = parts.ToArray();
             _baseColors = colors.ToArray();
+        }
+
+        Transform Part(PrimitiveType type, string name, Vector3 localPosition, Vector3 localScale,
+            Color color, List<Renderer> renderers, List<Color> colors)
+        {
+            GameObject part = GameObject.CreatePrimitive(type);
+            part.name = name;
+            part.transform.SetParent(transform, false);
+            part.transform.localPosition = localPosition;
+            part.transform.localScale = localScale;
+            Destroy(part.GetComponent<Collider>());
+
+            Renderer renderer = part.GetComponent<Renderer>();
+            renderer.sharedMaterial = ArenaMaterial.Create(color);
+            renderers.Add(renderer);
+            colors.Add(color);
+            return part.transform;
         }
 
         void Update()
@@ -131,6 +145,12 @@ namespace Caos.Maps
                     1f - Mathf.Exp(-10f * Time.deltaTime));
 
                 float speed = _director != null ? _director.MonsterSpeed(moveSpeed) : moveSpeed;
+                if (_lunge > 0f)
+                {
+                    _lunge -= Time.deltaTime;
+                    speed += 7f;
+                }
+
                 Vector3 next = transform.position + flat.normalized * (speed * Time.deltaTime);
                 next.y = Mathf.MoveTowards(transform.position.y,
                     _player.transform.position.y, speed * 0.8f * Time.deltaTime);
@@ -139,24 +159,46 @@ namespace Caos.Maps
                 else transform.position = next;
             }
 
-            AnimateLegs(distance);
+            Animate(distance);
 
             if (distance <= attackRange && Time.time >= _nextAttack &&
                 _director != null && !_director.Finished)
             {
                 _nextAttack = Time.time + attackCooldown;
+                _lunge = 0.18f;
                 float damage = _director.MonsterDamage(hitDamage);
                 _director.DamagePlayer(damage, transform.position);
             }
         }
 
-        void AnimateLegs(float distance)
+        void Animate(float distance)
         {
-            if (_legs == null) return;
-            float speed = distance > 0.1f ? 12f : 3f;
-            float swing = Mathf.Sin(Time.time * speed) * 22f;
-            _legs[0].localRotation = Quaternion.Euler(swing, 0f, 0f);
-            _legs[1].localRotation = Quaternion.Euler(-swing, 0f, 0f);
+            float gait = Time.time * (distance > 0.1f ? 11f : 3f);
+            float swing = Mathf.Sin(gait) * 26f;
+
+            if (_legs != null)
+            {
+                _legs[0].localRotation = Quaternion.Euler(swing, 0f, 0f);
+                _legs[1].localRotation = Quaternion.Euler(-swing, 0f, 0f);
+            }
+            if (_arms != null)
+            {
+                _arms[0].localRotation = Quaternion.Euler(-swing * 0.8f, 0f, 0f);
+                _arms[1].localRotation = Quaternion.Euler(swing * 0.8f, 0f, 0f);
+            }
+            if (_head != null)
+            {
+                Vector3 headPosition = _head.localPosition;
+                headPosition.y = headHeight + Mathf.Sin(gait * 2f) * 0.055f;
+                _head.localPosition = headPosition;
+                _head.localRotation = Quaternion.Euler(0f, Mathf.Sin(gait * 0.5f) * 10f, 0f);
+            }
+
+            float breathe = 1f + Mathf.Sin(gait * 0.7f) * 0.035f;
+            transform.localScale = new Vector3(
+                _baseScale.x * breathe,
+                _baseScale.y * (2f - breathe),
+                _baseScale.z * breathe);
         }
 
         public void TakeDamage(float amount, Vector3 hitPoint)
@@ -164,7 +206,7 @@ namespace Caos.Maps
             if (IsDead || amount <= 0f) return;
 
             _health.TakeDamage(amount, "disparo");
-            ChaosFx.Burst(hitPoint, BloodColor, Random.Range(4, 8));
+            ChaosFx.Burst(hitPoint, BloodColor, Random.Range(5, 9));
             ArenaAudio.Play(ArenaAudio.Sound.Hit, hitPoint, 0.45f);
 
             if (_renderers != null && !_flashing) StartCoroutine(Flash());
@@ -186,7 +228,7 @@ namespace Caos.Maps
 
         void Die()
         {
-            ChaosFx.Burst(transform.position + Vector3.up * 0.7f, BloodColor, 16);
+            ChaosFx.Burst(transform.position + Vector3.up * 0.7f, BloodColor, 18);
             _director?.MonsterKilled(this);
             Destroy(gameObject);
         }

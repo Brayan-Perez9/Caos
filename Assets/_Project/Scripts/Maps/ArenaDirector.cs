@@ -106,9 +106,15 @@ namespace Caos.Maps
                 _bloodSpots[i] = new Vector2(Random.value, Random.value);
 
             _nextSpawn = firstSpawnDelay;
+
+            // Pistola inicial para que siempre se pueda disparar aunque no se
+            // haya recogido ningún pedestal todavía.
+            _hasWeapon = true;
+            _weapon = ArenaWeaponKind.Pistola;
+
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-            ShowBanner("Acércate a un arma para recogerla. ¡Corre!", 3.5f);
+            ShowBanner("Pistola lista. Acércate a otras armas para cambiar. ¡Corre!", 3.5f);
         }
 
         void Update()
@@ -195,7 +201,7 @@ namespace Caos.Maps
 
             _nextFire = Time.time + FireInterval();
 
-            Vector3 origin = shooter.position + Vector3.up * 1.2f + shooter.forward * 0.6f;
+            Vector3 origin = shooter.position + Vector3.up * 0.95f + shooter.forward * 0.5f;
             Vector3 direction = aimPoint - origin;
             direction.y = 0f;
             if (direction.sqrMagnitude < 0.01f) direction = shooter.forward;
@@ -229,7 +235,7 @@ namespace Caos.Maps
             shot.name = "ArenaBullet";
             shot.transform.position = origin;
             shot.transform.localScale = Vector3.one * 0.19f;
-            shot.GetComponent<Renderer>().material.color = BulletColor();
+            shot.GetComponent<Renderer>().sharedMaterial = ArenaMaterial.Create(BulletColor());
 
             var projectile = shot.AddComponent<ArenaProjectile>();
             projectile.Configure(this, direction, speed, damage);
@@ -308,7 +314,7 @@ namespace Caos.Maps
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             go.name = "ArenaMonster";
             go.transform.position = SpawnPosition();
-            go.transform.localScale = new Vector3(0.8f, 0.75f, 0.8f);
+            go.transform.localScale = new Vector3(0.82f, 0.9f, 0.82f);
             go.GetComponent<Collider>().isTrigger = false;
 
             var body = go.AddComponent<Rigidbody>();

@@ -1,11 +1,17 @@
+using System;
 using UnityEngine;
 using Caos.Player;
 
 namespace Caos.Maps
 {
-    /// <summary>Bala sencilla: avanza recta y detecta impactos por superposición.</summary>
+    /// <summary>
+    /// Bala: usa SphereCast a lo largo del movimiento para no atravesar a los
+    /// monstruos aunque el disparo sea rápido o el frame largo.
+    /// </summary>
     public class ArenaProjectile : MonoBehaviour
     {
+        const float HitRadius = 0.38f;
+
         ArenaDirector _director;
         Vector3 _direction;
         float _speed;
@@ -38,49 +44,75 @@ namespace Caos.Maps
                 return;
             }
 
-            transform.position += _direction * (_speed * Time.deltaTime);
-            _life -= Time.deltaTime;
-            if (_life <= 0f)
+            Vector3 previous = transform.position;
+            Vector3 next = previous + _direction * (_speed * Time.deltaTime);
+
+            if (HitAlong(previous, next))
             {
                 Destroy(gameObject);
                 return;
             }
 
-            Collider[] hits = Physics.OverlapSphere(
-                transform.position, 0.34f, ~0, QueryTriggerInteraction.Collide);
+            transform.position = next;
+            _life -= Time.deltaTime;
+            if (_life <= 0f) Destroy(gameObject);
+        }
 
-            for (int i = 0; i < hits.Length; i++)
+        bool HitAlong(Vector3 from, Vector3 to)
+        {
+            Vector3 delta = to - from;
+            float distance = delta.magnitude;
+
+            if (distance > 0.0001f)
             {
-                Collider hit = hits[i];
-                if (hit == null) continue;
+                RaycastHit[] hits = Physics.SphereCastAll(from, HitRadius, _direction,
+                    distance, ~0, QueryTriggerInteraction.Collide);
+                Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
-                if (hit.GetComponentInParent<PlayerController>() != null) continue;
-
-                ArenaMonster monster = hit.GetComponentInParent<ArenaMonster>();
-                if (monster != null)
+                for (int i = 0; i < hits.Length; i++)
                 {
-                    _spent = true;
-                    monster.TakeDamage(_damage, transform.position);
-                    Destroy(gameObject);
-                    return;
-                }
-
-                ArenaBoss boss = hit.GetComponentInParent<ArenaBoss>();
-                if (boss != null)
-                {
-                    _spent = true;
-                    boss.TakeDamage(_damage, transform.position);
-                    Destroy(gameObject);
-                    return;
-                }
-
-                if (!hit.isTrigger)
-                {
-                    ChaosFx.Burst(transform.position, new Color(1f, 0.85f, 0.35f), 3);
-                    Destroy(gameObject);
-                    return;
+                    if (Process(hits[i].collider, hits[i].point)) return true;
                 }
             }
+
+            Collider[] overlaps = Physics.OverlapSphere(to, HitRadius, ~0,
+                QueryTriggerInteraction.Collide);
+            for (int i = 0; i < overlaps.Length; i++)
+            {
+                if (Process(overlaps[i], to)) return true;
+            }
+
+            return false;
+        }
+
+        bool Process(Collider hit, Vector3 point)
+        {
+            if (hit == null) return false;
+            if (hit.GetComponentInParent<PlayerController>() != null) return false;
+
+            ArenaMonster monster = hit.GetComponentInParent<ArenaMonster>();
+            if (monster != null)
+            {
+                _spent = true;
+                monster.TakeDamage(_damage, point);
+                return true;
+            }
+
+            ArenaBoss boss = hit.GetComponentInParent<ArenaBoss>();
+            if (boss != null)
+            {
+                _spent = true;
+                boss.TakeDamage(_damage, point);
+                return true;
+            }
+
+            if (!hit.isTrigger)
+            {
+                ChaosFx.Burst(point, new Color(1f, 0.85f, 0.35f), 3);
+                return true;
+            }
+
+            return false;
         }
     }
 }
