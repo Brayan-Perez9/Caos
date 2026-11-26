@@ -19,13 +19,19 @@ namespace Caos.Maps
 
         public static bool IsUpper(Vector3 point) => point.y > 2.8f;
 
+        /// <summary>Zona de la escalera: ahí las plataformas son escalables.</summary>
+        static bool NearStairLane(Vector3 point) =>
+            Mathf.Abs(point.x) < 4.5f
+            && point.z > StairBottomZ - 2f
+            && point.z < StairTopZ + 3f;
+
         /// <summary>Punto al que debe ir la criatura para alcanzar al jugador.</summary>
         public static Vector3 Target(Vector3 from, Vector3 player)
         {
             bool fromUpper = IsUpper(from);
             bool playerUpper = IsUpper(player);
-            bool onStairs = Mathf.Abs(from.x) < 3.5f
-                && from.z > StairBottomZ - 1f && from.z < StairTopZ + 1.5f;
+            bool onStairs = Mathf.Abs(from.x) < 4.5f
+                && from.z > StairBottomZ - 2f && from.z < StairTopZ + 3f;
 
             // Mientras se está en la escalera se sigue por ella aunque la
             // altura ya parezca la del piso alto: evita saltar al vacío.
@@ -35,12 +41,12 @@ namespace Caos.Maps
             if (!fromUpper)
             {
                 // Desde abajo: primero a la boca de la escalera, luego a subir.
-                bool nearBottom = Mathf.Abs(from.x) < 3.2f && from.z < StairBottomZ + 2f;
+                bool nearBottom = Mathf.Abs(from.x) < 4.5f && from.z < StairBottomZ + 3f;
                 return nearBottom ? StairTop : StairBottom;
             }
 
             // Desde arriba: primero a la entrada de la escalera, luego a bajar.
-            bool nearTop = Mathf.Abs(from.x) < 3.2f && from.z > StairTopZ - 2f;
+            bool nearTop = Mathf.Abs(from.x) < 4.5f && from.z > StairTopZ - 3f;
             return nearTop ? StairBottom : StairTop;
         }
 
@@ -122,11 +128,20 @@ namespace Caos.Maps
                 return true;
             }
 
-            // Los peldaños se pueden subir: no los tratamos como obstáculo.
+            // En la boca de la escalera, peldaños, plataforma y barandillas
+            // forman el mismo acceso: no los tratamos como obstáculo.
+            if (NearStairLane(origin) &&
+                (collider.name.StartsWith("Stair") ||
+                 collider.name.StartsWith("UpperFloor") ||
+                 collider.name.StartsWith("StairRail")))
+            {
+                return true;
+            }
+
             if (collider.name.StartsWith("Stair")) return true;
 
             float feetHeight = origin.y - radius;
-            return hit.point.y - feetHeight <= 0.36f;
+            return hit.point.y - feetHeight <= 0.5f;
         }
     }
 }

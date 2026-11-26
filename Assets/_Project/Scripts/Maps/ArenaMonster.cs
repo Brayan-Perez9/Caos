@@ -75,7 +75,7 @@ namespace Caos.Maps
             _controller.radius = 0.34f;
             _controller.center = Vector3.zero;
             _controller.slopeLimit = 50f;
-            _controller.stepOffset = 0.34f;
+            _controller.stepOffset = 0.42f;
             _controller.skinWidth = 0.06f;
 
             if (_director == null) _director = FindFirstObjectByType<ArenaDirector>();
@@ -173,7 +173,7 @@ namespace Caos.Maps
                 if (_lunge > 0f)
                 {
                     _lunge -= Time.deltaTime;
-                    speed += 7f;
+                    speed += 2.6f;
                 }
 
                 ArenaNavigation.Move(_controller, transform, target, speed, 0.34f, ref _verticalSpeed);

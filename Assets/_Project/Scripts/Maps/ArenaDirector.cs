@@ -420,7 +420,7 @@ namespace Caos.Maps
             health.Configure(52f + Mathf.Min(_elapsed * 0.45f, 90f), false);
 
             var monster = go.AddComponent<ArenaMonster>();
-            monster.Configure(5.4f + Random.Range(0f, 1.6f), 15f, this);
+            monster.Configure(3.1f + Random.Range(0f, 0.9f), 15f, this);
             _monsters.Add(monster);
         }
 
@@ -464,7 +464,7 @@ namespace Caos.Maps
                 : index == 2 ? ArenaBossKind.Canion : ArenaBossKind.Tormenta;
 
             float hitPoints = index == 1 ? 1400f : index == 2 ? 2200f : 3200f;
-            float speed = index == 1 ? 3.2f : index == 2 ? 3.8f : 4.4f;
+            float speed = index == 1 ? 2.4f : index == 2 ? 2.8f : 3.2f;
             float damage = index == 1 ? 26f : index == 2 ? 30f : 34f;
             float scale = index == 1 ? 1.25f : index == 2 ? 1.32f : 1.4f;
             float y = _player != null && ArenaNavigation.IsUpper(_player.transform.position)
@@ -490,9 +490,9 @@ namespace Caos.Maps
         public float MonsterSpeed(float baseSpeed)
         {
             float factor = 1f;
-            if (_hard) factor *= 1.45f;
-            if (_spawnedBossCount > 0) factor *= 1.22f;
-            factor *= 1f + Mathf.Min(0.4f, Mathf.Max(0f, _elapsed - hardTime) / 220f);
+            if (_hard) factor *= 1.18f;
+            if (_spawnedBossCount > 0) factor *= 1.1f;
+            factor *= 1f + Mathf.Min(0.15f, Mathf.Max(0f, _elapsed - hardTime) / 260f);
             return baseSpeed * factor;
         }
 
