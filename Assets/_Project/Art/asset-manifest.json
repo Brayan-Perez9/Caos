@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "art_direction_brief": "Assets/_Project/Art/art-direction-brief.md",
+  "assets": [
+    {
+      "id": "player-face",
+      "role": "cara expresiva del personaje",
+      "path": "Assets/_Project/Scripts/Player/CharacterCustomization.cs#BuildFaceDetails",
+      "status": "shipped",
+      "technical": {
+        "dimensions": "mallas procedurales; 0 texturas",
+        "alpha": false,
+        "anchor": "raíz del personaje en los pies",
+        "frames": 1,
+        "filtering": "no aplica"
+      },
+      "visual_locks": ["palette", "silhouette", "proportions", "facing", "light-direction"],
+      "source": {
+        "kind": "procedural-code",
+        "url_or_tool": "Unity 6000.3.29f1 C# (primitivas + malla de cono)",
+        "creator": "código original del proyecto",
+        "created_at": "2026-11-26",
+        "license": "original del proyecto; sin assets de terceros",
+        "attribution": "",
+        "prompt_or_source_record": "Ojos con blanco y pupila, cejas, nariz, boca en arco, orejas y pelo; reemplaza la esfera negra original."
+      },
+      "verification": {
+        "native_scale_reviewed": false,
+        "in_engine_reviewed": false,
+        "technical_checks_passed": true,
+        "approved_by": "pendiente de revisión del usuario"
+      }
+    },
+    {
+      "id": "hats-family",
+      "role": "familia de 10 gorros (incluye los graciosos)",
+      "path": "Assets/_Project/Scripts/Player/CharacterCustomization.cs#BuildHat",
+      "status": "shipped",
+      "technical": {
+        "dimensions": "mallas procedurales; 0 texturas",
+        "alpha": false,
+        "anchor": "copa de la cabeza (y ~2.16)",
+        "frames": 1,
+        "filtering": "no aplica"
+      },
+      "visual_locks": ["palette", "silhouette", "head-clearance", "material-profiles"],
+      "source": {
+        "kind": "procedural-code",
+        "url_or_tool": "Unity 6000.3.29f1 C# (cono, cilindro, cápsula, esfera, cubo)",
+        "creator": "código original del proyecto",
+        "created_at": "2026-11-26",
+        "license": "original del proyecto; sin assets de terceros",
+        "attribution": "",
+        "prompt_or_source_record": "Se mantienen las 10 opciones y se añaden hebillas, pluma, terciopelo, albahaca, sprinkles y puntas; perfil metálico para oro y hebillas."
+      },
+      "verification": {
+        "native_scale_reviewed": false,
+        "in_engine_reviewed": false,
+        "technical_checks_passed": true,
+        "approved_by": "pendiente de revisión del usuario"
+      }
+    },
+    {
+      "id": "body-types-and-feet",
+      "role": "tipos de cuerpo y calzado",
+      "path": "Assets/_Project/Scripts/Player/CharacterCustomization.cs#ApplyBodyShape",
+      "status": "shipped",
+      "technical": {
+        "dimensions": "mallas procedurales; 0 texturas",
+        "alpha": false,
+        "anchor": "suela en y=0.01",
+        "frames": 1,
+        "filtering": "no aplica"
+      },
+      "visual_locks": ["shape-language", "footprint", "head-ratio"],
+      "source": {
+        "kind": "procedural-code",
+        "url_or_tool": "Unity 6000.3.29f1 C#",
+        "creator": "código original del proyecto",
+        "created_at": "2026-11-26",
+        "license": "original del proyecto; sin assets de terceros",
+        "attribution": "",
+        "prompt_or_source_record": "Normal / Flaco / Gordo / Gordísimo con torso procedural desde la cintura; la panza y la papada se modelan en el perfil de la malla (la papada dentro de la cabeza), no como esferas separadas. Dos piernas procedurales independientes con hueco visible; pantalones y rayas son capas por pierna, camisas son capas del torso (inflate 0.022-0.038 m)."
+      },
+      "verification": {
+        "native_scale_reviewed": false,
+        "in_engine_reviewed": false,
+        "technical_checks_passed": true,
+        "approved_by": "pendiente de revisión del usuario"
+      }
+    },
+    {
+      "id": "fat-jiggle",
+      "role": "física blanda de panza, papada, mofletes y brazos",
+      "path": "Assets/_Project/Scripts/Player/CharacterCustomization.cs#Update",
+      "status": "shipped",
+      "technical": {
+        "dimensions": "resorte + amortiguación en tiempo de ejecución",
+        "alpha": false,
+        "anchor": "piezas blandas parentadas a Outfit",
+        "frames": 1,
+        "filtering": "no aplica"
+      },
+      "visual_locks": ["volume", "squash-stretch-limit", "skin-color"],
+      "source": {
+        "kind": "procedural-code",
+        "url_or_tool": "Unity 6000.3.29f1 C#",
+        "creator": "código original del proyecto",
+        "created_at": "2026-11-26",
+        "license": "original del proyecto; sin assets de terceros",
+        "attribution": "",
+        "prompt_or_source_record": "Impulso por aceleración del jugador, vaivén al caminar y respiración en el menú."
+      },
+      "verification": {
+        "native_scale_reviewed": false,
+        "in_engine_reviewed": false,
+        "technical_checks_passed": true,
+        "approved_by": "pendiente de revisión del usuario"
+      }
+    }
+  ]
+}
