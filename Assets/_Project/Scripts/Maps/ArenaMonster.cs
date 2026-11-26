@@ -194,9 +194,10 @@ namespace Caos.Maps
 
             Animate(distance);
 
-            bool sameFloor = Mathf.Abs(_player.transform.position.y - transform.position.y) < 2f;
+            float playerDistance = Vector3.Distance(_player.transform.position, transform.position);
+            bool sameFloor = ArenaNavigation.SameFloor(_player.transform.position, transform.position);
             bool visible = ArenaNavigation.HasLineOfSight(transform, _player.transform);
-            if (distance <= attackRange && sameFloor && visible && Time.time >= _nextAttack &&
+            if (playerDistance <= attackRange && sameFloor && visible && Time.time >= _nextAttack &&
                 _director != null && !_director.Finished)
             {
                 _nextAttack = Time.time + attackCooldown;

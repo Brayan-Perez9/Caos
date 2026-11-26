@@ -19,6 +19,10 @@ namespace Caos.Maps
 
         public static bool IsUpper(Vector3 point) => point.y > 2.8f;
 
+        /// <summary>Comprueba que dos criaturas estén en el mismo nivel del mapa.</summary>
+        public static bool SameFloor(Vector3 a, Vector3 b, float tolerance = 2f) =>
+            Mathf.Abs(a.y - b.y) <= tolerance;
+
         /// <summary>Zona de la escalera: ahí las plataformas son escalables.</summary>
         static bool NearStairLane(Vector3 point) =>
             Mathf.Abs(point.x) < 4.5f

@@ -261,9 +261,10 @@ namespace Caos.Maps
 
             if (Time.time < _nextPower || _director == null || _director.Finished) return;
 
+            bool sameFloor = ArenaNavigation.SameFloor(_player.transform.position, transform.position);
             bool visible = ArenaNavigation.HasLineOfSight(transform, _player.transform);
-            if (_kind == ArenaBossKind.Martillo && distance <= slamRadius && visible) Slam();
-            else if (_kind == ArenaBossKind.Canion) FireCannon();
+            if (_kind == ArenaBossKind.Martillo && sameFloor && distance <= slamRadius && visible) Slam();
+            else if (_kind == ArenaBossKind.Canion && sameFloor && visible) FireCannon();
             else if (_kind == ArenaBossKind.Tormenta) StormPulse();
         }
 
@@ -343,6 +344,7 @@ namespace Caos.Maps
             _director?.ShowBanner("¡PISOTÓN DEL JEFE 1!", 1.6f);
 
             if (_player != null &&
+                ArenaNavigation.SameFloor(_player.transform.position, transform.position) &&
                 Vector3.Distance(_player.transform.position, transform.position) <= slamRadius)
             {
                 _director?.DamagePlayer(_director.MonsterDamage(hitDamage), transform.position);
@@ -351,6 +353,9 @@ namespace Caos.Maps
 
         void FireCannon()
         {
+            if (_player == null ||
+                !ArenaNavigation.SameFloor(_player.transform.position, transform.position)) return;
+
             _nextPower = Time.time + _powerCooldown;
             _lunge = 0.1f;
 
