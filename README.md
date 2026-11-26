@@ -39,12 +39,11 @@ Hay monstruos cada vez más rápidos, eventos aleatorios y patitos secretos.
 
 Cada `git push` a `main` dispara `.github/workflows/build-release.yml`, compila el juego y reemplaza el ZIP de la Release `latest`. El juego comprueba el último commit al abrir el menú y ofrece **ACTUALIZAR Y REINICIAR**; descarga el ZIP, espera a que cierre y vuelve a abrir solo.
 
-Para que GitHub Actions pueda compilar con Unity, añade estos secrets al repo:
+El workflow usa un runner self-hosted `Caos-PC` instalado en `C:\Users\bcgut\actions-runner-caos` y la licencia de Unity de tu PC, así que no hacen falta secrets. Para que funcione, el PC debe estar encendido y el runner en línea. Hay un acceso directo `IniciarRunnerCaos.bat` en el inicio de Windows y una copia en la raíz del repo. Puedes comprobar el estado con:
 
-- `UNITY_LICENSE`: licencia base64 de Unity (GameCI).
-- `UNITY_EMAIL` y `UNITY_PASSWORD`: opcionales, si usas inicio de sesión por usuario.
-
-Más info: https://game.ci/docs/github/activation
+```bash
+gh api /repos/Brayan-Perez9/Caos/actions/runners --jq ".runners[] | {name,status}"
+```
 
 ## Desarrollo
 
