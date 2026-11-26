@@ -467,12 +467,14 @@ namespace Caos.Maps
             float speed = index == 1 ? 2.4f : index == 2 ? 2.8f : 3.2f;
             float damage = index == 1 ? 26f : index == 2 ? 30f : 34f;
             float scale = index == 1 ? 1.25f : index == 2 ? 1.32f : 1.4f;
-            float y = _player != null && ArenaNavigation.IsUpper(_player.transform.position)
-                ? ArenaNavigation.UpperSurfaceY + 0.9f : 0.95f;
+            bool playerUpper = _player != null
+                && ArenaNavigation.IsUpper(_player.transform.position);
+            float y = playerUpper ? ArenaNavigation.UpperSurfaceY + 0.9f : 0.95f;
+            float z = playerUpper ? 14f : 20f; // z=20 no existe en el piso alto
 
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             go.name = "ArenaBoss_" + index + "_" + kind;
-            go.transform.position = new Vector3(0f, y, 20f);
+            go.transform.position = new Vector3(0f, y, z);
             go.transform.localScale = new Vector3(scale, scale * 0.92f, scale);
 
             var health = go.AddComponent<ChaosHealth>();

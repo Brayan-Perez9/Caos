@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Caos.Player;
 
@@ -5,8 +6,8 @@ namespace Caos.Maps
 {
     /// <summary>
     /// Navegación sencilla para monstruos y jefes: respeta paredes, cajas y
-    /// plataformas mediante CharacterController, y usa la escalera para cambiar
-    /// de piso en vez de atravesar la estructura.
+    /// plataformas mediante CharacterController y usa la escalera completa
+    /// (boca, peldaños y meseta) para cambiar de piso sin quedarse parado.
     /// </summary>
     public static class ArenaNavigation
     {
@@ -14,8 +15,13 @@ namespace Caos.Maps
         public const float StairBottomZ = -11f;
         public const float StairTopZ = 7.2f;
 
-        static readonly Vector3 StairBottom = new Vector3(0f, 0.95f, StairBottomZ);
-        static readonly Vector3 StairTop = new Vector3(0f, UpperSurfaceY + 0.9f, StairTopZ);
+        const float LandingZ = 9.4f;
+
+        static readonly Vector3 StairBottom = new Vector3(0f, 1f, StairBottomZ - 1.6f);
+        static readonly Vector3 StairTop = new Vector3(0f, UpperSurfaceY + 0.9f, LandingZ);
+
+        static readonly Dictionary<Transform, float> StuckTimers =
+            new Dictionary<Transform, float>();
 
         public static bool IsUpper(Vector3 point) => point.y > 2.8f;
 
@@ -23,35 +29,54 @@ namespace Caos.Maps
         public static bool SameFloor(Vector3 a, Vector3 b, float tolerance = 2f) =>
             Mathf.Abs(a.y - b.y) <= tolerance;
 
-        /// <summary>Zona de la escalera: ahí las plataformas son escalables.</summary>
-        static bool NearStairLane(Vector3 point) =>
-            Mathf.Abs(point.x) < 4.5f
-            && point.z > StairBottomZ - 2f
-            && point.z < StairTopZ + 3f;
+        /// <summary>Zona continua de la escalera, incluida la meseta superior.</summary>
+        static bool InStairLane(Vector3 point) =>
+            Mathf.Abs(point.x) < 4.6f
+            && point.z > StairBottomZ - 4f
+            && point.z < LandingZ + 3f;
 
         /// <summary>Punto al que debe ir la criatura para alcanzar al jugador.</summary>
         public static Vector3 Target(Vector3 from, Vector3 player)
         {
-            bool fromUpper = IsUpper(from);
             bool playerUpper = IsUpper(player);
-            bool onStairs = Mathf.Abs(from.x) < 4.5f
-                && from.z > StairBottomZ - 2f && from.z < StairTopZ + 3f;
+            bool selfUpper = IsUpper(from);
+            bool lane = InStairLane(from);
 
-            // Mientras se está en la escalera se sigue por ella aunque la
-            // altura ya parezca la del piso alto: evita saltar al vacío.
-            if (onStairs) return playerUpper ? StairTop : StairBottom;
-            if (fromUpper == playerUpper) return player;
+            // El centro del CharacterController está ~0.9 m por encima del suelo.
+            bool onSteps = lane && from.y > 1f && from.y < UpperSurfaceY + 1f;
+            bool atUpperLanding = lane && from.y >= UpperSurfaceY + 0.35f
+                && from.z >= LandingZ - 1.2f;
+            bool atLowerMouth = lane && from.y <= 1.15f
+                && from.z <= StairBottomZ + 2.5f;
 
-            if (!fromUpper)
+            if (!selfUpper && !playerUpper)
             {
-                // Desde abajo: primero a la boca de la escalera, luego a subir.
-                bool nearBottom = Mathf.Abs(from.x) < 4.5f && from.z < StairBottomZ + 3f;
-                return nearBottom ? StairTop : StairBottom;
+                // Bajando la escalera con el jugador abajo: no volver a subir.
+                if (onSteps) return StairBottom;
+                return player;
             }
 
-            // Desde arriba: primero a la entrada de la escalera, luego a bajar.
-            bool nearTop = Mathf.Abs(from.x) < 4.5f && from.z > StairTopZ - 3f;
-            return nearTop ? StairBottom : StairTop;
+            if (selfUpper && playerUpper)
+            {
+                // Ya en la meseta: seguir hacia el jugador en vez de pararse en
+                // el waypoint. Es lo que antes los dejaba quietos en el último peldaño.
+                if (atUpperLanding) return player;
+                if (onSteps && from.z < LandingZ + 1f) return StairTop;
+                return player;
+            }
+
+            if (!selfUpper && playerUpper)
+            {
+                if (atUpperLanding) return player;
+                if (onSteps || (lane && from.z <= StairBottomZ + 3f)) return StairTop;
+                return StairBottom;
+            }
+
+            // En el piso alto pero el jugador está abajo: buscar la boca de la
+            // escalera y bajar por ella.
+            if (atLowerMouth) return player;
+            if (lane && from.z <= LandingZ + 1.5f) return StairBottom;
+            return StairTop;
         }
 
         /// <summary>Comprueba que no haya una pared o caja entre dos criaturas.</summary>
@@ -93,9 +118,14 @@ namespace Caos.Maps
             verticalSpeed += Physics.gravity.y * Time.deltaTime;
             if (controller.isGrounded && verticalSpeed < 0f) verticalSpeed = -2f;
 
+            Vector3 before = self.position;
             Vector3 motion = direction * (speed * Time.deltaTime)
                 + Vector3.up * (verticalSpeed * Time.deltaTime);
             controller.Move(motion);
+
+            if (direction.sqrMagnitude > 0f)
+                ApplyUnstick(controller, self, before, direction, speed, radius);
+
             return direction;
         }
 
@@ -103,7 +133,9 @@ namespace Caos.Maps
         public static Vector3 Steer(Transform self, Vector3 desired, float radius, float probe)
         {
             Vector3 origin = self.position;
-            float[] angles = { 0f, 30f, -30f, 62f, -62f, 100f, -100f, 180f };
+            float[] angles = InStairLane(origin)
+                ? new[] { 0f, 10f, -10f, 22f, -22f, 35f, -35f }
+                : new[] { 0f, 30f, -30f, 62f, -62f, 100f, -100f, 180f };
 
             for (int i = 0; i < angles.Length; i++)
             {
@@ -112,6 +144,48 @@ namespace Caos.Maps
             }
 
             return desired;
+        }
+
+        /// <summary>
+        /// Si el CharacterController lleva tiempo sin avanzar, da un pequeño
+        /// empujón lateral hacia el centro de la escalera (o alterno en campo
+        /// abierto) para despegarlo de un canto.
+        /// </summary>
+        static void ApplyUnstick(CharacterController controller, Transform self,
+            Vector3 before, Vector3 direction, float speed, float radius)
+        {
+            StuckTimers.TryGetValue(self, out float timer);
+
+            float moved = Vector3.ProjectOnPlane(self.position - before, Vector3.up).magnitude;
+            float expected = speed * Time.deltaTime;
+
+            if (controller.isGrounded && moved < expected * 0.15f)
+                timer += Time.deltaTime;
+            else
+                timer = Mathf.Max(0f, timer - Time.deltaTime * 2f);
+
+            if (timer < 0.45f)
+            {
+                StuckTimers[self] = timer;
+                return;
+            }
+
+            Vector3 correction;
+            if (InStairLane(self.position))
+            {
+                float towardCenter = self.position.x >= 0f ? -1f : 1f;
+                correction = Vector3.right * towardCenter * radius * 2.2f
+                    + direction * 0.35f;
+            }
+            else
+            {
+                float side = Time.frameCount % 120 < 60 ? 1f : -1f;
+                correction = Vector3.Cross(Vector3.up, direction) * side * radius * 2f
+                    + direction * 0.4f;
+            }
+
+            controller.Move(correction * Time.deltaTime * 3f + Vector3.up * 0.16f);
+            StuckTimers[self] = 0.2f;
         }
 
         static bool Clear(Vector3 origin, Vector3 direction, float radius, float probe, Transform self)
@@ -132,12 +206,13 @@ namespace Caos.Maps
                 return true;
             }
 
-            // En la boca de la escalera, peldaños, plataforma y barandillas
-            // forman el mismo acceso: no los tratamos como obstáculo.
-            if (NearStairLane(origin) &&
+            // En la boca de la escalera, peldaños, plataforma, meseta y
+            // barandillas forman el mismo acceso: no los tratamos como obstáculo.
+            if (InStairLane(origin) &&
                 (collider.name.StartsWith("Stair") ||
                  collider.name.StartsWith("UpperFloor") ||
-                 collider.name.StartsWith("StairRail")))
+                 collider.name.StartsWith("UpperBridge") ||
+                 collider.name.StartsWith("StairLanding")))
             {
                 return true;
             }

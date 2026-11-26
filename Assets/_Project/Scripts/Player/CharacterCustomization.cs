@@ -19,6 +19,7 @@ namespace Caos.Player
         const string PantsKey = "Caos.PlayerPants";
         const string FaceKey = "Caos.PlayerFace";
         const string BuildKey = "Caos.PlayerBuild";
+        const string CostumeKey = "Caos.PlayerCostume";
 
         const float NameHeight = 3.05f; // por encima incluso de los gorros altos
 
@@ -73,6 +74,7 @@ namespace Caos.Player
         int _pantsIndex;
         int _faceIndex;
         int _buildIndex;
+        int _costumeIndex;
 
         // Física casera de la panza: resorte + amortiguación.
         sealed class JigglePart
@@ -115,6 +117,20 @@ namespace Caos.Player
         public int PantsIndex => _pantsIndex;
         public int FaceIndex => _faceIndex;
         public int BuildIndex => _buildIndex;
+        public int CostumeIndex => _costumeIndex;
+
+        /// <summary>El atuendo completo sustituye el color y la complexión elegidos.</summary>
+        Color EffectiveBodyColor
+        {
+            get
+            {
+                if (_costumeIndex == 1) return MonkeyFur;
+                if (_costumeIndex == 2) return PororoBlue;
+                return playerColor;
+            }
+        }
+
+        int EffectiveBuild => _costumeIndex == 0 ? _buildIndex : 0;
 
         void Awake()
         {
@@ -417,6 +433,14 @@ namespace Caos.Player
             RebuildOutfit();
         }
 
+        public void SetCostume(int index)
+        {
+            index = Clamp(index, OutfitCatalog.Costumes.Length);
+            if (index == _costumeIndex) return;
+            _costumeIndex = index;
+            RebuildOutfit();
+        }
+
         /// <summary>Guarda en PlayerPrefs (lo llaman las pantallas al cerrar).</summary>
         public void Save()
         {
@@ -427,6 +451,7 @@ namespace Caos.Player
             PlayerPrefs.SetInt(PantsKey, _pantsIndex);
             PlayerPrefs.SetInt(FaceKey, _faceIndex);
             PlayerPrefs.SetInt(BuildKey, _buildIndex);
+            PlayerPrefs.SetInt(CostumeKey, _costumeIndex);
             PlayerPrefs.Save();
         }
 
@@ -448,6 +473,7 @@ namespace Caos.Player
             _pantsIndex = PlayerPrefs.GetInt(PantsKey, 0);
             _faceIndex = PlayerPrefs.GetInt(FaceKey, 0);
             _buildIndex = PlayerPrefs.GetInt(BuildKey, 0);
+            _costumeIndex = PlayerPrefs.GetInt(CostumeKey, 0);
         }
 
         static int Clamp(int value, int length)
@@ -485,12 +511,13 @@ namespace Caos.Player
         {
             if (materials == null) return;
 
+            Color color = EffectiveBodyColor;
             foreach (var material in materials)
             {
                 if (material == null) continue;
 
-                if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", playerColor);
-                else if (material.HasProperty("_Color")) material.SetColor("_Color", playerColor);
+                if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+                else if (material.HasProperty("_Color")) material.SetColor("_Color", color);
             }
         }
 
@@ -523,7 +550,7 @@ namespace Caos.Player
         /// </summary>
         void ApplyBodyShape()
         {
-            switch (_buildIndex)
+            switch (EffectiveBuild)
             {
                 case 1: // Flaco
                     _bodyWidth = 0.70f;
@@ -545,6 +572,19 @@ namespace Caos.Player
                     _headScale = 1f;
                     _bellyBulge = 0f;
                     break;
+            }
+
+            if (_costumeIndex == 1) // Mono: cabeza redonda y cuerpo compacto.
+            {
+                _bodyWidth = 0.95f;
+                _headScale = 1.08f;
+                _bellyBulge = 0f;
+            }
+            else if (_costumeIndex == 2) // Pororo: pingüino pequeño y redondo.
+            {
+                _bodyWidth = 0.92f;
+                _headScale = 1.12f;
+                _bellyBulge = 0f;
             }
 
             // Las piernas no crecen tanto como la panza: así se siguen viendo
@@ -858,7 +898,7 @@ namespace Caos.Player
         {
             for (int side = -1; side <= 1; side += 2)
             {
-                var material = MakeMaterial(playerColor, 0.25f);
+                var material = MakeMaterial(EffectiveBodyColor, 0.25f);
                 _fleshMaterials.Add(material);
 
                 LegSegmentObject("LegUpper", side, KneeY, 0.80f, 0f, material, LegPart.Upper);
@@ -946,8 +986,17 @@ namespace Caos.Player
             _outfitRoot.SetParent(transform, false);
 
             BuildBodyExtras(); // pies y, si aplica, barriga / papada / mofletes
-            BuildPants();
-            BuildShirt();
+
+            if (_costumeIndex == 0)
+            {
+                BuildPants();
+                BuildShirt();
+            }
+            else if (_costumeIndex == 2)
+            {
+                BuildPororoBelly();
+            }
+
             BuildFaceDetails(); // ojos, cejas, nariz, boca, orejas, pelo
             BuildFace();        // gafas, bigote, parche...
             BuildHat();
@@ -955,7 +1004,8 @@ namespace Caos.Player
             ApplyColor();
             Debug.Log("[Caos] Outfit ready: pieces=" + _outfitRoot.childCount +
                 " deform=" + _deformMeshes.Count + " jiggle=" + _jiggleParts.Count +
-                " build=" + _buildIndex + " bulge=" + _bellyBulge);
+                " build=" + _buildIndex + " costume=" + _costumeIndex +
+                " bulge=" + _bellyBulge);
         }
 
         static Shader _litShader;
@@ -1068,11 +1118,22 @@ namespace Caos.Player
         static readonly Color Cyan = new Color32(86, 204, 242, 255);
         static readonly Color Hair = new Color32(84, 58, 42, 255);
         static readonly Color Basil = new Color32(94, 178, 96, 255);
+        static readonly Color MonkeyFur = new Color32(122, 78, 46, 255);
+        static readonly Color MonkeyMuzzle = new Color32(226, 184, 132, 255);
+        static readonly Color PororoBlue = new Color32(66, 150, 214, 255);
+        static readonly Color BeakOrange = new Color32(246, 154, 42, 255);
 
         // ---------------------------------------------------------- gorros
 
         void BuildHat()
         {
+            if (_costumeIndex == 2)
+            {
+                PororoHat();
+                return;
+            }
+            if (_costumeIndex == 1) return; // el mono lleva mechón, no sombrero
+
             switch (_hatIndex)
             {
                 case 1: HatParty(); break;
@@ -1257,6 +1318,35 @@ namespace Caos.Player
             }
         }
 
+        /// <summary>Gorro de aviador rojo con gafas, como el de Pororo.</summary>
+        void PororoHat()
+        {
+            float s = _headScale;
+
+            Piece(PrimitiveType.Sphere, "PororoCap",
+                new Vector3(0f, 2.12f, -0.02f),
+                new Vector3(0.60f, 0.30f, 0.60f) * s, Red, null, false, 0.25f);
+
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Piece(PrimitiveType.Sphere, "PororoEarFlap",
+                    new Vector3(side * 0.33f * s, 1.98f, 0f),
+                    new Vector3(0.16f, 0.20f, 0.16f) * s, Red);
+
+                var frameRotation = Quaternion.Euler(90f, 0f, 0f);
+                Piece(PrimitiveType.Cylinder, "PororoGoggleFrame",
+                    new Vector3(side * 0.14f * s, 2.03f, 0.31f * s),
+                    new Vector3(0.16f, 0.012f, 0.16f) * s, Dark, frameRotation);
+                Piece(PrimitiveType.Cylinder, "PororoGoggleLens",
+                    new Vector3(side * 0.14f * s, 2.03f, 0.33f * s),
+                    new Vector3(0.13f, 0.010f, 0.13f) * s, Cyan, frameRotation);
+            }
+
+            Piece(PrimitiveType.Cube, "PororoGoggleBridge",
+                new Vector3(0f, 2.03f, 0.34f * s),
+                new Vector3(0.08f, 0.02f, 0.02f) * s, Dark);
+        }
+
         // ---------------------------------------------------------- pies y cuerpo
 
         void BuildBodyExtras()
@@ -1268,6 +1358,9 @@ namespace Caos.Player
             float spread = _legSpread;
             float shoeWidth = 0.24f * _legScale;
             var ankleOffset = new Vector3(0f, AnkleY, 0f);
+            Color shoeColor = _costumeIndex == 2 ? BeakOrange
+                : _costumeIndex == 1 ? MonkeyMuzzle : Dark;
+            Color soleColor = _costumeIndex == 2 ? BeakOrange : White;
 
             for (int side = -1; side <= 1; side += 2)
             {
@@ -1275,12 +1368,12 @@ namespace Caos.Player
 
                 var shoe = Piece(PrimitiveType.Cube, "Shoe",
                     new Vector3(side * spread, 0.10f, 0.13f),
-                    new Vector3(shoeWidth, 0.14f, 0.36f), Dark);
+                    new Vector3(shoeWidth, 0.14f, 0.36f), shoeColor);
                 AttachToPivot(shoe, ankle, ankleOffset);
 
                 var sole = Piece(PrimitiveType.Cube, "Sole",
                     new Vector3(side * spread, 0.025f, 0.13f),
-                    new Vector3(shoeWidth * 1.05f, 0.03f, 0.38f), White);
+                    new Vector3(shoeWidth * 1.05f, 0.03f, 0.38f), soleColor);
                 AttachToPivot(sole, ankle, ankleOffset);
             }
 
@@ -1295,7 +1388,7 @@ namespace Caos.Player
         void BuildArms()
         {
             TorsoRing(1.15f, out float rx, out _, out _);
-            bool mega = _buildIndex == 3;
+            bool mega = EffectiveBuild == 3;
             float radius = 0.10f * (0.85f + 0.15f * _bodyWidth);
             float height = mega ? 0.22f : 0.32f;
 
@@ -1308,7 +1401,7 @@ namespace Caos.Player
 
                 var arm = Piece(PrimitiveType.Capsule, "Arm",
                     new Vector3(x, 1.15f, 0f),
-                    new Vector3(radius, height, radius), playerColor,
+                    new Vector3(radius, height, radius), EffectiveBodyColor,
                     Quaternion.Euler(0f, 0f, side * 12f), true, 0.25f);
                 AttachToPivot(arm, shoulder, shoulder.localPosition);
                 RegisterJiggle(arm, 0.35f);
@@ -1469,6 +1562,22 @@ namespace Caos.Player
 
         void BuildFaceDetails()
         {
+            if (_costumeIndex == 1)
+            {
+                BuildMonkeyFace();
+                return;
+            }
+            if (_costumeIndex == 2)
+            {
+                BuildPororoFace();
+                return;
+            }
+
+            BuildHumanFace();
+        }
+
+        void BuildHumanFace()
+        {
             float s = _headScale;
 
             // Pelo: casquete que tapa la coronilla sin invadir los ojos.
@@ -1481,34 +1590,16 @@ namespace Caos.Player
             {
                 Piece(PrimitiveType.Sphere, "Ear",
                     new Vector3(side * 0.29f * s, 1.86f, 0f),
-                    new Vector3(0.11f, 0.15f, 0.08f) * s, playerColor, null, true, 0.25f);
+                    new Vector3(0.11f, 0.15f, 0.08f) * s, EffectiveBodyColor,
+                    null, true, 0.25f);
             }
 
-            // Ojos: blanco + pupila + ceja. Sustituyen a la esfera negra original.
-            for (int i = 0; i < _eyeBasePositions.Count; i++)
-            {
-                Vector3 basePos = _eyeBasePositions[i];
-                float x = basePos.x * s;
-                float y = basePos.y;
-                float z = basePos.z + (s - 1f) * 0.30f;
-
-                Piece(PrimitiveType.Sphere, "EyeWhite",
-                    new Vector3(x, y, z), Vector3.one * 0.16f * s, White, null, false, 0.45f);
-                Piece(PrimitiveType.Sphere, "Pupil",
-                    new Vector3(x, y, z + 0.075f * s), Vector3.one * 0.075f * s,
-                    Dark, null, false, 0.65f);
-
-                var brow = Piece(PrimitiveType.Cube, "Eyebrow",
-                    new Vector3(x, y + 0.14f * s, z + 0.02f),
-                    new Vector3(0.17f, 0.035f, 0.03f) * s, Hair,
-                    Quaternion.Euler(0f, 0f, Mathf.Sign(x) * -12f), false, 0.1f);
-                brow.name = "Eyebrow";
-            }
+            BuildEyes(true);
 
             // Nariz y sonrisa (arco de cinco puntos).
             float front = 0.28f + (s - 1f) * 0.28f;
             Piece(PrimitiveType.Sphere, "Nose", new Vector3(0f, 1.84f, front),
-                Vector3.one * 0.09f * s, playerColor, null, true, 0.25f);
+                Vector3.one * 0.09f * s, EffectiveBodyColor, null, true, 0.25f);
 
             for (int i = 0; i < 5; i++)
             {
@@ -1521,10 +1612,126 @@ namespace Caos.Player
             }
         }
 
+        /// <summary>Ojos blancos con pupila; se comparten con los atuendos.</summary>
+        void BuildEyes(bool brows, float zPush = 0f)
+        {
+            float s = _headScale;
+
+            for (int i = 0; i < _eyeBasePositions.Count; i++)
+            {
+                Vector3 basePos = _eyeBasePositions[i];
+                float x = basePos.x * s;
+                float y = basePos.y;
+                float z = basePos.z + (s - 1f) * 0.30f + zPush;
+
+                Piece(PrimitiveType.Sphere, "EyeWhite",
+                    new Vector3(x, y, z), Vector3.one * 0.16f * s, White, null, false, 0.45f);
+                Piece(PrimitiveType.Sphere, "Pupil",
+                    new Vector3(x, y, z + 0.075f * s), Vector3.one * 0.075f * s,
+                    Dark, null, false, 0.65f);
+
+                if (!brows) continue;
+
+                var brow = Piece(PrimitiveType.Cube, "Eyebrow",
+                    new Vector3(x, y + 0.14f * s, z + 0.02f),
+                    new Vector3(0.17f, 0.035f, 0.03f) * s, Hair,
+                    Quaternion.Euler(0f, 0f, Mathf.Sign(x) * -12f), false, 0.1f);
+                brow.name = "Eyebrow";
+            }
+        }
+
+        void BuildMonkeyFace()
+        {
+            float s = _headScale;
+
+            // Orejas redondas y hocico claro: la silueta reconoce al mono.
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Piece(PrimitiveType.Sphere, "MonkeyEar",
+                    new Vector3(side * 0.34f * s, 1.86f, 0f),
+                    new Vector3(0.15f, 0.17f, 0.07f) * s, MonkeyFur);
+                Piece(PrimitiveType.Sphere, "MonkeyEarInner",
+                    new Vector3(side * 0.37f * s, 1.86f, 0.05f),
+                    new Vector3(0.09f, 0.11f, 0.03f) * s, MonkeyMuzzle);
+            }
+
+            Piece(PrimitiveType.Sphere, "MonkeyMuzzle",
+                new Vector3(0f, 1.71f, 0.33f),
+                new Vector3(0.31f, 0.21f, 0.15f) * s, MonkeyMuzzle);
+            Piece(PrimitiveType.Sphere, "MonkeyNose",
+                new Vector3(0f, 1.80f, 0.46f), Vector3.one * 0.065f * s, Dark);
+
+            for (int i = 0; i < 5; i++)
+            {
+                int offset = i - 2;
+                Piece(PrimitiveType.Sphere, "MonkeySmile",
+                    new Vector3(offset * 0.06f * s,
+                        1.66f + offset * offset * 0.010f * s, 0.47f),
+                    Vector3.one * 0.022f * s, Dark);
+            }
+
+            // Mechón y cola: se añaden aquí porque el atuendo no tiene sombrero.
+            Piece(PrimitiveType.Sphere, "MonkeyTuft",
+                new Vector3(-0.08f, 2.13f * s, 0f),
+                new Vector3(0.13f, 0.09f, 0.12f) * s, MonkeyFur,
+                Quaternion.Euler(0f, 0f, 24f));
+            BuildMonkeyTail();
+
+            BuildEyes(true, 0.04f);
+        }
+
+        void BuildMonkeyTail()
+        {
+            var points = new[]
+            {
+                new Vector3(-0.32f, 0.88f, -0.16f),
+                new Vector3(-0.52f, 1.02f, -0.38f),
+                new Vector3(-0.62f, 1.26f, -0.56f),
+                new Vector3(-0.48f, 1.46f, -0.62f),
+            };
+
+            for (int i = 0; i < points.Length; i++)
+            {
+                Piece(PrimitiveType.Sphere, "MonkeyTail", points[i],
+                    Vector3.one * (0.10f - i * 0.012f) * _headScale, MonkeyFur);
+            }
+        }
+
+        void BuildPororoBelly()
+        {
+            // Parche blanco delante del torso: sigue la superficie de la ropa
+            // y deja ver el azul del cuerpo por los lados.
+            float y = 1.15f;
+            float z = TorsoSurfaceZ(y) + 0.02f;
+            Piece(PrimitiveType.Sphere, "PororoBelly",
+                new Vector3(0f, y, z),
+                new Vector3(0.40f * _bodyWidth, 0.44f, 0.12f), White, null, false, 0.35f);
+        }
+
+        void BuildPororoFace()
+        {
+            float s = _headScale;
+
+            // Cara blanca redonda y pico naranja (Pororo, el pingüino coreano).
+            Piece(PrimitiveType.Sphere, "PororoFace",
+                new Vector3(0f, 1.87f, 0.29f),
+                new Vector3(0.43f, 0.36f, 0.13f) * s, White, null, false, 0.35f);
+
+            BuildEyes(false, 0.11f);
+
+            Cone("PororoBeak", new Vector3(0f, 1.72f, 0.44f), 0.14f * s, 0.25f * s,
+                BeakOrange, Quaternion.Euler(90f, 0f, 0f), 0.35f);
+            Piece(PrimitiveType.Sphere, "PororoLowerBeak",
+                new Vector3(0f, 1.65f, 0.43f),
+                new Vector3(0.12f, 0.05f, 0.10f) * s, BeakOrange);
+        }
+
         // ---------------------------------------------------------- rostro
 
         void BuildFace()
         {
+            if (_costumeIndex != 0) return;
+
             switch (_faceIndex)
             {
                 case 1: FaceGlasses(); break;

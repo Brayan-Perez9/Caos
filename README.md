@@ -28,6 +28,9 @@ Los dos jugadores deben estar en la misma Wi-Fi o LAN. El código guarda la IP y
 - **Ratón**: apuntar en la Arena Caos (el personaje mira al cursor)
 - **1 / 2 / 3**: elegir mejora cuando aparece el panel
 - **ESC**: pausa (reanudar / volver al lobby / salir)
+- **P**: personalizar (con la pestaña **ATUENDO** puedes poner el **Mono** o **Pororo**)
+
+Si saltas desde el segundo piso de la Arena Caos se abre un **paracaídas automático**: caes despacio y puedes dirigirte mientras desciendes. Se recoge al aterrizar.
 
 ## Objetivos de la misión
 
@@ -39,7 +42,7 @@ Hay monstruos cada vez más rápidos, eventos aleatorios y patitos secretos.
 
 ## Arena Caos
 
-En el menú pulsa **ARENA** para entrar en un mapa grande con dos pisos. Te acercas a un pedestal para recoger el arma y apuntas con el ratón mientras disparas con el botón izquierdo. Hay una escalera para subir al piso alto; los monstruos y los jefes la usan y respetan paredes, cajas y columnas en vez de atravesarlas.
+En el menú pulsa **ARENA** para entrar en un mapa grande con dos pisos. Te acercas a un pedestal para recoger el arma y apuntas con el ratón mientras disparas con el botón izquierdo. Hay una escalera con meseta y puentes para subir al piso alto; los monstruos y los jefes la recorren completa (sin quedarse parados en los peldaños) y respetan paredes, cajas y columnas en vez de atravesarlas.
 
 Cada arma tiene un color y un elemento:
 

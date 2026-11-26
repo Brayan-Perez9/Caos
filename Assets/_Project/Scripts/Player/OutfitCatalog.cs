@@ -55,5 +55,13 @@ namespace Caos.Player
             "Gordo",
             "Gordísimo",
         };
+
+        /// <summary>Atuendos completos que sustituyen prendas, rostro y sombrero.</summary>
+        public static readonly string[] Costumes =
+        {
+            "Ninguno",
+            "Mono",
+            "Pororo",
+        };
     }
 }

@@ -58,6 +58,12 @@ namespace Caos.Player
         /// <summary>La arena desactiva esta rotación para que el cursor mande la mirada.</summary>
         public bool FaceMovement { get; set; } = true;
 
+        /// <summary>Límite de caída que impone el paracaídas (negativo).</summary>
+        public float FallSpeedLimit { get; set; } = float.NegativeInfinity;
+
+        /// <summary>Control horizontal mientras se desciende con paracaídas.</summary>
+        public float AirControlMultiplier { get; set; } = 1f;
+
         public void SetCamera(Transform camera) => cameraReference = camera;
         public void SetSpawnPoint(Transform spawn) => spawnPoint = spawn;
 
@@ -66,6 +72,11 @@ namespace Caos.Player
             _controller = GetComponent<CharacterController>();
             _input = GetComponent<PlayerInputReader>();
             _pusher = GetComponent<PlayerPusher>();
+
+            // Se añade solo una vez: funciona en todas las escenas sin tener
+            // que regenerarlas ni depender de un objeto colocado a mano.
+            if (GetComponent<PlayerParachute>() == null)
+                gameObject.AddComponent<PlayerParachute>();
         }
 
         void Update()
@@ -97,7 +108,9 @@ namespace Caos.Player
             Vector3 wish = camForward * move.y + camRight * move.x;
             if (wish.sqrMagnitude > 1f) wish.Normalize();
 
-            float targetSpeed = (_input.SprintHeld ? sprintSpeed : walkSpeed) * SpeedMultiplier;
+            float airControl = _controller.isGrounded ? 1f : AirControlMultiplier;
+            float targetSpeed = (_input.SprintHeld ? sprintSpeed : walkSpeed)
+                * SpeedMultiplier * airControl;
             Vector3 targetVelocity = wish * targetSpeed;
 
             Vector3 horizontal = new Vector3(_velocity.x, 0f, _velocity.z);
@@ -128,6 +141,8 @@ namespace Caos.Player
             }
 
             _velocity.y += gravity * Time.deltaTime;
+            if (!_controller.isGrounded && _velocity.y < FallSpeedLimit)
+                _velocity.y = FallSpeedLimit;
             _controller.Move(_velocity * Time.deltaTime);
         }
 
@@ -140,6 +155,8 @@ namespace Caos.Player
 
         public void Respawn(Vector3 position)
         {
+            GetComponent<PlayerParachute>()?.Cancel();
+
             _controller.enabled = false;
             transform.position = position;
             _velocity = Vector3.zero;

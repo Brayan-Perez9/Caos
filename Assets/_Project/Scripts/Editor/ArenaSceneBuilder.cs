@@ -105,6 +105,15 @@ namespace Caos.EditorTools
             Box("UpperFloor_S", new Vector3(0f, 4f, 13f),
                 new Vector3(26f, 0.5f, 8f), "Platform", parent);
 
+            // Meseta y puentes: unen el último peldaño con el piso alto para
+            // que los enemigos no se queden parados en el borde.
+            Box("StairLanding", new Vector3(0f, 4f, 8.6f),
+                new Vector3(6f, 0.5f, 3.6f), "Platform", parent);
+            Box("UpperBridge_W", new Vector3(-9f, 4f, 8.5f),
+                new Vector3(8f, 0.5f, 2f), "Platform", parent);
+            Box("UpperBridge_E", new Vector3(9f, 4f, 8.5f),
+                new Vector3(8f, 0.5f, 2f), "Platform", parent);
+
             // 15 peldaños de 0.28 m: por debajo del stepOffset del jugador.
             const int steps = 15;
             const float stepDepth = 1.3f;

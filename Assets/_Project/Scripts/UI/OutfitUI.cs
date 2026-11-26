@@ -16,11 +16,12 @@ namespace Caos.UI
         public const int TabPants = 3;
         public const int TabFace = 4;
         public const int TabBody = 5;
-        public const int TabCount = 6;
+        public const int TabCostume = 6;
+        public const int TabCount = 7;
 
         static readonly string[] TabNames =
         {
-            "COLOR", "GORROS", "CAMISAS", "PANTALON", "ROSTRO", "CUERPO",
+            "COLOR", "GORROS", "CAMISAS", "PANTALON", "ROSTRO", "CUERPO", "ATUENDO",
         };
 
         static GUIStyle _tabStyle;
@@ -90,6 +91,12 @@ namespace Caos.UI
                     break;
                 case TabBody:
                     DrawOptions(content, OutfitCatalog.Builds, character.BuildIndex, character.SetBuild);
+                    break;
+                case TabCostume:
+                    DrawOptions(content, OutfitCatalog.Costumes, character.CostumeIndex,
+                        character.SetCostume);
+                    GUI.Label(new Rect(area.x, area.y + content.height - 34f, area.width, 30f),
+                        "El atuendo completo cubre ropa, rostro y sombrero", _hintStyle);
                     break;
             }
 
