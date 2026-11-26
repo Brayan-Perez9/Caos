@@ -25,7 +25,7 @@ jobs:
           clean: true
 
       - name: Compilar con Unity instalado
-        shell: pwsh
+        shell: powershell
         run: |
           $unity = 'C:\Program Files\Unity\Hub\Editor\6000.3.29f1\Editor\Unity.exe'
           $log = Join-Path $env:GITHUB_WORKSPACE 'unity-build.log'
@@ -36,7 +36,7 @@ jobs:
           }
 
       - name: Escribir versión (commit)
-        shell: pwsh
+        shell: powershell
         run: |
           $target = Join-Path $env:GITHUB_WORKSPACE 'Builds\Windows\Caos_Data\StreamingAssets'
           New-Item -ItemType Directory -Path $target -Force | Out-Null
@@ -44,7 +44,7 @@ jobs:
 
       - name: Añadir instrucciones y crear ZIP
         id: zip
-        shell: pwsh
+        shell: powershell
         run: |
           $stage = Join-Path $env:RUNNER_TEMP 'caos-release-stage'
           $zip = Join-Path $env:GITHUB_WORKSPACE 'Caos-Windows.zip'
