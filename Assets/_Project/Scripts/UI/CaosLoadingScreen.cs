@@ -13,10 +13,17 @@ namespace Caos.UI
     public class CaosLoadingScreen : MonoBehaviour
     {
         const float MinimumVisibleSeconds = 1.1f;
-        const float ActivationThreshold = 0.9f;
+
+        // Unity deja el progreso justo por debajo de 0.9 cuando la escena ya
+        // está lista (0.8999999...). Comparar contra 0.9 exacto bloquea la
+        // activación para siempre. Usamos 0.85 y un margen para evitarlo.
+        const float ActivationThreshold = 0.85f;
+        const float ProgressEpsilon = 0.001f;
+        const float ActivationFallbackSeconds = 8f;
 
         AsyncOperation _operation;
         float _elapsed;
+        float _activationTime = -1f;
         bool _activationRequested;
 
         float _scale = 1f;
@@ -60,12 +67,46 @@ namespace Caos.UI
         {
             _elapsed += Time.unscaledDeltaTime;
 
-            if (_operation == null || _activationRequested) return;
-            if (_operation.progress < ActivationThreshold) return;
-            if (_elapsed < MinimumVisibleSeconds) return;
+            if (_operation != null && !_activationRequested)
+            {
+                bool ready = _operation.progress >= ActivationThreshold - ProgressEpsilon;
+                if (ready && _elapsed >= MinimumVisibleSeconds)
+                {
+                    Activate();
+                }
+            }
+
+            // Si Unity no llega a activar la escena, forzamos la entrada para
+            // que la pantalla de carga nunca se quede colgada.
+            if (_activationRequested && _activationTime >= 0f &&
+                Time.unscaledTime - _activationTime >= ActivationFallbackSeconds &&
+                SceneManager.GetActiveScene().name == CaosShell.LoadingScene)
+            {
+                var request = Request;
+                if (request != null && !string.IsNullOrEmpty(request.SceneName))
+                {
+                    Debug.LogWarning($"[Caos] La activación asíncrona no respondió; cargando '{request.SceneName}' directamente.");
+                    string target = request.SceneName;
+                    CaosSceneLoader.Finish();
+                    enabled = false;
+                    SceneManager.LoadScene(target);
+                }
+            }
+        }
+
+        void Activate()
+        {
+            string target = Request?.SceneName;
+
+            // La escena ya está lista: limpiamos el estado global aquí mismo.
+            // No depender de sceneLoaded evita que el lobby crea que sigue
+            // cargando y se quede sin dibujar.
+            CaosSceneLoader.Finish();
 
             _activationRequested = true;
+            _activationTime = Time.unscaledTime;
             _operation.allowSceneActivation = true;
+            Debug.Log($"[Caos] Activando escena '{target}' desde la carga.");
         }
 
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
