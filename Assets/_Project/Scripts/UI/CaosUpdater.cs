@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Diagnostics;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEngine;
 using UnityEngine.Networking;
 
@@ -15,15 +16,15 @@ namespace Caos.UI
     public class CaosUpdater : MonoBehaviour
     {
         const string Repo = "Brayan-Perez9/Caos";
-        const string CommitApi = "https://api.github.com/repos/" + Repo + "/commits/main";
+        const string ReleaseApi = "https://api.github.com/repos/" + Repo + "/releases/latest";
         const string DownloadUrl = "https://github.com/" + Repo + "/releases/latest/download/Caos-Windows.zip";
         const string VersionFile = "caos-version.txt";
         const string ZipName = "CaosUpdate.zip";
 
         [Serializable]
-        class CommitInfo
+        class ReleaseInfo
         {
-            public string sha;
+            public string body;
         }
 
         string _localVersion = "local";
@@ -64,7 +65,7 @@ namespace Caos.UI
         {
             _checking = true;
 
-            using (var request = UnityWebRequest.Get(CommitApi))
+            using (var request = UnityWebRequest.Get(ReleaseApi))
             {
                 request.SetRequestHeader("User-Agent", "CaosUpdater");
                 request.SetRequestHeader("Accept", "application/vnd.github+json");
@@ -79,29 +80,38 @@ namespace Caos.UI
                     yield break;
                 }
 
-                CommitInfo info = null;
+                ReleaseInfo release = null;
                 try
                 {
-                    info = JsonUtility.FromJson<CommitInfo>(request.downloadHandler.text);
+                    release = JsonUtility.FromJson<ReleaseInfo>(request.downloadHandler.text);
                 }
                 catch
                 {
-                    info = null;
+                    release = null;
                 }
 
                 _checking = false;
 
-                if (info == null || string.IsNullOrEmpty(info.sha))
+                // Se compara contra el commit de la release publicada, no contra main.
+                // Así no aparece el botón mientras un build está en cola o fue cancelado.
+                _remoteVersion = ExtractCommit(release != null ? release.body : null);
+                if (string.IsNullOrEmpty(_remoteVersion))
                 {
-                    _status = "No se pudo leer la versión remota.";
+                    _status = "No se pudo leer la versión publicada.";
                     yield break;
                 }
 
-                _remoteVersion = info.sha;
                 _updateAvailable = !string.Equals(
                     _localVersion, _remoteVersion, StringComparison.OrdinalIgnoreCase);
                 _status = _updateAvailable ? "Hay una versión nueva disponible." : "Juego actualizado.";
             }
+        }
+
+        static string ExtractCommit(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return string.Empty;
+            Match match = Regex.Match(text, "\\b[0-9a-fA-F]{40}\\b");
+            return match.Success ? match.Value : string.Empty;
         }
 
         IEnumerator InstallUpdate()
@@ -156,7 +166,7 @@ namespace Caos.UI
 
             try
             {
-                WriteUpdateScripts(folder);
+                WriteUpdateScripts(folder, _remoteVersion);
                 StartUpdater(folder);
             }
             catch (Exception exception)
@@ -172,7 +182,7 @@ namespace Caos.UI
         }
 
 #if UNITY_STANDALONE_WIN
-        static void WriteUpdateScripts(string folder)
+        static void WriteUpdateScripts(string folder, string version)
         {
             string batPath = Path.Combine(folder, "Actualizar.bat");
             string psPath = Path.Combine(folder, "apply-update.ps1");
@@ -199,12 +209,20 @@ namespace Caos.UI
                 "New-Item -ItemType Directory -Path $tmp -Force | Out-Null",
                 "Expand-Archive -LiteralPath $zip -DestinationPath $tmp -Force",
                 "Copy-Item -Path (Join-Path $tmp '*') -Destination $root -Recurse -Force",
+                "$versionPath = Join-Path $root 'Caos_Data\\StreamingAssets\\caos-version.txt'",
+                "New-Item -ItemType Directory -Path (Split-Path -Parent $versionPath) -Force | Out-Null",
+                "Set-Content -LiteralPath $versionPath -Value '" + EscapePowerShell(version) + "' -NoNewline",
                 "Remove-Item -LiteralPath $tmp -Recurse -Force",
                 "Remove-Item -LiteralPath $zip -Force",
             });
 
             File.WriteAllText(batPath, bat);
             File.WriteAllText(psPath, powershell);
+        }
+
+        static string EscapePowerShell(string value)
+        {
+            return (value ?? string.Empty).Replace("'", "''");
         }
 
         static void StartUpdater(string folder)
