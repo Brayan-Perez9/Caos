@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Caos.Maps;
+using Caos.Net;
 using Caos.Player;
 
 namespace Caos.Dungeon
@@ -27,6 +28,11 @@ namespace Caos.Dungeon
         PlayerController _player;
         ChaosHealth _health;
         DungeonRunState _state;
+        CaosNetPlayers _netPlayers;
+
+        CaosNetPlayers NetPlayers => _netPlayers != null
+            ? _netPlayers
+            : _netPlayers = FindFirstObjectByType<CaosNetPlayers>();
 
         readonly List<GameObject> _spawned = new List<GameObject>();
         readonly List<ArenaMonster> _monsters = new List<ArenaMonster>();
@@ -165,6 +171,7 @@ namespace Caos.Dungeon
 
             var projectile = shot.AddComponent<ArenaProjectile>();
             projectile.Configure((IArenaCombatDirector)this, direction, speed, damage, bulletElement);
+            NetPlayers?.NotifyShot(origin, direction, speed, damage, bulletElement);
             Track(shot, 3.2f);
         }
 

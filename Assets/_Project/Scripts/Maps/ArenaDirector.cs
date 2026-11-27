@@ -39,6 +39,11 @@ namespace Caos.Maps
 
         PlayerController _player;
         ChaosHealth _playerHealth;
+        CaosNetPlayers _netPlayers;
+
+        CaosNetPlayers NetPlayers => _netPlayers != null
+            ? _netPlayers
+            : _netPlayers = FindFirstObjectByType<CaosNetPlayers>();
 
         readonly List<ArenaMonster> _monsters = new List<ArenaMonster>();
         readonly List<ArenaBoss> _bosses = new List<ArenaBoss>();
@@ -278,6 +283,7 @@ namespace Caos.Maps
 
             var projectile = shot.AddComponent<ArenaProjectile>();
             projectile.Configure(this, direction, speed, damage, _element);
+            NetPlayers?.NotifyShot(origin, direction, speed, damage, _element);
             Destroy(shot, 3.2f);
         }
 

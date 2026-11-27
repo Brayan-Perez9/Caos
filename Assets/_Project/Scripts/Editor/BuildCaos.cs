@@ -33,6 +33,24 @@ namespace Caos.EditorTools
             BuildWindows();
         }
 
+        /// <summary>Regenera las escenas que usan presencia de jugadores.</summary>
+        [MenuItem("Caos/Refresh Network Scenes")]
+        public static void RefreshNetworkScenes()
+        {
+            LobbySceneBuilder.CreateLobbySceneInternal();
+            ChaosExpressBuilder.CreateMapInternal();
+            ArenaSceneBuilder.CreateArenaSceneInternal();
+            DungeonSceneBuilder.CreateDungeonSceneInternal();
+            Debug.Log("[Caos] Escenas de red regeneradas (Lobby, Chaos Express, Arena, Dungeon).");
+        }
+
+        /// <summary>Build que regenera primero las escenas de red.</summary>
+        public static void BuildWindowsWithNetworkScenes()
+        {
+            RefreshNetworkScenes();
+            BuildWindows();
+        }
+
         /// <summary>Punto de entrada para -executeMethod (build por lotes).</summary>
         public static void BuildWindows()
         {

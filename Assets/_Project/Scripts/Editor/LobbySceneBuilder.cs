@@ -31,10 +31,13 @@ namespace Caos.EditorTools
             camera.tag = "MainCamera";
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.06f, 0.07f, 0.11f);
+            cameraObject.transform.position = new Vector3(0f, 2.7f, -8.5f);
+            cameraObject.transform.LookAt(new Vector3(0f, 1.25f, 0.6f));
             cameraObject.AddComponent<AudioListener>();
             SandboxSceneBuilder.EnablePostProcessing(cameraObject);
 
             new GameObject("CaosNetPeer").AddComponent<CaosNetPeer>();
+            new GameObject("NetworkPlayers").AddComponent<CaosNetPlayers>().ConfigureLobby();
             new GameObject("CaosLobby").AddComponent<CaosLobby>();
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene(), ScenePath);

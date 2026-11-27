@@ -34,6 +34,7 @@ namespace Caos.Player
 
         [SerializeField] string playerName = "Jugador";
         [SerializeField] Color playerColor = new Color32(226, 85, 79, 255); // rojo del picker
+        [SerializeField] bool netRemote;
 
         Material[] _bodyMaterials;
         GUIStyle _nameStyle;
@@ -134,7 +135,7 @@ namespace Caos.Player
 
         void Awake()
         {
-            Instance = this;
+            if (!netRemote) Instance = this;
 
             // Importante: capturar los materiales del cuerpo ANTES de crear el
             // atuendo, para que el color del jugador no tiñe también la ropa.
@@ -149,7 +150,7 @@ namespace Caos.Player
 
         void OnDestroy()
         {
-            if (Instance == this) Instance = null;
+            if (!netRemote && Instance == this) Instance = null;
             ClearOutfit();
         }
 
@@ -444,6 +445,8 @@ namespace Caos.Player
         /// <summary>Guarda en PlayerPrefs (lo llaman las pantallas al cerrar).</summary>
         public void Save()
         {
+            if (netRemote) return;
+
             PlayerPrefs.SetString(NameKey, playerName);
             PlayerPrefs.SetString(ColorKey, ColorUtility.ToHtmlStringRGB(playerColor));
             PlayerPrefs.SetInt(HatKey, _hatIndex);
@@ -453,6 +456,79 @@ namespace Caos.Player
             PlayerPrefs.SetInt(BuildKey, _buildIndex);
             PlayerPrefs.SetInt(CostumeKey, _costumeIndex);
             PlayerPrefs.Save();
+        }
+
+        /// <summary>Avatar de la sala: usa la apariencia guardada del jugador local.</summary>
+        public static CharacterCustomization CreateLocalAvatar()
+        {
+            var go = new GameObject("LobbyAvatar");
+            RemotePart(go.transform, "Body", PrimitiveType.Capsule,
+                new Vector3(0f, 0.9f, 0f), new Vector3(0.7f, 0.9f, 0.7f), Color.white);
+            RemotePart(go.transform, "Head", PrimitiveType.Sphere,
+                new Vector3(0f, 1.9f, 0f), Vector3.one * 0.55f, Color.white);
+            return go.AddComponent<CharacterCustomization>();
+        }
+
+        /// <summary>
+        /// Crea un avatar de otro jugador con el mismo atuendo procedural. El
+        /// singleton sigue apuntando al jugador local: un remoto nunca debe
+        /// cargar ni guardar PlayerPrefs.
+        /// </summary>
+        public static CharacterCustomization CreateRemote(string name, Color color,
+            int hat, int shirt, int pants, int face, int build, int costume)
+        {
+            CharacterCustomization previous = Instance;
+            var go = new GameObject("RemotePlayer_" + (string.IsNullOrWhiteSpace(name) ? "Invitado" : name));
+
+            RemotePart(go.transform, "Body", PrimitiveType.Capsule,
+                new Vector3(0f, 0.9f, 0f), new Vector3(0.7f, 0.9f, 0.7f), color);
+            RemotePart(go.transform, "Head", PrimitiveType.Sphere,
+                new Vector3(0f, 1.9f, 0f), Vector3.one * 0.55f, color);
+            RemotePart(go.transform, "Eye", PrimitiveType.Sphere,
+                new Vector3(-0.12f, 1.95f, 0.24f), Vector3.one * 0.13f, Color.white);
+            RemotePart(go.transform, "Eye", PrimitiveType.Sphere,
+                new Vector3(0.12f, 1.95f, 0.24f), Vector3.one * 0.13f, Color.white);
+
+            var remote = go.AddComponent<CharacterCustomization>();
+            remote.netRemote = true;
+            Instance = previous != null ? previous : null;
+            remote.ApplyRemoteAppearance(name, color, hat, shirt, pants, face, build, costume);
+            return remote;
+        }
+
+        /// <summary>Aplica el atuendo recibido por red sin tocar los ajustes locales.</summary>
+        public void ApplyRemoteAppearance(string name, Color color,
+            int hat, int shirt, int pants, int face, int build, int costume)
+        {
+            netRemote = true;
+            playerName = string.IsNullOrWhiteSpace(name) ? "Jugador" : name;
+            playerColor = color;
+            _hatIndex = Clamp(hat, OutfitCatalog.Hats.Length);
+            _shirtIndex = Clamp(shirt, OutfitCatalog.Shirts.Length);
+            _pantsIndex = Clamp(pants, OutfitCatalog.Pants.Length);
+            _faceIndex = Clamp(face, OutfitCatalog.Faces.Length);
+            _buildIndex = Clamp(build, OutfitCatalog.Builds.Length);
+            _costumeIndex = Clamp(costume, OutfitCatalog.Costumes.Length);
+            RebuildOutfit();
+        }
+
+        static void RemotePart(Transform parent, string name, PrimitiveType type,
+            Vector3 position, Vector3 scale, Color color)
+        {
+            var part = GameObject.CreatePrimitive(type);
+            part.name = name;
+            part.transform.SetParent(parent, false);
+            part.transform.localPosition = position;
+            part.transform.localScale = scale;
+
+            var collider = part.GetComponent<Collider>();
+            if (collider != null) UnityEngine.Object.Destroy(collider);
+
+            var material = new Material(LitShader);
+            material.name = name == "Eye" ? "EyeWhite" : "BodyMaterial";
+            if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+            else if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+            part.GetComponent<Renderer>().sharedMaterial = material;
         }
 
         // ---------------------------------------------------------- internos

@@ -10,9 +10,11 @@ namespace Caos.Maps
 
         public string PlayerName { get; private set; } = "Jugador";
 
-        public void Configure(string name, Color color)
+        public void Configure(string name, Color color, bool tint = true)
         {
             PlayerName = name;
+            if (!tint) return;
+
             var renderer = GetComponentInChildren<Renderer>();
             if (renderer != null) renderer.material.color = color;
         }

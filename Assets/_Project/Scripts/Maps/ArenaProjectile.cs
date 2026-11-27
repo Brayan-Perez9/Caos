@@ -20,6 +20,7 @@ namespace Caos.Maps
         float _damage;
         float _life;
         bool _spent;
+        bool _remote;
 
         /// <summary>Firma original de la arena; se mantiene por compatibilidad.</summary>
         public void Configure(ArenaDirector director, Vector3 direction, float speed,
@@ -38,6 +39,7 @@ namespace Caos.Maps
             _damage = damage;
             _element = element;
             _life = 2.8f;
+            _remote = false;
 
             Collider collider = GetComponent<Collider>();
             if (collider != null) collider.isTrigger = true;
@@ -48,9 +50,27 @@ namespace Caos.Maps
             body.useGravity = false;
         }
 
+        /// <summary>Bala recreada por red: vuela y se apaga, pero no hace daño.</summary>
+        public void ConfigureRemote(Vector3 direction, float speed, ArenaElement element)
+        {
+            _remote = true;
+            _director = null;
+            _direction = direction.normalized;
+            _speed = speed;
+            _element = element;
+            _damage = 0f;
+            _life = 2.8f;
+
+            Collider collider = GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+
+            Rigidbody body = GetComponent<Rigidbody>();
+            if (body != null) Destroy(body);
+        }
+
         void Update()
         {
-            if (_director == null || _spent)
+            if (_spent || (_director == null && !_remote))
             {
                 Destroy(gameObject);
                 return;
@@ -59,7 +79,7 @@ namespace Caos.Maps
             Vector3 previous = transform.position;
             Vector3 next = previous + _direction * (_speed * Time.deltaTime);
 
-            if (HitAlong(previous, next))
+            if (!_remote && HitAlong(previous, next))
             {
                 Destroy(gameObject);
                 return;

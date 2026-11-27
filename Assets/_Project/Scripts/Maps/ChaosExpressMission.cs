@@ -59,6 +59,7 @@ namespace Caos.Maps
         readonly List<Material> _spawnedMaterials = new List<Material>();
 
         CaosNetPeer _peer;
+        CaosNetPlayers _netPlayers;
         float _nextSnapshot;
         float _nextPose;
         readonly Dictionary<string, ChaosRemotePlayer> _remotes =
@@ -121,6 +122,10 @@ namespace Caos.Maps
                 _peer.MessageReceived += OnNetMessage;
             }
 
+            // El componente compartido dibuja ya a todos los jugadores: evitar
+            // cápsulas duplicadas con el protocolo Pose antiguo.
+            _netPlayers = FindFirstObjectByType<CaosNetPlayers>();
+
             _originalGravity = Physics.gravity;
             _timeLeft = matchSeconds;
             _nextEvent = Time.time + eventInterval;
@@ -171,7 +176,7 @@ namespace Caos.Maps
             }
 
             if (IsNetHost) SendSnapshot();
-            SendPlayerPose();
+            if (_netPlayers == null) SendPlayerPose();
 
             if (_phase != Phase.Playing) return;
 
@@ -625,7 +630,7 @@ namespace Caos.Maps
                     break;
 
                 case CaosMessageKind.Pose:
-                    ApplyPose(payload);
+                    if (_netPlayers == null) ApplyPose(payload);
                     break;
 
                 case CaosMessageKind.Chat:

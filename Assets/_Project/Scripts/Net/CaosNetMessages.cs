@@ -27,6 +27,12 @@ namespace Caos.Net
         DungeonGoal,
         DungeonDefeat,
         DungeonFinish,
+
+        // Presencia y combate compartidos por todas las escenas jugables.
+        // Añadidos al final: nunca reordenar los ordinales anteriores.
+        NetworkPose,
+        NetworkShot,
+        NetworkMelee,
     }
 
     /// <summary>Codifica/decodifica mensajes como "Kind|payload" con un solo paquete TCP.</summary>

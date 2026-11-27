@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Caos.Maps;
+using Caos.Net;
 using Caos.Player;
 using Caos.UI;
 
@@ -545,6 +546,7 @@ namespace Caos.EditorTools
             // El orden importa: PlayerController exige PlayerInputReader.
             player.AddComponent<PlayerController>().SetSpawnPoint(spawn);
             player.AddComponent<CharacterCustomization>();
+            player.AddComponent<CaosNetPlayers>();
             player.AddComponent<ArenaAimController>();
 
             var cameraObject = new GameObject("PlayerCamera");

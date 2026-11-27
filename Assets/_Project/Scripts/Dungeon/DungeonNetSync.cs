@@ -20,6 +20,7 @@ namespace Caos.Dungeon
 
         DungeonDirector _director;
         CaosNetPeer _peer;
+        CaosNetPlayers _netPlayers;
         float _nextPose;
 
         public bool IsHost => _peer != null && _peer.IsHost;
@@ -40,6 +41,9 @@ namespace Caos.Dungeon
 
             _peer.MessageReceived -= OnMessage;
             _peer.MessageReceived += OnMessage;
+
+            // CaosNetPlayers ya crea los avatares completos: no repetir poses.
+            _netPlayers = FindFirstObjectByType<CaosNetPlayers>();
         }
 
         void OnDestroy()
@@ -56,7 +60,7 @@ namespace Caos.Dungeon
 
         void Update()
         {
-            if (!Connected || _director == null || _director.Finished) return;
+            if (!Connected || _netPlayers != null || _director == null || _director.Finished) return;
             if (_director.Player == null) return;
             if (Time.time < _nextPose) return;
             _nextPose = Time.time + PoseInterval;
@@ -79,7 +83,7 @@ namespace Caos.Dungeon
             switch (kind)
             {
                 case CaosMessageKind.DungeonPose:
-                    OnPose(payload);
+                    if (_netPlayers == null) OnPose(payload);
                     break;
                 case CaosMessageKind.DungeonRoom:
                     if (IsClient && int.TryParse(payload, out int room))

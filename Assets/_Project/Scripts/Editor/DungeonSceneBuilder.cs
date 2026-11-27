@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Caos.Dungeon;
 using Caos.Maps;
+using Caos.Net;
 using Caos.Player;
 using Caos.UI;
 
@@ -109,6 +110,7 @@ namespace Caos.EditorTools
             PlayerController movement = player.AddComponent<PlayerController>();
             movement.SetSpawnPoint(spawn);
             player.AddComponent<CharacterCustomization>();
+            player.AddComponent<CaosNetPlayers>();
             player.AddComponent<ArenaAimController>();
 
             var cameraObject = new GameObject("PlayerCamera");

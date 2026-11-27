@@ -1,4 +1,5 @@
 using UnityEngine;
+using Caos.Net;
 using Caos.Player;
 
 namespace Caos.Maps
@@ -16,6 +17,7 @@ namespace Caos.Maps
         bool _equipped;
         float _nextHit;
         float _swing;
+        CaosNetPlayers _netPlayers;
 
         public bool IsEquipped => _equipped;
 
@@ -59,6 +61,9 @@ namespace Caos.Maps
             _nextHit = Time.time + cooldown;
             _swing = 55f;
             ChaosFx.Burst(transform.position, new Color(1f, 0.9f, 0.4f), 4);
+
+            if (_netPlayers == null) _netPlayers = FindFirstObjectByType<CaosNetPlayers>();
+            _netPlayers?.NotifyMelee(_player.transform.position, _player.transform.eulerAngles.y);
 
             var boss = FindFirstObjectByType<ChaosBoss>();
             if (boss != null &&

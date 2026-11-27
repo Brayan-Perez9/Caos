@@ -6,6 +6,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using Caos.Interactions;
 using Caos.Maps;
+using Caos.Net;
 using Caos.Player;
 using Caos.UI;
 
@@ -416,6 +417,7 @@ namespace Caos.EditorTools
             player.AddComponent<PlayerPusher>();
             player.AddComponent<ChaosInteraction>();
             player.AddComponent<CharacterCustomization>();
+            player.AddComponent<CaosNetPlayers>();
 
             var cameraObject = new GameObject("PlayerCamera");
             var camera = cameraObject.AddComponent<Camera>();
