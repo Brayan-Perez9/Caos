@@ -49,13 +49,17 @@ Shader "Caos/Ambient"
             {
                 Varyings output;
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
-                output.color = input.color * _BaseColor;
+                output.color = input.color;
                 return output;
             }
 
             half4 frag(Varyings input) : SV_Target
             {
-                return half4(input.color.rgb, input.color.a);
+                // Mismo criterio que ToonStylized: COLOR ausente se lee como blanco.
+                float3 tint = input.color.rgb;
+                float hasVertexColor = saturate(tint.r + tint.g + tint.b);
+                tint = lerp(float3(1.0, 1.0, 1.0), tint, hasVertexColor);
+                return half4(tint * _BaseColor.rgb, input.color.a * _BaseColor.a);
             }
             ENDHLSL
         }

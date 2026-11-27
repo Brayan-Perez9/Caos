@@ -350,7 +350,9 @@ namespace Caos.Maps
         /// </summary>
         void BuildEdgeHills(System.Random rng)
         {
-            var material = MakeTuft();
+            // OrganicCrown trae un tono gris por vértice: con base blanca salían
+            // manchas claras. Base verde para que se lean como lomas de césped.
+            var material = MakeHill();
             float radius = Mathf.Max(halfExtents.x, halfExtents.y) + 3.5f;
 
             for (int i = 0; i < edgeHillCount; i++)
@@ -458,7 +460,7 @@ namespace Caos.Maps
 
         void BuildClouds(System.Random rng)
         {
-            var material = MakeLit(new Color(0.78f, 0.86f, 0.98f));
+            var material = MakeLit(new Color(0.66f, 0.78f, 0.92f));
             float wrap = Mathf.Max(halfExtents.x, halfExtents.y) + 40f;
 
             for (int i = 0; i < cloudCount; i++)
@@ -482,9 +484,9 @@ namespace Caos.Maps
                         (float)(rng.NextDouble() - 0.5) * 0.8f,
                         (float)(rng.NextDouble() - 0.5) * 2.4f);
                     puff.transform.localScale = new Vector3(
-                        1.3f + (float)rng.NextDouble() * 1.2f,
-                        0.45f + (float)rng.NextDouble() * 0.35f,
-                        0.9f + (float)rng.NextDouble() * 0.8f);
+                        1.0f + (float)rng.NextDouble() * 0.9f,
+                        0.35f + (float)rng.NextDouble() * 0.25f,
+                        0.8f + (float)rng.NextDouble() * 0.6f);
                 }
 
                 _clouds.Add(new Drift
@@ -729,6 +731,17 @@ namespace Caos.Maps
             material.SetFloat("_RimStrength", 0.10f);
             material.SetFloat("_Smoothness", 0.12f);
             material.SetFloat("_NoiseScale", 2.2f);
+            return material;
+        }
+
+        /// <summary>Lomas de borde: verde con el tono gris de OrganicCrown.</summary>
+        Material MakeHill()
+        {
+            var material = MakeStylized(new Color(0.24f, 0.62f, 0.34f, 1f));
+            material.SetColor("_ShadowColor", new Color(0.10f, 0.26f, 0.14f, 1f));
+            material.SetColor("_RimColor", new Color(0.45f, 0.85f, 0.55f, 1f));
+            material.SetFloat("_RimStrength", 0.08f);
+            material.SetFloat("_Smoothness", 0.10f);
             return material;
         }
 

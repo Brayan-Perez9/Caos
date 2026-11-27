@@ -88,8 +88,13 @@ Shader "Caos/ToonStylized"
                 float3 viewDir = normalize(_WorldSpaceCameraPos - input.positionWS);
                 float3 lightDir = normalize(_LightDir.xyz);
 
-                // Vertex color permite variacion dentro de una sola malla (flores, hierba, copas).
-                float3 base = _BaseColor.rgb * input.color.rgb;
+                // Las primitivas de Unity no siempre incluyen el atributo COLOR.
+                // Si llega a cero se trata como blanco: evita bombillas y detalles
+                // negros sin perder el degradado de mallas procedurales teñidas.
+                float3 vertexTint = input.color.rgb;
+                float hasVertexColor = saturate(vertexTint.r + vertexTint.g + vertexTint.b);
+                vertexTint = lerp(float3(1.0, 1.0, 1.0), vertexTint, hasVertexColor);
+                float3 base = _BaseColor.rgb * vertexTint;
                 float ndl = saturate(dot(normal, lightDir)) * 0.5 + 0.5;
                 float3 shade = lerp(_ShadowColor.rgb, base, 0.42);
                 float3 color = lerp(shade, base, smoothstep(0.10, 0.88, ndl));

@@ -89,7 +89,7 @@ namespace Caos.EditorTools
             var light = sun.AddComponent<Light>();
             light.type = LightType.Directional;
             light.color = new Color(1f, 0.93f, 0.80f);
-            light.intensity = 1.15f;
+            light.intensity = 1.0f;
             light.shadows = LightShadows.Soft;
             light.shadowStrength = 0.72f;
             sun.transform.rotation = Quaternion.Euler(52f, -38f, 0f);
@@ -99,7 +99,7 @@ namespace Caos.EditorTools
             var fill = fillObject.AddComponent<Light>();
             fill.type = LightType.Directional;
             fill.color = new Color(0.55f, 0.80f, 1f);
-            fill.intensity = 0.20f;
+            fill.intensity = 0.15f;
             fill.shadows = LightShadows.None;
             fillObject.transform.rotation = Quaternion.Euler(28f, 142f, 0f);
 
@@ -107,7 +107,7 @@ namespace Caos.EditorTools
             RenderSettings.ambientSkyColor = new Color(0.42f, 0.72f, 0.92f);
             RenderSettings.ambientEquatorColor = new Color(1f, 0.80f, 0.60f);
             RenderSettings.ambientGroundColor = new Color(0.18f, 0.34f, 0.24f);
-            RenderSettings.ambientIntensity = 0.85f;
+            RenderSettings.ambientIntensity = 0.72f;
 
             // Sin niebla global: lavaba la imagen y ocultaba la lectura del mapa.
             // La profundidad la dan ahora las montañas y nubes alejadas.
@@ -556,8 +556,8 @@ namespace Caos.EditorTools
             material.SetColor("_ShadowColor", new Color(0.14f, 0.24f, 0.34f, 1f));
             material.SetColor("_RimColor", new Color(0.35f, 0.82f, 1f, 1f));
             material.SetFloat("_RimPower", 3.2f);
-            material.SetFloat("_RimStrength", 0.24f);
-            material.SetFloat("_Emission", variant == "Coral" || variant == "Cyan" ? 0.06f : 0.02f);
+            material.SetFloat("_RimStrength", 0.14f);
+            material.SetFloat("_Emission", variant == "Coral" || variant == "Cyan" ? 0.03f : 0.01f);
             material.SetFloat("_Smoothness", 0.32f);
             material.SetFloat("_NoiseScale", 1.5f);
             material.SetColor("_LightDir", new Vector4(0.45f, 0.85f, 0.30f, 0f));
