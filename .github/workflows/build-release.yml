@@ -29,8 +29,9 @@ jobs:
         run: |
           $unity = 'C:\Program Files\Unity\Hub\Editor\6000.3.29f1\Editor\Unity.exe'
           $log = Join-Path $env:GITHUB_WORKSPACE 'unity-build.log'
+          # Sin -batchmode/-nographics: esta licencia no tiene el entitlement headless.
+          # BuildCaos.Exit cierra el editor al terminar porque hay -executeMethod.
           $arguments = @(
-            '-batchmode', '-nographics', '-quit',
             '-projectPath', $env:GITHUB_WORKSPACE,
             '-executeMethod', 'Caos.EditorTools.BuildCaos.BuildWindows',
             '-logFile', $log

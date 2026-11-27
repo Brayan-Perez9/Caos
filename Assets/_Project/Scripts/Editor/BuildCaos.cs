@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -138,8 +139,12 @@ namespace Caos.EditorTools
 
         static void Exit(int code)
         {
-            // En modo menú (editor abierto) no cerramos el editor.
-            if (Application.isBatchMode) EditorApplication.Exit(code);
+            // El build por línea de comandos debe cerrar el editor para que CI pueda esperarlo.
+            // El menú del editor (sin -executeMethod) no se cierra.
+            bool launchedByCommandLine = Environment.GetCommandLineArgs()
+                .Contains("-executeMethod");
+            if (Application.isBatchMode || launchedByCommandLine)
+                EditorApplication.Exit(code);
         }
     }
 }
