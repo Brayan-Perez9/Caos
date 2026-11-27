@@ -25,13 +25,13 @@ Material:
     m_TexEnvs: []
     m_Ints: []
     m_Floats:
-    - _Scale: 2.2
-    - _WindSpeed: 0.9
-    - _WindStrength: 0.055
+    - _Scale: 2.8
+    - _WindSpeed: 1.05
+    - _WindStrength: 0.07
     m_Colors:
-    - _BaseColor: {r: 0.118, g: 0.42, b: 0.227, a: 1}
-    - _BladeColor: {r: 0.208, g: 0.659, b: 0.361, a: 1}
+    - _BaseColor: {r: 0.15, g: 0.52, b: 0.255, a: 1}
+    - _BladeColor: {r: 0.36, g: 0.85, b: 0.41, a: 1}
     - _LightDir: {r: 0.4, g: 0.8, b: 0.25, a: 0}
-    - _SoilColor: {r: 0.42, g: 0.29, b: 0.184, a: 1}
+    - _SoilColor: {r: 0.47, g: 0.33, b: 0.19, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

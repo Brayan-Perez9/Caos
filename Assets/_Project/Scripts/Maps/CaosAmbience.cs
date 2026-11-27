@@ -32,10 +32,11 @@ namespace Caos.Maps
         [SerializeField] Vector2 halfExtents = new Vector2(14f, 14f);
         [SerializeField] float groundY;
         [SerializeField] int treeCount = 14;
-        [SerializeField] int grassCount = 80;
-        [SerializeField] int flowerCount = 28;
-        [SerializeField] int rockCount = 16;
+        [SerializeField] int grassCount = 140;
+        [SerializeField] int flowerCount = 42;
+        [SerializeField] int rockCount = 22;
         [SerializeField] int mountainCount = 14;
+        [SerializeField] int edgeHillCount = 18;
         [SerializeField] int cloudCount = 7;
         [SerializeField] int fireflyCount = 18;
         [SerializeField] int rainCount = 140;
@@ -130,6 +131,7 @@ namespace Caos.Maps
             BuildTreesAndBushes(Stream(11));
             BuildGrass(Stream(23));
             BuildFlowersAndRocks(Stream(67), Stream(71));
+            BuildEdgeHills(Stream(91));
             BuildMountains(Stream(83));
             BuildClouds(Stream(37));
             BuildFireflies(Stream(53));
@@ -182,23 +184,23 @@ namespace Caos.Maps
             switch (biome)
             {
                 case AmbientBiome.Neon:
-                    crownA = new Color(0.06f, 0.24f, 0.78f);
-                    crownB = new Color(0.16f, 0.52f, 1f);
-                    bushColor = new Color(0.10f, 0.38f, 0.90f);
+                    crownA = new Color(0.10f, 0.42f, 0.30f);
+                    crownB = new Color(0.28f, 0.74f, 0.46f);
+                    bushColor = new Color(0.18f, 0.60f, 0.36f);
                     break;
                 case AmbientBiome.Candy:
-                    crownA = new Color(0.18f, 0.42f, 1f);
-                    crownB = new Color(0.36f, 0.72f, 1f);
-                    bushColor = new Color(0.22f, 0.56f, 1f);
+                    crownA = new Color(0.16f, 0.52f, 0.38f);
+                    crownB = new Color(0.40f, 0.82f, 0.55f);
+                    bushColor = new Color(0.28f, 0.70f, 0.44f);
                     break;
                 default:
-                    crownA = new Color(0.05f, 0.20f, 0.72f);
-                    crownB = new Color(0.22f, 0.58f, 1f);
-                    bushColor = new Color(0.12f, 0.40f, 0.86f);
+                    crownA = new Color(0.08f, 0.36f, 0.26f);
+                    crownB = new Color(0.24f, 0.68f, 0.42f);
+                    bushColor = new Color(0.14f, 0.54f, 0.32f);
                     break;
             }
 
-            // Copas y arbustos azules con la misma textura de pasto del suelo.
+            // Copas y arbustos verdes con la misma textura de pasto del suelo.
             Material crownAMaterial = MakeFoliage(crownA);
             Material crownBMaterial = MakeFoliage(crownB);
             Material bushMaterial = MakeFoliage(bushColor);
@@ -267,7 +269,9 @@ namespace Caos.Maps
 
         void BuildGrass(System.Random rng)
         {
-            var material = MakeAmbient(Color.white);
+            // Material opaco con color por vértice: las hojas se ven con luz y
+            // no quedan como un velo transparente sobre el suelo.
+            var material = MakeTuft();
             _grassMesh = CreateGrassMesh();
 
             for (int i = 0; i < grassCount; i++)
@@ -305,7 +309,7 @@ namespace Caos.Maps
         /// <summary>Detalle de borde: flores ligeras y rocas sin colisión.</summary>
         void BuildFlowersAndRocks(System.Random flowerRng, System.Random rockRng)
         {
-            var flowerMaterial = MakeAmbient(Color.white);
+            var flowerMaterial = MakeTuft();
             for (int i = 0; i < flowerCount; i++)
             {
                 Vector3 position = SampleOpen(flowerRng, 1.1f);
@@ -335,6 +339,36 @@ namespace Caos.Maps
                 rock.transform.rotation = Quaternion.Euler(
                     0f, (float)rockRng.NextDouble() * 360f,
                     (float)(rockRng.NextDouble() - 0.5) * 8f);
+            }
+        }
+
+        // ------------------------------------------------------ lomas de borde
+
+        /// <summary>
+        /// Lomas redondeadas justo fuera del borde jugable. Suavizan la salida
+        /// de la arena y no tienen collider, así que no estorban a la IA.
+        /// </summary>
+        void BuildEdgeHills(System.Random rng)
+        {
+            var material = MakeTuft();
+            float radius = Mathf.Max(halfExtents.x, halfExtents.y) + 3.5f;
+
+            for (int i = 0; i < edgeHillCount; i++)
+            {
+                float angle = (i + (float)(rng.NextDouble() - 0.5) * 0.25f)
+                              / edgeHillCount * Mathf.PI * 2f;
+                float distance = radius + (float)rng.NextDouble() * 3f;
+                var position = new Vector3(
+                    Mathf.Cos(angle) * distance,
+                    groundY - 0.35f,
+                    Mathf.Sin(angle) * distance);
+
+                var hill = CreateMeshObject("EdgeHill_" + i,
+                    CaosVisualKit.OrganicCrown(1.4f, i + 701, 0.28f), material, position);
+                hill.transform.localScale = new Vector3(
+                    1f + (float)rng.NextDouble() * 0.6f,
+                    0.8f + (float)rng.NextDouble() * 0.5f,
+                    1f + (float)rng.NextDouble() * 0.6f);
             }
         }
 
@@ -683,6 +717,18 @@ namespace Caos.Maps
             if (material.HasProperty("_RimStrength")) material.SetFloat("_RimStrength", 0.16f);
             if (material.HasProperty("_Emission")) material.SetFloat("_Emission", 0f);
             _ownedMaterials.Add(material);
+            return material;
+        }
+
+        /// <summary>Hierba y flores: opacas, con vértices teñidos y brillo suave.</summary>
+        Material MakeTuft()
+        {
+            var material = MakeStylized(Color.white);
+            material.SetColor("_ShadowColor", new Color(0.10f, 0.28f, 0.14f, 1f));
+            material.SetColor("_RimColor", new Color(0.55f, 0.95f, 0.55f, 1f));
+            material.SetFloat("_RimStrength", 0.10f);
+            material.SetFloat("_Smoothness", 0.12f);
+            material.SetFloat("_NoiseScale", 2.2f);
             return material;
         }
 

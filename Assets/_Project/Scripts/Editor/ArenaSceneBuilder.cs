@@ -105,21 +105,38 @@ namespace Caos.EditorTools
             return trail;
         }
 
-        /// <summary>Hito luminoso visible desde lejos: orienta sin muros nuevos.</summary>
-        static void Beacon(string name, Vector3 position, Color color, Transform parent,
-            float range = 12f)
+        /// <summary>Hito visible desde lejos: bombilla de color y luz muy suave.</summary>
+        static void Beacon(string name, Vector3 position, Color color, string bulbMaterial,
+            Transform parent, float range = 8f)
         {
             Cylinder(name + "_Pole", position + Vector3.up * 1.5f,
                 new Vector3(0.16f, 1.5f, 0.16f), "Stylized_Mint", parent);
+            GlowBulb(name + "_Bulb", position + Vector3.up * 2.85f,
+                bulbMaterial, parent, 0.42f);
+
             var lamp = new GameObject(name + "_Light");
             lamp.transform.SetParent(parent, false);
             lamp.transform.position = position + Vector3.up * 2.8f;
             var light = lamp.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = color;
-            light.intensity = 2.6f;
+            light.intensity = 1f;
             light.range = range;
             light.shadows = LightShadows.None;
+        }
+
+        /// <summary>Bombilla decorativa sin collider: da color sin lavar la imagen.</summary>
+        static void GlowBulb(string name, Vector3 position, string materialName,
+            Transform parent, float size)
+        {
+            var bulb = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            bulb.name = name;
+            bulb.transform.SetParent(parent, false);
+            bulb.transform.position = position;
+            bulb.transform.localScale = Vector3.one * size;
+            bulb.GetComponent<Renderer>().sharedMaterial = Mat(materialName);
+            var collider = bulb.GetComponent<Collider>();
+            if (collider != null) UnityEngine.Object.DestroyImmediate(collider);
         }
 
         // ------------------------------------------------------------ pisos
@@ -186,11 +203,11 @@ namespace Caos.EditorTools
 
             // Landmarks: se ven desde el spawn y desde el piso alto.
             Beacon("Beacon_Spawn", new Vector3(0f, 0f, -13f),
-                new Color(0.25f, 0.85f, 1f), parent, 10f);
+                new Color(0.25f, 0.85f, 1f), "Stylized_Cyan", parent, 8f);
             Beacon("Beacon_Landing", new Vector3(0f, 4.25f, 9.4f),
-                new Color(1f, 0.35f, 0.7f), parent, 12f);
+                new Color(1f, 0.35f, 0.7f), "Stylized_Violet", parent, 9f);
             Beacon("Beacon_Boss", new Vector3(0f, 0f, 20f),
-                new Color(1f, 0.45f, 0.2f), parent, 14f);
+                new Color(1f, 0.45f, 0.2f), "Stylized_Coral", parent, 10f);
 
             // Muros perimetrales del piso bajo.
             Box("Wall_N", new Vector3(0f, 1.6f, -24f),
@@ -269,16 +286,32 @@ namespace Caos.EditorTools
                 material, parent, true);
             weapon.AddComponent<ArenaWeaponPickup>().Configure(kind, element);
 
-            // Cada elemento tiene su color: se localiza de un vistazo.
+            // Cada elemento tiene su color: bombilla + luz tenue, sin lavar el suelo.
+            Vector3 glowPosition = position + Vector3.up * 0.8f;
+            GlowBulb(name + "_Bulb", glowPosition, ElementMaterial(element), parent, 0.24f);
+
             var lamp = new GameObject(name + "_Glow");
             lamp.transform.SetParent(parent, false);
-            lamp.transform.position = position + Vector3.up * 0.8f;
+            lamp.transform.position = glowPosition;
             var light = lamp.AddComponent<Light>();
             light.type = LightType.Point;
             light.color = ArenaElementInfo.Color(element);
-            light.intensity = 1.8f;
-            light.range = 6.5f;
+            light.intensity = 0.55f;
+            light.range = 4.5f;
             light.shadows = LightShadows.None;
+        }
+
+        static string ElementMaterial(ArenaElement element)
+        {
+            switch (element)
+            {
+                case ArenaElement.Fuego: return "Stylized_Coral";
+                case ArenaElement.Aire: return "Stylized_Cyan";
+                case ArenaElement.Hielo: return "Stylized_Platform";
+                case ArenaElement.Rayo: return "Stylized_Lemon";
+                case ArenaElement.Veneno: return "Stylized_Mint";
+                default: return "Stylized_Lemon";
+            }
         }
 
         // ---------------------------------------------------------- jugador

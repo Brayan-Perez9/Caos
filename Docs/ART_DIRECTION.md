@@ -18,7 +18,7 @@ procedurales en runtime: sin arte externo, sin Animator y sin texturas importada
 | Borde | Bisel geométrico de 2-4 segmentos y rim light sutil. Sin contornos negros gruesos. |
 | Material | Stylized semi-mate: muy poca rugosidad metálica, highlight blando, fresnel suave, emisión solo en objetos interactivos o elementos. |
 | Luz | Sol cálido direccional desde arriba-izquierda, relleno frío, sombras suaves, cielo pastel fijo y bloom muy suave. Sin niebla global: la profundidad la dan suelo lejano, montañas y nubes alejadas. |
-| Detalle | Concentrado en bordes, copas, flores, rocas y HUD. El horizonte se compone de montañas redondas y nubes fuera del área de juego. La repetición se rompe con ruido en coordenadas de mundo y variación por semilla. |
+| Detalle | Concentrado en bordes, copas, flores, rocas, lomas y HUD. El horizonte se compone de montañas redondas y nubes fuera del área de juego. La repetición se rompe con ruido en dos escalas, rocío procedural y variación por semilla. Las luces de hito son bombillas de color con intensidad baja: iluminan sin lavar la imagen. |
 | Cámara | Seguimiento suave en `LateUpdate`, encuadre con ligero look-ahead, shake solo en impactos y FOV que respira al correr. |
 | Movimiento | Todo se mueve con senos de baja frecuencia y tiempo real: hierba, copas, nubes, luciérnagas e iconos de HUD. Amplitud pequeña; nunca mareante. |
 

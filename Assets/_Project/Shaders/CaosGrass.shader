@@ -91,20 +91,28 @@ Shader "Caos/Grass"
 
                 float broad = Noise(p);
                 float fine = Noise(p * 3.7 + broad);
-                float blades = saturate(broad * 0.45 + fine * 0.75);
+                float micro = Noise(p * 8.1 + fine * 1.7);
+                float blades = saturate(broad * 0.30 + fine * 0.50 + micro * 0.32);
 
                 float3 color = lerp(_BaseColor.rgb, _BladeColor.rgb, blades);
-                float patches = Noise(p * 0.45 + 17.0);
+
+                // Dos escalas de mancha: evita el aspecto de alfombra uniforme.
+                float patches = Noise(p * 0.32 + 11.0) * 0.65
+                              + Noise(p * 0.17 + 29.0) * 0.35;
                 color = lerp(color, _SoilColor.rgb,
-                    smoothstep(0.62, 0.86, patches) * 0.45);
+                    smoothstep(0.58, 0.86, patches) * 0.38);
+
+                // Brillos mínimos tipo rocío, sin texturas ni emisión real.
+                float dew = saturate(micro - 0.74) * 3.8;
+                color += _BladeColor.rgb * dew * dew * 0.16;
 
                 // Sombreado falso con la normal: da volumen sin pasar a Lit.
                 float ndl = saturate(dot(normalize(input.normalWS),
                     normalize(_LightDir.xyz))) * 0.5 + 0.5;
-                color *= lerp(0.78, 1.12, ndl);
+                color *= lerp(0.72, 1.16, ndl);
 
                 float radius = length(input.positionWS.xz);
-                color *= lerp(0.80, 1.0, 1.0 - smoothstep(26.0, 46.0, radius));
+                color *= lerp(0.82, 1.0, 1.0 - smoothstep(28.0, 48.0, radius));
 
                 return half4(color, 1.0);
             }

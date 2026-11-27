@@ -465,12 +465,12 @@ namespace Caos.EditorTools
             }
             else if (material.shader != shader) material.shader = shader;
 
-            material.SetColor("_BaseColor", new Color(0.118f, 0.420f, 0.227f, 1f));
-            material.SetColor("_BladeColor", new Color(0.208f, 0.659f, 0.361f, 1f));
-            material.SetColor("_SoilColor", new Color(0.420f, 0.290f, 0.184f, 1f));
-            material.SetFloat("_Scale", 2.2f);
-            material.SetFloat("_WindSpeed", 0.9f);
-            material.SetFloat("_WindStrength", 0.055f);
+            material.SetColor("_BaseColor", new Color(0.150f, 0.520f, 0.255f, 1f));
+            material.SetColor("_BladeColor", new Color(0.360f, 0.850f, 0.410f, 1f));
+            material.SetColor("_SoilColor", new Color(0.470f, 0.330f, 0.190f, 1f));
+            material.SetFloat("_Scale", 2.8f);
+            material.SetFloat("_WindSpeed", 1.05f);
+            material.SetFloat("_WindStrength", 0.070f);
             EditorUtility.SetDirty(material);
             return material;
         }
@@ -557,7 +557,7 @@ namespace Caos.EditorTools
             material.SetColor("_RimColor", new Color(0.35f, 0.82f, 1f, 1f));
             material.SetFloat("_RimPower", 3.2f);
             material.SetFloat("_RimStrength", 0.24f);
-            material.SetFloat("_Emission", variant == "Coral" || variant == "Cyan" ? 0.12f : 0.03f);
+            material.SetFloat("_Emission", variant == "Coral" || variant == "Cyan" ? 0.06f : 0.02f);
             material.SetFloat("_Smoothness", 0.32f);
             material.SetFloat("_NoiseScale", 1.5f);
             material.SetColor("_LightDir", new Vector4(0.45f, 0.85f, 0.30f, 0f));
