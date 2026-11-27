@@ -165,6 +165,31 @@ namespace Caos.Maps
             return new Vector3(halfExtents.x - margin, groundY, 0f);
         }
 
+        /// <summary>
+        /// Árboles pegados al borde, lejos del carril central y del spawn.
+        /// Así las copas no quedan delante de la cámara al jugar cerca del borde.
+        /// </summary>
+        Vector3 SampleTreePerimeter(System.Random rng)
+        {
+            for (int attempt = 0; attempt < 32; attempt++)
+            {
+                float x = Mathf.Lerp(-halfExtents.x, halfExtents.x,
+                    (float)rng.NextDouble());
+                float z = Mathf.Lerp(-halfExtents.y, halfExtents.y,
+                    (float)rng.NextDouble());
+
+                bool nearEdge = Mathf.Abs(x) > halfExtents.x * 0.86f
+                    || Mathf.Abs(z) > halfExtents.y * 0.86f;
+                bool centerLane = Mathf.Abs(x) < 4.5f && Mathf.Abs(z) < halfExtents.y * 0.9f;
+                bool spawnLane = Mathf.Abs(x) < 3.5f && z < -halfExtents.y + 5f;
+
+                if (nearEdge && !centerLane && !spawnLane)
+                    return new Vector3(x, groundY, z);
+            }
+
+            return new Vector3(halfExtents.x, groundY, 0f);
+        }
+
         Vector3 SampleOpen(System.Random rng, float margin)
         {
             return new Vector3(
@@ -207,8 +232,8 @@ namespace Caos.Maps
 
             for (int i = 0; i < treeCount; i++)
             {
-                Vector3 position = SamplePerimeter(rng, 1.8f);
-                float height = 2.4f + (float)rng.NextDouble() * 1.5f;
+                Vector3 position = SampleTreePerimeter(rng);
+                float height = 2.8f + (float)rng.NextDouble() * 1.4f;
 
                 // Tronco cónico y curvado: silueta orgánica sin parecer un cilindro.
                 float bend = Mathf.Sin(i * 1.73f) * 0.12f;
@@ -220,18 +245,18 @@ namespace Caos.Maps
                 canopy.transform.position = position + Vector3.up * (height + 0.05f);
 
                 var lower = CreateMeshObject("Crown_Lower",
-                    CaosVisualKit.OrganicCrown(0.92f, i, 0.72f),
+                    CaosVisualKit.OrganicCrown(0.78f, i, 0.72f),
                     i % 2 == 0 ? crownAMaterial : crownBMaterial, canopy.transform.position);
                 lower.transform.SetParent(canopy.transform, true);
                 lower.transform.localPosition = Vector3.zero;
-                lower.transform.localScale = new Vector3(1.12f, 1f, 1.12f);
+                lower.transform.localScale = new Vector3(1f, 1f, 1f);
 
                 var upper = CreateMeshObject("Crown_Upper",
-                    CaosVisualKit.OrganicCrown(0.66f, i + 29, 0.78f),
+                    CaosVisualKit.OrganicCrown(0.56f, i + 29, 0.78f),
                     crownBMaterial, canopy.transform.position);
                 upper.transform.SetParent(canopy.transform, true);
-                upper.transform.localPosition = new Vector3(0.12f, 0.58f, -0.08f);
-                upper.transform.localScale = new Vector3(0.95f, 0.9f, 0.95f);
+                upper.transform.localPosition = new Vector3(0.10f, 0.50f, -0.06f);
+                upper.transform.localScale = new Vector3(0.9f, 0.85f, 0.9f);
 
                 _sways.Add(new Sway
                 {
@@ -249,9 +274,9 @@ namespace Caos.Maps
                     Vector3 offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle))
                         * (0.9f + (float)rng.NextDouble() * 0.5f);
                     var bush = CreateMeshObject("Bush_" + i + "_" + b,
-                        CaosVisualKit.OrganicCrown(0.52f, i * 3 + b, 0.55f), bushMaterial,
-                        position + offset + Vector3.up * 0.24f);
-                    bush.transform.localScale = new Vector3(1.05f, 0.85f, 1.05f);
+                        CaosVisualKit.OrganicCrown(0.44f, i * 3 + b, 0.55f), bushMaterial,
+                        position + offset + Vector3.up * 0.20f);
+                    bush.transform.localScale = new Vector3(0.95f, 0.8f, 0.95f);
                     _sways.Add(new Sway
                     {
                         target = bush.transform,
@@ -389,7 +414,9 @@ namespace Caos.Maps
                 MakeLit(new Color(0.34f, 0.64f, 0.42f, 1f)));
             farGround.transform.localScale = new Vector3(26f, 1f, 26f);
 
-            var material = MakeStylized(Color.white);
+            var material = MakeStylized(new Color(0.90f, 0.96f, 0.92f, 1f));
+            material.SetColor("_RimColor", new Color(0.42f, 0.72f, 0.56f, 1f));
+            material.SetFloat("_RimStrength", 0.05f);
             float inner = Mathf.Max(halfExtents.x, halfExtents.y) + 20f;
             float outer = inner + 26f;
 
@@ -762,23 +789,19 @@ namespace Caos.Maps
             return material;
         }
 
-        /// <summary>Copas azules con la textura de pasto del suelo.</summary>
+        /// <summary>
+        /// Copas opacas y con sombras. Antes se clonaba BlueGrass: su patrón de
+        /// rocío y su color de hoja claro hacían que las copas parecieran un velo.
+        /// </summary>
         Material MakeFoliage(Color color)
         {
-            Material material;
-            if (foliageMaterial != null) material = new Material(foliageMaterial);
-            else
-            {
-                var shader = Shader.Find("Caos/Grass") ?? Shader.Find(LitShaderName);
-                material = new Material(shader);
-            }
-
-            if (material.HasProperty(BaseColorId)) material.SetColor(BaseColorId, color);
-            if (material.HasProperty(BladeColorId))
-                material.SetColor(BladeColorId, Color.Lerp(color, Color.white, 0.32f));
-            if (material.HasProperty(SoilColorId))
-                material.SetColor(SoilColorId, color * 0.35f);
-            _ownedMaterials.Add(material);
+            var material = MakeStylized(color);
+            material.SetColor("_ShadowColor", color * 0.42f);
+            material.SetColor("_RimColor", new Color(0.32f, 0.62f, 0.40f, 1f));
+            material.SetFloat("_RimStrength", 0.03f);
+            material.SetFloat("_Smoothness", 0.16f);
+            material.SetFloat("_Emission", 0f);
+            material.SetFloat("_NoiseScale", 1.2f);
             return material;
         }
 

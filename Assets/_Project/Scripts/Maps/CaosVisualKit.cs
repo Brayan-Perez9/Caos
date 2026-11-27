@@ -344,7 +344,7 @@ namespace Caos.Maps
 
             Color baseGreen = new Color(0.20f, 0.55f, 0.38f, 1f);
             Color midGreen = new Color(0.38f, 0.72f, 0.52f, 1f);
-            Color snow = new Color(0.82f, 0.94f, 1f, 1f);
+            Color snow = new Color(0.62f, 0.78f, 0.72f, 1f);
 
             for (int r = 0; r <= rings; r++)
             {
