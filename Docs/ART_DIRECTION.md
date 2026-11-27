@@ -17,8 +17,8 @@ procedurales en runtime: sin arte externo, sin Animator y sin texturas importada
 | Color | Césped verde vivo con tres tonos; tierra cálida; acentos cian/coral/amarillo/violeta para interactivos, peligro, recompensa y elemento. |
 | Borde | Bisel geométrico de 2-4 segmentos y rim light sutil. Sin contornos negros gruesos. |
 | Material | Stylized semi-mate: muy poca rugosidad metálica, highlight blando, fresnel suave, emisión solo en objetos interactivos o elementos. |
-| Luz | Sol cálido direccional desde arriba-izquierda, relleno frío, sombras suaves, ambientación celeste, bloom moderado y niebla ligera para profundidad. |
-| Detalle | Concentrado en bordes, copas, flores, rocas y HUD. La repetición se rompe con ruido en coordenadas de mundo y variación por semilla. |
+| Luz | Sol cálido direccional desde arriba-izquierda, relleno frío, sombras suaves, ambientación celeste y bloom muy suave. Sin niebla global: la profundidad la dan montañas y nubes alejadas. |
+| Detalle | Concentrado en bordes, copas, flores, rocas y HUD. El horizonte se compone de montañas redondas y nubes fuera del área de juego. La repetición se rompe con ruido en coordenadas de mundo y variación por semilla. |
 | Cámara | Seguimiento suave en `LateUpdate`, encuadre con ligero look-ahead, shake solo en impactos y FOV que respira al correr. |
 | Movimiento | Todo se mueve con senos de baja frecuencia y tiempo real: hierba, copas, nubes, luciérnagas e iconos de HUD. Amplitud pequeña; nunca mareante. |
 

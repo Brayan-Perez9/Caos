@@ -318,6 +318,94 @@ namespace Caos.Maps
             return Finish(key, vertices, normals, uvs, colors, triangles, true);
         }
 
+        /// <summary>
+        /// Montaña de fondo: perfil irregular con nieve pastel arriba. Se usa
+        /// solo como decoración alejada, sin collider y con vértices teñidos.
+        /// </summary>
+        public static Mesh Mountain(float radius, float height, int seed,
+            int sides = 9, int rings = 5)
+        {
+            radius = Mathf.Max(0.5f, radius);
+            height = Mathf.Max(0.5f, height);
+            sides = Mathf.Clamp(sides, 6, 16);
+            rings = Mathf.Clamp(rings, 2, 8);
+            string key = $"mountain|{radius:0.###}|{height:0.###}|{seed}|{sides}|{rings}";
+            if (Cache.TryGetValue(key, out Mesh cached)) return cached;
+
+            var rng = new System.Random(seed);
+            var vertices = new List<Vector3>();
+            var uvs = new List<Vector2>();
+            var colors = new List<Color>();
+            var triangles = new List<int>();
+
+            var radialNoise = new float[sides];
+            for (int s = 0; s < sides; s++)
+                radialNoise[s] = 0.84f + (float)rng.NextDouble() * 0.32f;
+
+            Color baseGreen = new Color(0.20f, 0.55f, 0.38f, 1f);
+            Color midGreen = new Color(0.38f, 0.72f, 0.52f, 1f);
+            Color snow = new Color(0.82f, 0.94f, 1f, 1f);
+
+            for (int r = 0; r <= rings; r++)
+            {
+                float t = r / (float)rings;
+                float y = height * t;
+                float radial = radius * Mathf.Pow(1f - t, 0.72f);
+                radial = Mathf.Max(radial, radius * 0.02f);
+
+                for (int s = 0; s <= sides; s++)
+                {
+                    int index = s % sides;
+                    float angle = index / (float)sides * Mathf.PI * 2f;
+                    float wobble = radialNoise[index] *
+                                   (1f + 0.06f * Mathf.Sin(t * Mathf.PI * 3f + index * 1.7f));
+                    vertices.Add(new Vector3(
+                        Mathf.Cos(angle) * radial * wobble,
+                        y,
+                        Mathf.Sin(angle) * radial * wobble));
+                    uvs.Add(new Vector2(index / (float)sides, t));
+
+                    Color tint = t < 0.68f
+                        ? Color.Lerp(baseGreen, midGreen, t / 0.68f)
+                        : Color.Lerp(midGreen, snow, (t - 0.68f) / 0.32f);
+                    colors.Add(tint);
+                }
+            }
+
+            int stride = sides + 1;
+            for (int r = 0; r < rings; r++)
+            {
+                for (int s = 0; s < sides; s++)
+                {
+                    int a = r * stride + s;
+                    int b = a + 1;
+                    int c = a + stride;
+                    int d = c + 1;
+                    // Orden invertido para que las normales queden hacia fuera.
+                    triangles.Add(a);
+                    triangles.Add(c);
+                    triangles.Add(b);
+                    triangles.Add(b);
+                    triangles.Add(c);
+                    triangles.Add(d);
+                }
+            }
+
+            int topCenter = vertices.Count;
+            vertices.Add(new Vector3(0f, height, 0f));
+            uvs.Add(new Vector2(0.5f, 1f));
+            colors.Add(snow);
+            for (int s = 0; s < sides; s++)
+            {
+                triangles.Add(topCenter);
+                triangles.Add(rings * stride + s + 1);
+                triangles.Add(rings * stride + s);
+            }
+
+            var normals = new List<Vector3>(new Vector3[vertices.Count]);
+            return Finish(key, vertices, normals, uvs, colors, triangles, true);
+        }
+
         /// <summary>Matiz de hierba cruzada con degradado de color por vértice.</summary>
         public static Mesh GrassTuft(int seed)
         {

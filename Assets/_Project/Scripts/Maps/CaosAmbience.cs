@@ -22,6 +22,7 @@ namespace Caos.Maps
     public class CaosAmbience : MonoBehaviour
     {
         const string AmbientShaderName = "Caos/Ambient";
+        const string StylizedShaderName = "Caos/ToonStylized";
         const string LitShaderName = "Universal Render Pipeline/Lit";
         const int VerticesPerDrop = 8;
         const int TrianglesPerDrop = 12;
@@ -34,6 +35,7 @@ namespace Caos.Maps
         [SerializeField] int grassCount = 80;
         [SerializeField] int flowerCount = 28;
         [SerializeField] int rockCount = 16;
+        [SerializeField] int mountainCount = 14;
         [SerializeField] int cloudCount = 7;
         [SerializeField] int fireflyCount = 18;
         [SerializeField] int rainCount = 140;
@@ -128,6 +130,7 @@ namespace Caos.Maps
             BuildTreesAndBushes(Stream(11));
             BuildGrass(Stream(23));
             BuildFlowersAndRocks(Stream(67), Stream(71));
+            BuildMountains(Stream(83));
             BuildClouds(Stream(37));
             BuildFireflies(Stream(53));
             if (rain) BuildRain();
@@ -335,6 +338,40 @@ namespace Caos.Maps
             }
         }
 
+        // ------------------------------------------------------- montañas fondo
+
+        /// <summary>
+        /// Anillo de montañas fuera del área de juego. No son colisionables y
+        /// sirven de horizonte para que la arena no parezca flotar en el vacío.
+        /// </summary>
+        void BuildMountains(System.Random rng)
+        {
+            var material = MakeStylized(Color.white);
+            float inner = Mathf.Max(halfExtents.x, halfExtents.y) + 20f;
+            float outer = inner + 26f;
+
+            for (int i = 0; i < mountainCount; i++)
+            {
+                float jitter = (float)(rng.NextDouble() - 0.5) * 0.35f;
+                float angle = (i + jitter) / mountainCount * Mathf.PI * 2f;
+                float distance = Mathf.Lerp(inner, outer, (float)rng.NextDouble());
+                float radius = 4f + (float)rng.NextDouble() * 5f;
+                float height = 7f + (float)rng.NextDouble() * 12f;
+
+                var position = new Vector3(
+                    Mathf.Cos(angle) * distance,
+                    groundY - 0.6f,
+                    Mathf.Sin(angle) * distance);
+
+                var mountain = CreateMeshObject("Mountain_" + i,
+                    CaosVisualKit.Mountain(radius, height, i + 311, 9, 5),
+                    material, position);
+                mountain.transform.rotation = Quaternion.Euler(0f, -angle * Mathf.Rad2Deg, 0f);
+                mountain.transform.localScale = Vector3.one *
+                    (0.85f + (float)rng.NextDouble() * 0.45f);
+            }
+        }
+
         static Mesh CreateGrassMesh()
         {
             var mesh = new Mesh { name = "CaosGrass" };
@@ -380,8 +417,8 @@ namespace Caos.Maps
 
         void BuildClouds(System.Random rng)
         {
-            var material = MakeLit(new Color(0.92f, 0.94f, 1f));
-            float wrap = halfExtents.x + 18f;
+            var material = MakeLit(new Color(0.78f, 0.86f, 0.98f));
+            float wrap = Mathf.Max(halfExtents.x, halfExtents.y) + 40f;
 
             for (int i = 0; i < cloudCount; i++)
             {
@@ -389,7 +426,7 @@ namespace Caos.Maps
                 cluster.transform.SetParent(_generated, false);
                 cluster.transform.position = new Vector3(
                     Mathf.Lerp(-wrap, wrap, (float)rng.NextDouble()),
-                    16f + (float)rng.NextDouble() * 9f,
+                    26f + (float)rng.NextDouble() * 10f,
                     Mathf.Lerp(-halfExtents.y, halfExtents.y, (float)rng.NextDouble()));
 
                 int puffs = 4 + rng.Next(3);
@@ -621,6 +658,23 @@ namespace Caos.Maps
             var material = new Material(shader);
             if (material.HasProperty(BaseColorId)) material.SetColor(BaseColorId, color);
             if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", 0.15f);
+            _ownedMaterials.Add(material);
+            return material;
+        }
+
+        /// <summary>Material opaco que respeta el color por vértice de montañas.</summary>
+        Material MakeStylized(Color color)
+        {
+            var shader = Shader.Find(StylizedShaderName) ?? Shader.Find(LitShaderName)
+                         ?? Shader.Find("Standard");
+            var material = new Material(shader);
+            if (material.HasProperty(BaseColorId)) material.SetColor(BaseColorId, color);
+            if (material.HasProperty("_ShadowColor"))
+                material.SetColor("_ShadowColor", new Color(0.16f, 0.28f, 0.34f, 1f));
+            if (material.HasProperty("_RimColor"))
+                material.SetColor("_RimColor", new Color(0.45f, 0.82f, 1f, 1f));
+            if (material.HasProperty("_RimStrength")) material.SetFloat("_RimStrength", 0.16f);
+            if (material.HasProperty("_Emission")) material.SetFloat("_Emission", 0f);
             _ownedMaterials.Add(material);
             return material;
         }

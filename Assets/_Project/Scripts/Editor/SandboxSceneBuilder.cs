@@ -89,7 +89,7 @@ namespace Caos.EditorTools
             var light = sun.AddComponent<Light>();
             light.type = LightType.Directional;
             light.color = new Color(1f, 0.93f, 0.80f);
-            light.intensity = 1.35f;
+            light.intensity = 1.15f;
             light.shadows = LightShadows.Soft;
             light.shadowStrength = 0.72f;
             sun.transform.rotation = Quaternion.Euler(52f, -38f, 0f);
@@ -99,22 +99,19 @@ namespace Caos.EditorTools
             var fill = fillObject.AddComponent<Light>();
             fill.type = LightType.Directional;
             fill.color = new Color(0.55f, 0.80f, 1f);
-            fill.intensity = 0.28f;
+            fill.intensity = 0.20f;
             fill.shadows = LightShadows.None;
             fillObject.transform.rotation = Quaternion.Euler(28f, 142f, 0f);
 
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.56f, 0.91f, 1f);
-            RenderSettings.ambientEquatorColor = new Color(1f, 0.84f, 0.65f);
-            RenderSettings.ambientGroundColor = new Color(0.22f, 0.42f, 0.28f);
-            RenderSettings.ambientIntensity = 0.95f;
+            RenderSettings.ambientSkyColor = new Color(0.42f, 0.72f, 0.92f);
+            RenderSettings.ambientEquatorColor = new Color(1f, 0.80f, 0.60f);
+            RenderSettings.ambientGroundColor = new Color(0.18f, 0.34f, 0.24f);
+            RenderSettings.ambientIntensity = 0.85f;
 
-            // Niebla celeste clara: profundidad sin ocultar la ruta ni el HUD.
-            RenderSettings.fog = true;
-            RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.68f, 0.88f, 0.96f);
-            RenderSettings.fogStartDistance = 34f;
-            RenderSettings.fogEndDistance = 110f;
+            // Sin niebla global: lavaba la imagen y ocultaba la lectura del mapa.
+            // La profundidad la dan ahora las montañas y nubes alejadas.
+            RenderSettings.fog = false;
 
             var volumeObject = new GameObject("Global Volume");
             var volume = volumeObject.AddComponent<Volume>();
@@ -577,37 +574,49 @@ namespace Caos.EditorTools
         {
             const string path = "Assets/Settings/CaosVolumeProfile.asset";
             var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(path);
-            if (profile != null) return profile;
+            bool created = profile == null;
 
-            profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            profile.name = "CaosVolumeProfile";
+            if (created)
+            {
+                profile = ScriptableObject.CreateInstance<VolumeProfile>();
+                profile.name = "CaosVolumeProfile";
+            }
 
-            var bloom = profile.Add<Bloom>(true);
-            bloom.intensity.Override(0.22f);
-            bloom.threshold.Override(0.85f);
-            bloom.scatter.Override(0.55f);
-            bloom.tint.Override(new Color(1f, 0.96f, 0.88f));
+            // Se reescriben los valores incluso si el asset ya existía: así una
+            // regeneración corrige perfiles creados por versiones anteriores.
+            var bloom = GetOrAdd<Bloom>(profile, true);
+            bloom.intensity.Override(0.10f);
+            bloom.threshold.Override(1.05f);
+            bloom.scatter.Override(0.40f);
+            bloom.tint.Override(new Color(1f, 0.97f, 0.92f));
 
-            var tonemapping = profile.Add<Tonemapping>(true);
+            var tonemapping = GetOrAdd<Tonemapping>(profile, true);
             tonemapping.mode.Override(TonemappingMode.ACES);
 
-            var vignette = profile.Add<Vignette>(true);
-            vignette.intensity.Override(0.16f);
+            var vignette = GetOrAdd<Vignette>(profile, true);
+            vignette.intensity.Override(0.12f);
             vignette.smoothness.Override(0.50f);
             vignette.rounded.Override(true);
 
-            var color = profile.Add<ColorAdjustments>(true);
-            color.postExposure.Override(0.08f);
-            color.contrast.Override(5f);
-            color.saturation.Override(8f);
+            var color = GetOrAdd<ColorAdjustments>(profile, true);
+            color.postExposure.Override(0f);
+            color.contrast.Override(6f);
+            color.saturation.Override(10f);
 
-            AssetDatabase.CreateAsset(profile, path);
+            if (created) AssetDatabase.CreateAsset(profile, path);
             AddSubAssetIfNeeded(bloom, profile);
             AddSubAssetIfNeeded(tonemapping, profile);
             AddSubAssetIfNeeded(vignette, profile);
             AddSubAssetIfNeeded(color, profile);
+            EditorUtility.SetDirty(profile);
             AssetDatabase.SaveAssets();
             return profile;
+        }
+
+        static T GetOrAdd<T>(VolumeProfile profile, bool overrides) where T : VolumeComponent
+        {
+            if (profile.TryGet<T>(out T component) && component != null) return component;
+            return profile.Add<T>(overrides);
         }
 
         static void AddSubAssetIfNeeded(UnityEngine.Object child, UnityEngine.Object parent)
