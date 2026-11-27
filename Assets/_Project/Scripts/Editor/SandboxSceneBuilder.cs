@@ -578,7 +578,11 @@ namespace Caos.EditorTools
             }
         }
 
-        /// <summary>Perfil URP moderado: bloom suave, tonemap y vignette ligero.</summary>
+        /// <summary>
+        /// Perfil limpio: las cámaras conservan solo antialiasing. Bloom,
+        /// tonemap, vignette y ajustes de color se dejan desactivados porque
+        /// cualquier capa global se percibía como niebla sobre la arena.
+        /// </summary>
         public static VolumeProfile GetCaosVolumeProfile()
         {
             const string path = "Assets/Settings/CaosVolumeProfile.asset";
@@ -591,26 +595,24 @@ namespace Caos.EditorTools
                 profile.name = "CaosVolumeProfile";
             }
 
-            // Se reescriben los valores incluso si el asset ya existía: así una
-            // regeneración corrige perfiles creados por versiones anteriores.
             var bloom = GetOrAdd<Bloom>(profile, true);
-            bloom.intensity.Override(0.10f);
-            bloom.threshold.Override(1.05f);
-            bloom.scatter.Override(0.40f);
-            bloom.tint.Override(new Color(1f, 0.97f, 0.92f));
+            bloom.intensity.Override(0f);
+            bloom.threshold.Override(2f);
+            bloom.active = false;
 
             var tonemapping = GetOrAdd<Tonemapping>(profile, true);
-            tonemapping.mode.Override(TonemappingMode.ACES);
+            tonemapping.mode.Override(TonemappingMode.None);
+            tonemapping.active = false;
 
             var vignette = GetOrAdd<Vignette>(profile, true);
-            vignette.intensity.Override(0.12f);
-            vignette.smoothness.Override(0.50f);
-            vignette.rounded.Override(true);
+            vignette.intensity.Override(0f);
+            vignette.active = false;
 
             var color = GetOrAdd<ColorAdjustments>(profile, true);
             color.postExposure.Override(0f);
-            color.contrast.Override(6f);
-            color.saturation.Override(10f);
+            color.contrast.Override(0f);
+            color.saturation.Override(0f);
+            color.active = false;
 
             if (created) AssetDatabase.CreateAsset(profile, path);
             AddSubAssetIfNeeded(bloom, profile);
