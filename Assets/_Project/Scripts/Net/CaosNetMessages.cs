@@ -19,6 +19,14 @@ namespace Caos.Net
         Weapon,
         Ping,
         Pong,
+
+        // Mazmorra: añadidos al final para no cambiar los ordinales existentes.
+        DungeonStart,
+        DungeonPose,
+        DungeonRoom,
+        DungeonGoal,
+        DungeonDefeat,
+        DungeonFinish,
     }
 
     /// <summary>Codifica/decodifica mensajes como "Kind|payload" con un solo paquete TCP.</summary>

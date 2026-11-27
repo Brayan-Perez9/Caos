@@ -28,7 +28,7 @@ namespace Caos.Maps
         Color _accentColor = new Color(0.50f, 0.08f, 0.13f);
         float _powerCooldown = 3.1f;
 
-        ArenaDirector _director;
+        IArenaCombatDirector _director;
         ChaosHealth _health;
         PlayerController _player;
         CharacterController _controller;
@@ -71,7 +71,15 @@ namespace Caos.Maps
         public int BossIndex => _bossIndex;
         public bool IsDead => _dead || (_health != null && _health.IsDead);
 
+        /// <summary>Firma original de la arena; se mantiene por compatibilidad.</summary>
         public void Configure(float speed, float damage, ArenaDirector director,
+            ArenaBossKind kind, int index)
+        {
+            Configure(speed, damage, (IArenaCombatDirector)director, kind, index);
+        }
+
+        /// <summary>Permite usar el mismo jefe desde la mazmorra.</summary>
+        public void Configure(float speed, float damage, IArenaCombatDirector director,
             ArenaBossKind kind, int index)
         {
             moveSpeed = speed;
@@ -563,9 +571,9 @@ namespace Caos.Maps
 
             Vector3 destination = _player.transform.position + new Vector3(
                 Random.Range(-4.5f, 4.5f), 0f, Random.Range(-4.5f, 4.5f));
-            destination.x = Mathf.Clamp(destination.x, -21f, 21f);
-            destination.z = Mathf.Clamp(destination.z, -21f, 21f);
             destination.y = _player.transform.position.y;
+            // La arena devuelve el punto sin cambios; la mazmorra lo mete en su sala.
+            destination = _director.ClampWorldPosition(destination);
 
             if (_controller != null) _controller.enabled = false;
             transform.position = destination;

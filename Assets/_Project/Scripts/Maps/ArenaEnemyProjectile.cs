@@ -9,14 +9,22 @@ namespace Caos.Maps
     {
         const float HitRadius = 0.4f;
 
-        ArenaDirector _director;
+        IArenaCombatDirector _director;
         Vector3 _direction;
         float _speed;
         float _damage;
         float _life;
         bool _spent;
 
+        /// <summary>Firma original de la arena; se mantiene por compatibilidad.</summary>
         public void Configure(ArenaDirector director, Vector3 direction, float speed, float damage)
+        {
+            Configure((IArenaCombatDirector)director, direction, speed, damage);
+        }
+
+        /// <summary>Configuración compartida con la mazmorra.</summary>
+        public void Configure(IArenaCombatDirector director, Vector3 direction,
+            float speed, float damage)
         {
             _director = director;
             _direction = direction.normalized;

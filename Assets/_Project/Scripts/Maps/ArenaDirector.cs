@@ -12,7 +12,7 @@ namespace Caos.Maps
     /// elementales, mejoras por bajas y daño/sangre del jugador. Todo se genera
     /// en runtime, sin assets externos.
     /// </summary>
-    public class ArenaDirector : MonoBehaviour
+    public class ArenaDirector : MonoBehaviour, IArenaCombatDirector
     {
         static readonly Color BloodColor = new Color(0.58f, 0.02f, 0.03f);
 
@@ -496,6 +496,9 @@ namespace Caos.Maps
             ArenaJuice.Current.Spawn(go.transform.position, true);
             ArenaJuice.Current.Impact(go.transform.position, 0.9f, go.transform);
         }
+
+        /// <summary>La arena no limita los poderes del jefe: su mapa ya está acotado.</summary>
+        public Vector3 ClampWorldPosition(Vector3 point) => point;
 
         public float MonsterSpeed(float baseSpeed)
         {

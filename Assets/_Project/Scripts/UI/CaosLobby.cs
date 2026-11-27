@@ -13,6 +13,7 @@ namespace Caos.UI
     public class CaosLobby : MonoBehaviour
     {
         const string MissionSceneName = "ChaosExpress";
+        const string DungeonSceneName = "Dungeon";
         const string MenuSceneName = "Menu";
 
         CaosNetPeer _peer;
@@ -23,6 +24,7 @@ namespace Caos.UI
         readonly List<string> _chat = new List<string>();
         bool _started;
         bool _autoStart;
+        bool _autoDungeon;
 
         GUIStyle _titleStyle;
         GUIStyle _labelStyle;
@@ -47,6 +49,7 @@ namespace Caos.UI
 
             var args = Environment.GetCommandLineArgs();
             _autoStart = Array.IndexOf(args, "-autostart") >= 0;
+            _autoDungeon = Array.IndexOf(args, "-dungeon") >= 0;
 
             if (Array.IndexOf(args, "-host") >= 0) CreateRoom();
 
@@ -72,6 +75,7 @@ namespace Caos.UI
                         _peer.Broadcast(CaosMessageKind.PeerJoined, payload);
                         Debug.Log($"[Caos] Jugador unido: {payload}");
                         if (_autoStart) StartMission();
+                        if (_autoDungeon) StartDungeon();
                     }
                     break;
                 case CaosMessageKind.PeerJoined:
@@ -92,6 +96,18 @@ namespace Caos.UI
                         _started = true;
                         CaosSession.Prepare(false, _name);
                         SceneManager.LoadScene(MissionSceneName);
+                    }
+                    break;
+                case CaosMessageKind.DungeonStart:
+                    if (_peer.IsClient && !_started)
+                    {
+                        _started = true;
+                        string[] fields = CaosNetMessages.Split(payload);
+                        string playerName = fields.Length > 1 ? fields[1] : _name;
+                        if (fields.Length > 0 && int.TryParse(fields[0], out int seed))
+                            CaosSession.DungeonSeed = seed;
+                        CaosSession.Prepare(false, playerName);
+                        SceneManager.LoadScene(DungeonSceneName);
                     }
                     break;
             }
@@ -138,6 +154,18 @@ namespace Caos.UI
             CaosSession.Prepare(true, _name);
             _peer.Broadcast(CaosMessageKind.Start, _name);
             SceneManager.LoadScene(MissionSceneName);
+        }
+
+        void StartDungeon()
+        {
+            if (!_peer.IsHost) return;
+            _started = true;
+            int seed = System.Environment.TickCount;
+            CaosSession.Prepare(true, _name);
+            CaosSession.DungeonSeed = seed;
+            _peer.Broadcast(CaosMessageKind.DungeonStart,
+                CaosNetMessages.Join(seed.ToString(), _name));
+            SceneManager.LoadScene(DungeonSceneName);
         }
 
         void OnGUI()
@@ -191,12 +219,12 @@ namespace Caos.UI
             y += 34f;
 
             GUI.Label(new Rect(x, y, width, 28f),
-                "Los dos jugadores deben estar en la misma Wi-Fi o LAN.", _smallStyle);
+                "Hasta 4 jugadores en la misma Wi-Fi o LAN.", _smallStyle);
             y += 30f;
 
+            int partySize = _peer.IsHost ? _peer.PeerNames.Count + 1 : (_peer.IsClient ? 2 : 1);
             GUI.Label(new Rect(x, y, width, 28f),
-                $"JUGADORES EN LA SALA: {(_peer.IsHost ? _peer.PeerNames.Count + 1 : (_peer.IsClient ? 2 : 1))}",
-                _labelStyle);
+                $"JUGADORES EN LA SALA: {partySize}/4", _labelStyle);
             y += 32f;
 
             string names = _peer.IsHost
@@ -214,9 +242,12 @@ namespace Caos.UI
 
             if (_peer.IsHost)
             {
-                if (GUI.Button(new Rect(x, y, width * 0.5f - 4f, 46f), "INICIAR MISIÓN", _buttonStyle))
+                float third = (width - 8f) / 3f;
+                if (GUI.Button(new Rect(x, y, third, 46f), "INICIAR MISIÓN", _buttonStyle))
                     StartMission();
-                if (GUI.Button(new Rect(x + width * 0.5f + 4f, y, width * 0.5f - 4f, 46f), "ENVIAR MENSAJE"))
+                if (GUI.Button(new Rect(x + third + 4f, y, third, 46f), "INICIAR MAZMORRA", _buttonStyle))
+                    StartDungeon();
+                if (GUI.Button(new Rect(x + (third + 4f) * 2f, y, third, 46f), "ENVIAR MENSAJE"))
                 {
                     if (!string.IsNullOrWhiteSpace(_chatText))
                     {

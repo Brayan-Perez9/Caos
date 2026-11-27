@@ -111,6 +111,12 @@ namespace Caos.EditorTools
                 Debug.Log("[Caos] La arena no existe; creando Arena Caos…");
                 ArenaSceneBuilder.CreateArenaSceneInternal();
             }
+
+            if (!File.Exists(DungeonSceneBuilder.ScenePath))
+            {
+                Debug.Log("[Caos] La mazmorra no existe; creando Dungeon…");
+                DungeonSceneBuilder.CreateDungeonSceneInternal();
+            }
         }
 
         static void ConfigureScenes()
@@ -122,6 +128,7 @@ namespace Caos.EditorTools
                 new EditorBuildSettingsScene(LobbySceneBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(ChaosExpressBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(ArenaSceneBuilder.ScenePath, true),
+                new EditorBuildSettingsScene(DungeonSceneBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(SandboxSceneBuilder.ScenePathPublic, true),
             };
 

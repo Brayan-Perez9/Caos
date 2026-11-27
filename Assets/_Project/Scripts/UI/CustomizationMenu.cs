@@ -13,10 +13,11 @@ namespace Caos.UI
     /// </summary>
     public class CustomizationMenu : MonoBehaviour
     {
-        const float BottomHeight = 110f;
+        const float BottomHeight = 124f;
         const string GameSceneName = "Sandbox";
         const string MissionSceneName = "ChaosExpress";
         const string ArenaSceneName = "ArenaCaos";
+        const string DungeonSceneName = "Dungeon";
         const string LobbySceneName = "Lobby";
 
         CharacterCustomization _character;
@@ -80,6 +81,13 @@ namespace Caos.UI
             SceneManager.LoadScene(ArenaSceneName);
         }
 
+        void PlayDungeon()
+        {
+            if (_character != null) _character.Save();
+            CaosSession.ResetForMenu();
+            SceneManager.LoadScene(DungeonSceneName);
+        }
+
         void OpenLobby()
         {
             if (_character != null) _character.Save();
@@ -93,7 +101,7 @@ namespace Caos.UI
         {
             EnsureStyles();
 
-            float panelWidth = Mathf.Clamp(Screen.width * 0.40f, 360f, 500f);
+            float panelWidth = Mathf.Clamp(Screen.width * 0.42f, 420f, 560f);
             float panelX = Screen.width - panelWidth;
             float panelHeight = Screen.height - BottomHeight;
 
@@ -127,14 +135,16 @@ namespace Caos.UI
                 if (current != _character.PlayerName) _character.SetName(current);
             }
 
-            const float gap = 10f;
-            float third = (playRect.width - gap * 2f) / 3f;
-            var missionRect = new Rect(playRect.x, playRect.y, third, playRect.height);
-            var arenaRect = new Rect(playRect.x + third + gap, playRect.y, third, playRect.height);
-            var sandboxRect = new Rect(playRect.x + (third + gap) * 2f, playRect.y, third, playRect.height);
+            const float gap = 8f;
+            float quarter = (playRect.width - gap * 3f) / 4f;
+            var missionRect = new Rect(playRect.x, playRect.y, quarter, playRect.height);
+            var arenaRect = new Rect(playRect.x + quarter + gap, playRect.y, quarter, playRect.height);
+            var dungeonRect = new Rect(playRect.x + (quarter + gap) * 2f, playRect.y, quarter, playRect.height);
+            var sandboxRect = new Rect(playRect.x + (quarter + gap) * 3f, playRect.y, quarter, playRect.height);
 
-            if (GUI.Button(missionRect, "MISIÓN CAOS", _playStyle)) PlayMission();
+            if (GUI.Button(missionRect, "MISIÓN", _playStyle)) PlayMission();
             if (GUI.Button(arenaRect, "ARENA", _playStyle)) PlayArena();
+            if (GUI.Button(dungeonRect, "MAZMORRA", _playStyle)) PlayDungeon();
             if (GUI.Button(sandboxRect, "JUGAR", _playStyle)) Play();
         }
 

@@ -280,7 +280,16 @@ namespace Caos.Net
                     Writer = new StreamWriter(client.GetStream()) { AutoFlush = true, NewLine = "\n" },
                 };
 
-                lock (_connectionsLock) _connections.Add(connection);
+                lock (_connectionsLock)
+                {
+                    // Anfitrión + 3 invitados = 4 jugadores como máximo.
+                    if (_connections.Count >= 3)
+                    {
+                        try { client.Close(); } catch { /* ya cerrado */ }
+                        continue;
+                    }
+                    _connections.Add(connection);
+                }
                 connection.Thread = new Thread(() => ReadLoop(connection))
                 {
                     IsBackground = true,

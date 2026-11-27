@@ -26,7 +26,7 @@ namespace Caos.Maps
         [SerializeField] float attackRange = 1.6f;
         [SerializeField] float headHeight = 0.95f;
 
-        ArenaDirector _director;
+        IArenaCombatDirector _director;
         ChaosHealth _health;
         PlayerController _player;
         CharacterController _controller;
@@ -64,7 +64,14 @@ namespace Caos.Maps
 
         public bool IsDead => _dead || (_health != null && _health.IsDead);
 
+        /// <summary>Firma original de la arena; se mantiene por compatibilidad.</summary>
         public void Configure(float speed, float damage, ArenaDirector director)
+        {
+            Configure(speed, damage, (IArenaCombatDirector)director);
+        }
+
+        /// <summary>Permite usar el mismo monstruo desde la mazmorra.</summary>
+        public void Configure(float speed, float damage, IArenaCombatDirector director)
         {
             moveSpeed = speed;
             hitDamage = damage;

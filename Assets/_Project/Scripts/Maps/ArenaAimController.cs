@@ -13,7 +13,7 @@ namespace Caos.Maps
     {
         [SerializeField] float aimHeight = 0.95f;
 
-        ArenaDirector _director;
+        IArenaCombatDirector _director;
         PlayerController _controller;
         Camera _camera;
         Vector3 _aimPoint;
@@ -28,6 +28,14 @@ namespace Caos.Maps
             _camera = Camera.main;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+        }
+
+        /// <summary>La mazmorra inyecta su puente de combate sin tocar la arena.</summary>
+        public void Configure(IArenaCombatDirector director)
+        {
+            _director = director;
+            _controller = GetComponent<PlayerController>();
+            if (_controller != null) _controller.FaceMovement = false;
         }
 
         void Update()

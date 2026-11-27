@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using Caos.Dungeon;
 using Caos.Maps;
 using Caos.Net;
 using Caos.Player;
@@ -45,6 +46,9 @@ namespace Caos.UI
 
             var arena = FindFirstObjectByType<ArenaDirector>();
             if (arena != null && !arena.CanPause) return;
+
+            var dungeon = FindFirstObjectByType<DungeonDirector>();
+            if (dungeon != null && !dungeon.CanPause) return;
 
             SetOpen(!_open);
         }
