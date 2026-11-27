@@ -34,3 +34,7 @@ skills-lock.json
 Thumbs.db
 desktop.ini
 .DS_Store
+# Publicación / actualizador
+Caos-Windows.zip
+CaosUpdate.zip
+_caos_update_tmp/
