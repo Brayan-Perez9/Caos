@@ -61,6 +61,7 @@ namespace Caos.EditorTools
                 SandboxSceneBuilder.GetAmbientMaterial(),
                 SandboxSceneBuilder.GetBlueGrassMaterial());
             BuildCover(root.transform);
+            BuildArenaDressing(root.transform);
             BuildWeapons(root.transform);
             BuildPlayer(root.transform, spawn.transform);
         }
@@ -256,6 +257,208 @@ namespace Caos.EditorTools
                 new Vector3(2f, 1.3f, 2f), "Stylized_Lemon", parent);
             Box("UpperCover_C", new Vector3(0f, 4.9f, 11f),
                 new Vector3(2.2f, 1.3f, 2.2f), "Stylized_Lemon", parent);
+        }
+
+        // ------------------------------------------------------ decoración
+
+        /// <summary>Pieza de adorno sin colider: no altera balas ni navegación.</summary>
+        static GameObject DecorBox(string name, Vector3 position, Vector3 scale,
+            string material, Transform parent)
+        {
+            var decor = CaosVisualKit.CreateDecor(name,
+                CaosVisualKit.RoundedBox(Vector3.one, 0.14f, 2), Mat(material), position, parent);
+            decor.transform.localScale = scale;
+            var renderer = decor.GetComponent<Renderer>();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return decor;
+        }
+
+        static GameObject DecorDisc(string name, Vector3 position, Vector3 scale,
+            string material, Transform parent)
+        {
+            var decor = CaosVisualKit.CreateDecor(name,
+                CaosVisualKit.RoundedCylinder(0.5f, 2f, 14, 2), Mat(material), position, parent);
+            decor.transform.localScale = scale;
+            var renderer = decor.GetComponent<Renderer>();
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return decor;
+        }
+
+        /// <summary>
+        /// Segunda pasada puramente visual sobre la geometría funcional: tablillas
+        /// en la escalera marrón, remates azules, almohadillas y macizos. Ningún
+        /// objeto creado aquí tiene collider ni comparte nombre con la IA.
+        /// </summary>
+        static void BuildArenaDressing(Transform parent)
+        {
+            // Escalera y meseta: listones de madera sobre el material Dirt.
+            const int steps = 15;
+            const float stepDepth = 1.3f;
+            const float stepRise = 0.28f;
+            for (int i = 0; i < steps; i++)
+            {
+                float top = stepRise * (i + 1);
+                float z = -11f + i * stepDepth;
+                for (int plank = 0; plank < 3; plank++)
+                {
+                    float x = (plank - 1) * 1.9f;
+                    DecorBox($"StepInlay_{i:00}_{plank}", new Vector3(x, top + 0.012f, z),
+                        new Vector3(1.72f, 0.02f, 1.12f), "Stylized_Wood", parent);
+                }
+                DecorBox($"StepNosing_{i:00}", new Vector3(0f, top + 0.018f, z - 0.6f),
+                    new Vector3(5.8f, 0.026f, 0.08f), "Stylized_Sky", parent);
+            }
+            for (int i = 0; i < 4; i++)
+                DecorBox("LandingPlank_" + i,
+                    new Vector3(0f, 4.262f, 7.35f + i * 0.72f),
+                    new Vector3(5.7f, 0.02f, 0.58f), "Stylized_Wood", parent);
+            DecorBox("LandingNosing", new Vector3(0f, 4.27f, 10.28f),
+                new Vector3(5.85f, 0.03f, 0.09f), "Stylized_Gold", parent);
+
+            // Remates perimetrales de las plataformas azules y los puentes.
+            DecorBox("Rim_W_Outer", new Vector3(-13.04f, 4.18f, -2f),
+                new Vector3(0.1f, 0.16f, 20f), "Stylized_Deep", parent);
+            DecorBox("Rim_W_North", new Vector3(-9f, 4.18f, -12.04f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Deep", parent);
+            DecorBox("Rim_W_South", new Vector3(-9f, 4.18f, 8.04f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Deep", parent);
+            DecorBox("Rim_E_Outer", new Vector3(13.04f, 4.18f, -2f),
+                new Vector3(0.1f, 0.16f, 20f), "Stylized_Deep", parent);
+            DecorBox("Rim_E_North", new Vector3(9f, 4.18f, -12.04f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Deep", parent);
+            DecorBox("Rim_E_South", new Vector3(9f, 4.18f, 8.04f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Deep", parent);
+            DecorBox("Rim_S_Outer", new Vector3(0f, 4.18f, 17.04f),
+                new Vector3(26f, 0.16f, 0.1f), "Stylized_Deep", parent);
+            DecorBox("Rim_S_Front", new Vector3(0f, 4.18f, 9.04f),
+                new Vector3(26f, 0.16f, 0.1f), "Stylized_Deep", parent);
+            DecorBox("Rim_Bridge_W_Front", new Vector3(-9f, 4.18f, 7.48f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Sky", parent);
+            DecorBox("Rim_Bridge_W_Back", new Vector3(-9f, 4.18f, 9.52f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Sky", parent);
+            DecorBox("Rim_Bridge_E_Front", new Vector3(9f, 4.18f, 7.48f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Sky", parent);
+            DecorBox("Rim_Bridge_E_Back", new Vector3(9f, 4.18f, 9.52f),
+                new Vector3(8f, 0.16f, 0.1f), "Stylized_Sky", parent);
+
+            Vector3[] studs =
+            {
+                new Vector3(-12.7f, 4.31f, -11.7f), new Vector3(-5.3f, 4.31f, -11.7f),
+                new Vector3(-12.7f, 4.31f, 7.7f), new Vector3(-5.3f, 4.31f, 7.7f),
+                new Vector3(5.3f, 4.31f, -11.7f), new Vector3(12.7f, 4.31f, -11.7f),
+                new Vector3(5.3f, 4.31f, 7.7f), new Vector3(12.7f, 4.31f, 7.7f),
+                new Vector3(-12.7f, 4.31f, 16.7f), new Vector3(12.7f, 4.31f, 16.7f),
+            };
+            for (int i = 0; i < studs.Length; i++)
+                DecorDisc("PlatformStud_" + i, studs[i],
+                    new Vector3(0.38f, 0.05f, 0.38f), "Stylized_Gold", parent);
+
+            // Barandillas: remate liso y remates en los extremos.
+            DecorBox("RailCap_N_L", new Vector3(-9f, 5.49f, -12f),
+                new Vector3(8f, 0.08f, 0.34f), "Stylized_Sky", parent);
+            DecorBox("RailCap_N_R", new Vector3(9f, 5.49f, -12f),
+                new Vector3(8f, 0.08f, 0.34f), "Stylized_Sky", parent);
+            DecorBox("RailCap_S", new Vector3(0f, 5.49f, 17f),
+                new Vector3(26f, 0.08f, 0.34f), "Stylized_Sky", parent);
+            DecorBox("RailCap_W", new Vector3(-13f, 5.49f, 2.5f),
+                new Vector3(0.34f, 0.08f, 29f), "Stylized_Sky", parent);
+            DecorBox("RailCap_E", new Vector3(13f, 5.49f, 2.5f),
+                new Vector3(0.34f, 0.08f, 29f), "Stylized_Sky", parent);
+            DecorBox("RailCap_StairL", new Vector3(-3.4f, 5.49f, -1.9f),
+                new Vector3(0.28f, 0.08f, 18.2f), "Stylized_Sky", parent);
+            DecorBox("RailCap_StairR", new Vector3(3.4f, 5.49f, -1.9f),
+                new Vector3(0.28f, 0.08f, 18.2f), "Stylized_Sky", parent);
+
+            Vector3[] finials =
+            {
+                new Vector3(-13f, 5.56f, -12f), new Vector3(-5f, 5.56f, -12f),
+                new Vector3(5f, 5.56f, -12f), new Vector3(13f, 5.56f, -12f),
+                new Vector3(-13f, 5.56f, 17f), new Vector3(13f, 5.56f, 17f),
+                new Vector3(-3.4f, 5.56f, -11f), new Vector3(3.4f, 5.56f, -11f),
+                new Vector3(-3.4f, 5.56f, 7.2f), new Vector3(3.4f, 5.56f, 7.2f),
+            };
+            for (int i = 0; i < finials.Length; i++)
+                DecorDisc("RailFinial_" + i, finials[i],
+                    new Vector3(0.42f, 0.05f, 0.42f), "Stylized_Gold", parent);
+
+            // Coberturas: panel superior suave y una insignia en la cara frontal.
+            Vector3[] crates =
+            {
+                new Vector3(-12f, 0.7f, 2f), new Vector3(12f, 0.7f, 2f),
+                new Vector3(-10f, 0.7f, 14f), new Vector3(10f, 0.7f, 14f),
+                new Vector3(-19f, 0.7f, -13f), new Vector3(19f, 0.7f, -13f),
+                new Vector3(-4f, 0.7f, 20f), new Vector3(4f, 0.7f, 20f),
+            };
+            for (int i = 0; i < crates.Length; i++)
+            {
+                DecorBox("CoverPad_" + i, crates[i] + Vector3.up * 0.715f,
+                    new Vector3(2.05f, 0.03f, 2.05f),
+                    i % 2 == 0 ? "Stylized_Mint" : "Stylized_Sky", parent);
+                var badge = DecorDisc("CoverBadge_" + i,
+                    crates[i] + new Vector3(0f, 0f, 1.215f),
+                    new Vector3(0.52f, 0.04f, 0.52f), "Stylized_Gold", parent);
+                badge.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            }
+
+            Vector3[] upperCovers =
+            {
+                new Vector3(-9f, 4.9f, 3f), new Vector3(9f, 4.9f, -5f),
+                new Vector3(0f, 4.9f, 11f),
+            };
+            for (int i = 0; i < upperCovers.Length; i++)
+                DecorBox("UpperCoverPad_" + i, upperCovers[i] + Vector3.up * 0.665f,
+                    new Vector3(1.75f, 0.03f, 1.75f), "Stylized_Rose", parent);
+
+            // Anillos de pedestal con el color del elemento (posiciones de BuildWeapons).
+            Vector3[] pedestals =
+            {
+                new Vector3(0f, 1f, -14f), new Vector3(-18f, 1f, -8f),
+                new Vector3(18f, 1f, -8f), new Vector3(-10f, 5.2f, 2f),
+                new Vector3(10f, 5.2f, 2f), new Vector3(0f, 5.2f, 14f),
+            };
+            string[] pedestalMaterials =
+            {
+                "Stylized_Lemon", "Stylized_Coral", "Stylized_Cyan",
+                "Stylized_Platform", "Stylized_Lemon", "Stylized_Mint",
+            };
+            for (int i = 0; i < pedestals.Length; i++)
+                DecorDisc("WeaponRing_" + i,
+                    pedestals[i] + Vector3.down * 0.53f,
+                    new Vector3(1.5f, 0.04f, 1.5f), pedestalMaterials[i], parent);
+
+            // Macizos florales y rocas fuera del carril de juego y del spawn.
+            Vector3[] beds =
+            {
+                new Vector3(-17f, 0.06f, -18f), new Vector3(-20f, 0.06f, -9f),
+                new Vector3(-17f, 0.06f, 5f), new Vector3(-20f, 0.06f, 17f),
+                new Vector3(17f, 0.06f, -18f), new Vector3(20f, 0.06f, -9f),
+                new Vector3(17f, 0.06f, 5f), new Vector3(20f, 0.06f, 17f),
+                new Vector3(-10f, 0.06f, -20f), new Vector3(10f, 0.06f, -20f),
+                new Vector3(-6f, 0.06f, 20f), new Vector3(6f, 0.06f, 20f),
+            };
+            string[] petals =
+            {
+                "Stylized_Rose", "Stylized_Lemon", "Stylized_Violet", "Stylized_Sky",
+            };
+            for (int i = 0; i < beds.Length; i++)
+            {
+                DecorDisc("FlowerBed_" + i, beds[i],
+                    new Vector3(1.5f, 0.035f, 1.5f), "Stylized_Mint", parent);
+                for (int f = 0; f < 3; f++)
+                {
+                    float angle = (f * 2f * Mathf.PI / 3f) + i * 0.7f;
+                    Vector3 spot = beds[i] + new Vector3(
+                        Mathf.Cos(angle) * 0.42f, 0.04f, Mathf.Sin(angle) * 0.42f);
+                    var flower = CaosVisualKit.CreateDecor("BedFlower_" + i + "_" + f,
+                        CaosVisualKit.Flower(i * 3 + f),
+                        Mat(petals[(i + f) % petals.Length]), spot, parent);
+                    flower.transform.localScale = Vector3.one * 0.62f;
+                }
+                var rock = CaosVisualKit.CreateDecor("BedRock_" + i,
+                    CaosVisualKit.Rock(0.42f, 400 + i), Mat("Stylized_Deep"),
+                    beds[i] + new Vector3(0.55f, 0.12f, -0.35f), parent);
+                rock.transform.localScale = Vector3.one * 0.85f;
+            }
         }
 
         // ----------------------------------------------------------- armas

@@ -560,12 +560,18 @@ namespace Caos.EditorTools
             else if (material.shader != shader) material.shader = shader;
 
             material.SetColor("_BaseColor", StylizedPalette(variant));
-            material.SetColor("_ShadowColor", new Color(0.14f, 0.24f, 0.34f, 1f));
-            material.SetColor("_RimColor", new Color(0.35f, 0.82f, 1f, 1f));
+            material.SetColor("_ShadowColor", variant == "Wood" || variant == "Gold"
+                ? new Color(0.18f, 0.11f, 0.06f, 1f)
+                : new Color(0.14f, 0.24f, 0.34f, 1f));
+            material.SetColor("_RimColor", variant == "Wood" || variant == "Gold"
+                ? new Color(1f, 0.84f, 0.58f, 1f)
+                : variant == "Rose"
+                    ? new Color(1f, 0.72f, 0.82f, 1f)
+                    : new Color(0.35f, 0.82f, 1f, 1f));
             material.SetFloat("_RimPower", 3.2f);
-            material.SetFloat("_RimStrength", 0.14f);
+            material.SetFloat("_RimStrength", variant == "Wood" ? 0.1f : 0.14f);
             material.SetFloat("_Emission", variant == "Coral" || variant == "Cyan" ? 0.03f : 0.01f);
-            material.SetFloat("_Smoothness", 0.32f);
+            material.SetFloat("_Smoothness", variant == "Wood" ? 0.22f : 0.32f);
             material.SetFloat("_NoiseScale", 1.5f);
             material.SetColor("_LightDir", new Vector4(0.45f, 0.85f, 0.30f, 0f));
             EditorUtility.SetDirty(material);
@@ -581,6 +587,11 @@ namespace Caos.EditorTools
                 case "Violet": return new Color(0.48f, 0.38f, 1f, 1f);
                 case "Mint": return new Color(0.42f, 0.89f, 0.68f, 1f);
                 case "Platform": return new Color(0.38f, 0.72f, 0.92f, 1f);
+                case "Wood": return new Color(0.55f, 0.34f, 0.19f, 1f);
+                case "Deep": return new Color(0.16f, 0.42f, 0.72f, 1f);
+                case "Sky": return new Color(0.62f, 0.86f, 0.98f, 1f);
+                case "Gold": return new Color(1f, 0.74f, 0.28f, 1f);
+                case "Rose": return new Color(1f, 0.56f, 0.66f, 1f);
                 default: return new Color(0.21f, 0.82f, 1f, 1f);
             }
         }

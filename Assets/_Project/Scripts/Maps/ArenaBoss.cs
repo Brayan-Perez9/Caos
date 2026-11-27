@@ -33,15 +33,27 @@ namespace Caos.Maps
         PlayerController _player;
         CharacterController _controller;
         Transform _head;
+        Transform _torso;
         Transform _leftArm;
+        Transform _rightArm;
         Transform _hammerPivot;
+        Transform _weaponMuzzle;
         Transform[] _legs;
+        Transform[] _feet;
+        Transform[] _eyes;
+        Transform[] _brows;
+        Transform[] _accessories;
+        Transform _mouth;
+        Renderer _telegraph;
         Renderer[] _renderers;
         Color[] _baseColors;
 
         Vector3 _baseScale;
         Vector3 _knockback;
         float _verticalSpeed;
+        float _visualTime;
+        float _hurtTimer;
+        float _blinkOffset;
         float _nextPower;
         float _powerAnimation;
         float _lunge;
@@ -123,90 +135,190 @@ namespace Caos.Maps
 
             var parts = new List<Renderer>();
             var colors = new List<Color>();
-            Color legColor = Color.Lerp(_bodyColor, Color.black, 0.45f);
-            Color armColor = Color.Lerp(_bodyColor, _accentColor, 0.35f);
+            var rootRenderer = GetComponent<Renderer>();
+            if (rootRenderer != null) rootRenderer.enabled = false;
 
-            Renderer torso = GetComponent<Renderer>();
-            torso.sharedMaterial = ArenaMaterial.Create(_bodyColor);
-            parts.Add(torso);
-            colors.Add(_bodyColor);
+            int kindSeed = (int)_kind * 17 + _bossIndex;
+            Color legColor = Color.Lerp(_bodyColor, Color.black, 0.42f);
+            Color armColor = Color.Lerp(_bodyColor, _accentColor, 0.38f);
+            Color shadow = Color.Lerp(_bodyColor, new Color(0.06f, 0.09f, 0.18f), 0.55f);
+            Color rim = _kind == ArenaBossKind.Tormenta
+                ? new Color(0.78f, 0.48f, 1f, 1f)
+                : _kind == ArenaBossKind.Canion
+                    ? new Color(1f, 0.72f, 0.35f, 1f)
+                    : new Color(0.6f, 0.9f, 1f, 1f);
 
-            _head = Part(PrimitiveType.Sphere, "Head",
-                new Vector3(0f, headHeight, 0.12f), Vector3.one * 0.62f, _accentColor, parts, colors);
-
-            for (int side = -1; side <= 1; side += 2)
-            {
-                Part(PrimitiveType.Sphere, "Eye",
-                    new Vector3(side * 0.22f, headHeight + 0.07f, 0.55f),
-                    Vector3.one * 0.13f, EyeColor, parts, colors);
-            }
-
-            _legs = new Transform[2];
-            for (int i = 0; i < 2; i++)
-            {
-                float side = i == 0 ? -1f : 1f;
-                _legs[i] = Part(PrimitiveType.Cube, "Leg",
-                    new Vector3(side * 0.36f, -0.92f, 0f),
-                    new Vector3(0.28f, 0.85f, 0.28f), legColor, parts, colors);
-            }
-
-            _leftArm = Part(PrimitiveType.Cube, "LeftArm",
-                new Vector3(-0.95f, 0.7f, 0.1f),
-                new Vector3(0.24f, 0.75f, 0.24f), armColor, parts, colors);
-
-            _hammerPivot = new GameObject("HammerPivot").transform;
-            _hammerPivot.SetParent(transform, false);
-            _hammerPivot.localPosition = new Vector3(0.95f, 0.7f, 0.2f);
+            Material bodyMat = ArenaCreatureKit.Toon(_bodyColor, shadow, rim, 0.2f, 0.24f);
+            Material accentMat = ArenaCreatureKit.Toon(_accentColor,
+                Color.Lerp(_accentColor, shadow, 0.4f), rim, 0.26f, 0.28f);
+            Material limbMat = ArenaCreatureKit.Toon(legColor,
+                Color.Lerp(legColor, shadow, 0.35f), rim, 0.16f, 0.2f);
+            Material armMat = ArenaCreatureKit.Toon(armColor,
+                Color.Lerp(armColor, shadow, 0.35f), rim, 0.18f, 0.22f);
+            Material eyeMat = ArenaCreatureKit.Toon(EyeColor,
+                Color.Lerp(EyeColor, Color.black, 0.35f), new Color(1f, 0.96f, 0.75f),
+                0.32f, 0.5f, 0.08f);
+            Material darkMat = ArenaCreatureKit.Toon(new Color(0.09f, 0.06f, 0.12f),
+                new Color(0.03f, 0.03f, 0.06f), rim, 0.14f, 0.14f);
+            Material hornMat = ArenaCreatureKit.Toon(new Color(0.96f, 0.8f, 0.38f),
+                new Color(0.42f, 0.28f, 0.12f), new Color(1f, 0.9f, 0.6f), 0.28f, 0.3f);
 
             Color weaponColor = _kind == ArenaBossKind.Canion
                 ? new Color(0.16f, 0.16f, 0.18f)
                 : _kind == ArenaBossKind.Tormenta
                     ? new Color(0.52f, 0.20f, 0.82f)
                     : HammerColor;
+            Material weaponMat = ArenaCreatureKit.Toon(weaponColor,
+                Color.Lerp(weaponColor, Color.black, 0.45f), rim, 0.22f, 0.32f);
+            Material handleMat = ArenaCreatureKit.Toon(HandleColor,
+                new Color(0.2f, 0.11f, 0.05f), rim, 0.18f, 0.22f);
 
-            AddChild(PrimitiveType.Cube, "HammerHandle", _hammerPivot,
-                new Vector3(0f, 0f, 0.6f), new Vector3(0.14f, 0.14f, 1.2f),
-                HandleColor, parts, colors);
-            AddChild(PrimitiveType.Cube, "HammerHead", _hammerPivot,
-                new Vector3(0f, 0f, 1.25f), new Vector3(0.7f, 0.7f, 0.7f),
-                weaponColor, parts, colors);
+            _torso = ArenaCreatureKit.Make(transform, "Torso",
+                CaosVisualKit.OrganicCrown(0.9f, 100 + kindSeed, 0.9f), bodyMat,
+                new Vector3(0f, 0.15f, 0f), Vector3.one * 1.14f, Quaternion.identity,
+                parts, colors, _bodyColor);
+            ArenaCreatureKit.Make(transform, "ChestPlate",
+                CaosVisualKit.OrganicCrown(0.44f, 108 + kindSeed, 0.95f), accentMat,
+                new Vector3(0f, 0.28f, 0.86f), new Vector3(1.12f, 1.05f, 0.22f),
+                Quaternion.identity, parts, colors, _accentColor);
+
+            _head = ArenaCreatureKit.Make(transform, "Head",
+                CaosVisualKit.OrganicCrown(0.62f, 120 + kindSeed, 0.84f), accentMat,
+                new Vector3(0f, headHeight, 0.12f), Vector3.one, Quaternion.identity,
+                parts, colors, _accentColor);
+
+            _eyes = new Transform[2];
+            _brows = new Transform[2];
+            int hornCount = _kind == ArenaBossKind.Tormenta ? 4 : 2;
+            _accessories = new Transform[hornCount];
+            for (int i = 0; i < 2; i++)
+            {
+                float side = i == 0 ? -1f : 1f;
+                _eyes[i] = new GameObject("EyePivot_" + i).transform;
+                _eyes[i].SetParent(_head, false);
+                _eyes[i].localPosition = new Vector3(side * 0.23f, 0.07f, 0.52f);
+                ArenaCreatureKit.Make(_eyes[i], "EyeWhite",
+                    CaosVisualKit.OrganicCrown(0.14f, 130 + i, 1f), eyeMat,
+                    Vector3.zero, new Vector3(1f, 1.08f, 0.55f), Quaternion.identity,
+                    parts, colors, EyeColor);
+                ArenaCreatureKit.Make(_eyes[i], "Pupil",
+                    CaosVisualKit.OrganicCrown(0.07f, 134 + i, 1f), darkMat,
+                    new Vector3(0f, 0f, 0.075f), new Vector3(0.85f, 1f, 0.5f),
+                    Quaternion.identity, parts, colors, new Color(0.09f, 0.06f, 0.12f));
+
+                _brows[i] = ArenaCreatureKit.Make(_head, "Brow_" + i,
+                    CaosVisualKit.RoundedBox(new Vector3(0.24f, 0.05f, 0.06f), 0.022f, 2),
+                    darkMat, new Vector3(side * 0.24f, 0.23f, 0.51f), Vector3.one,
+                    Quaternion.Euler(0f, 0f, side * 16f), parts, colors,
+                    new Color(0.09f, 0.06f, 0.12f));
+            }
+
+            for (int i = 0; i < hornCount; i++)
+            {
+                float angle = i / (float)hornCount * Mathf.PI * 2f;
+                Vector3 position = new Vector3(Mathf.Cos(angle) * 0.42f, 0.5f,
+                    Mathf.Sin(angle) * 0.42f);
+                _accessories[i] = ArenaCreatureKit.Make(_head, "Crest_" + i,
+                    CaosVisualKit.TaperedTrunk(0.38f, 0.12f, 0.018f, 0.07f, 140 + kindSeed + i),
+                    hornMat, position, Vector3.one,
+                    Quaternion.Euler(Mathf.Sin(angle) * 22f, 0f, -Mathf.Cos(angle) * 22f),
+                    parts, colors, new Color(0.96f, 0.8f, 0.38f));
+            }
+
+            _mouth = ArenaCreatureKit.Make(_head, "Mouth",
+                CaosVisualKit.RoundedBox(new Vector3(0.34f, 0.07f, 0.06f), 0.03f, 2),
+                darkMat, new Vector3(0f, -0.19f, 0.52f), Vector3.one, Quaternion.identity,
+                parts, colors, new Color(0.09f, 0.06f, 0.12f));
+
+            _legs = new Transform[2];
+            _feet = new Transform[2];
+            for (int i = 0; i < 2; i++)
+            {
+                float side = i == 0 ? -1f : 1f;
+                _legs[i] = ArenaCreatureKit.MakeLimb(transform, "LegPivot_" + i,
+                    0.15f, 0.85f, limbMat, new Vector3(side * 0.38f, -0.55f, 0f),
+                    Quaternion.identity, legColor, parts, colors);
+                _feet[i] = ArenaCreatureKit.Make(_legs[i], "Foot",
+                    CaosVisualKit.OrganicCrown(0.24f, 150 + kindSeed + i, 0.5f), limbMat,
+                    new Vector3(0f, -0.83f, 0.09f), new Vector3(1.2f, 0.7f, 1.4f),
+                    Quaternion.identity, parts, colors, legColor);
+            }
+
+            _leftArm = ArenaCreatureKit.MakeLimb(transform, "LeftArmPivot",
+                0.13f, 0.75f, armMat, new Vector3(-0.95f, 0.7f, 0.1f),
+                Quaternion.Euler(0f, 0f, 12f), armColor, parts, colors);
+            ArenaCreatureKit.Make(_leftArm, "LeftHand",
+                CaosVisualKit.OrganicCrown(0.19f, 160 + kindSeed, 0.9f), armMat,
+                new Vector3(0f, -0.75f, 0f), Vector3.one, Quaternion.identity,
+                parts, colors, armColor);
+
+            _rightArm = ArenaCreatureKit.MakeLimb(transform, "RightArmPivot",
+                0.13f, 0.75f, armMat, new Vector3(0.95f, 0.7f, 0.1f),
+                Quaternion.Euler(0f, 0f, -12f), armColor, parts, colors);
+            ArenaCreatureKit.Make(_rightArm, "RightHand",
+                CaosVisualKit.OrganicCrown(0.19f, 161 + kindSeed, 0.9f), armMat,
+                new Vector3(0f, -0.75f, 0f), Vector3.one, Quaternion.identity,
+                parts, colors, armColor);
+
+            _hammerPivot = new GameObject("HammerPivot").transform;
+            _hammerPivot.SetParent(_rightArm, false);
+            _hammerPivot.localPosition = new Vector3(0f, -0.72f, 0.05f);
+
+            if (_kind == ArenaBossKind.Canion)
+            {
+                ArenaCreatureKit.Make(_hammerPivot, "CannonBarrel",
+                    CaosVisualKit.RoundedCylinder(0.5f, 2f, 14, 2), weaponMat,
+                    new Vector3(0f, 0f, 0.65f), new Vector3(0.52f, 0.65f, 0.52f),
+                    Quaternion.Euler(90f, 0f, 0f), parts, colors, weaponColor);
+                _weaponMuzzle = ArenaCreatureKit.Make(_hammerPivot, "CannonMuzzle",
+                    CaosVisualKit.RoundedCylinder(0.5f, 2f, 14, 2), accentMat,
+                    new Vector3(0f, 0f, 1.3f), new Vector3(0.64f, 0.08f, 0.64f),
+                    Quaternion.Euler(90f, 0f, 0f), parts, colors, _accentColor);
+            }
+            else if (_kind == ArenaBossKind.Tormenta)
+            {
+                ArenaCreatureKit.Make(_hammerPivot, "StormCore",
+                    CaosVisualKit.OrganicCrown(0.28f, 170 + kindSeed, 1f), weaponMat,
+                    new Vector3(0f, 0f, 0.65f), Vector3.one, Quaternion.identity,
+                    parts, colors, weaponColor);
+                for (int i = 0; i < 3; i++)
+                {
+                    float angle = i * Mathf.PI * 2f / 3f;
+                    ArenaCreatureKit.Make(_hammerPivot, "StormShard_" + i,
+                        CaosVisualKit.OrganicCrown(0.16f, 175 + i, 0.7f), accentMat,
+                        new Vector3(Mathf.Cos(angle) * 0.42f, Mathf.Sin(angle) * 0.42f, 0.65f),
+                        Vector3.one, Quaternion.identity, parts, colors, _accentColor);
+                }
+            }
+            else
+            {
+                ArenaCreatureKit.Make(_hammerPivot, "HammerHandle",
+                    CaosVisualKit.RoundedCylinder(0.5f, 2f, 10, 2), handleMat,
+                    new Vector3(0f, 0f, 0.6f), new Vector3(0.14f, 0.6f, 0.14f),
+                    Quaternion.Euler(90f, 0f, 0f), parts, colors, HandleColor);
+                ArenaCreatureKit.Make(_hammerPivot, "HammerHead",
+                    CaosVisualKit.RoundedBox(new Vector3(0.72f, 0.72f, 0.72f), 0.13f, 3),
+                    weaponMat, new Vector3(0f, 0f, 1.25f), Vector3.one,
+                    Quaternion.identity, parts, colors, weaponColor);
+                ArenaCreatureKit.Make(_hammerPivot, "HammerBand",
+                    CaosVisualKit.RoundedBox(new Vector3(0.78f, 0.16f, 0.78f), 0.06f, 2),
+                    accentMat, new Vector3(0f, 0f, 1.25f), Vector3.one,
+                    Quaternion.identity, parts, colors, _accentColor);
+            }
+
+            var warningMat = ArenaCreatureKit.Toon(new Color(1f, 0.44f, 0.28f),
+                new Color(0.5f, 0.14f, 0.1f), new Color(1f, 0.8f, 0.5f), 0.22f, 0.2f, 0.08f);
+            var telegraph = ArenaCreatureKit.Make(transform, "PowerTelegraph",
+                CaosVisualKit.RoundedCylinder(0.5f, 2f, 16, 2), warningMat,
+                new Vector3(0f, -0.92f, 0f), new Vector3(2.6f, 0.02f, 2.6f),
+                Quaternion.identity, parts, colors, new Color(1f, 0.44f, 0.28f));
+            _telegraph = telegraph.GetComponent<Renderer>();
+            _telegraph.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            _telegraph.enabled = false;
 
             _renderers = parts.ToArray();
             _baseColors = colors.ToArray();
-        }
-
-        Transform Part(PrimitiveType type, string name, Vector3 localPosition, Vector3 localScale,
-            Color color, List<Renderer> renderers, List<Color> colors)
-        {
-            GameObject part = GameObject.CreatePrimitive(type);
-            part.name = name;
-            part.transform.SetParent(transform, false);
-            part.transform.localPosition = localPosition;
-            part.transform.localScale = localScale;
-            Destroy(part.GetComponent<Collider>());
-            return Register(part, color, renderers, colors);
-        }
-
-        Transform AddChild(PrimitiveType type, string name, Transform parent,
-            Vector3 localPosition, Vector3 localScale, Color color,
-            List<Renderer> renderers, List<Color> colors)
-        {
-            GameObject part = GameObject.CreatePrimitive(type);
-            part.name = name;
-            part.transform.SetParent(parent, false);
-            part.transform.localPosition = localPosition;
-            part.transform.localScale = localScale;
-            Destroy(part.GetComponent<Collider>());
-            return Register(part, color, renderers, colors);
-        }
-
-        Transform Register(GameObject part, Color color, List<Renderer> renderers, List<Color> colors)
-        {
-            Renderer renderer = part.GetComponent<Renderer>();
-            renderer.sharedMaterial = ArenaMaterial.Create(color);
-            renderers.Add(renderer);
-            colors.Add(color);
-            return part.transform;
+            _blinkOffset = kindSeed * 0.29f;
         }
 
         void Update()
@@ -295,25 +407,74 @@ namespace Caos.Maps
 
         void Animate()
         {
-            float gait = Time.time * (6f + _bossIndex);
-            float swing = Mathf.Sin(gait) * 16f;
+            _visualTime += Time.unscaledDeltaTime;
+            _hurtTimer = Mathf.Max(0f, _hurtTimer - Time.unscaledDeltaTime);
+
+            float gait = _visualTime * (6f + _bossIndex);
+            float swing = Mathf.Sin(gait) * 18f;
+            float recoil = _hurtTimer > 0f
+                ? Mathf.Sin((1f - _hurtTimer / 0.18f) * Mathf.PI) : 0f;
 
             if (_legs != null)
             {
-                _legs[0].localRotation = Quaternion.Euler(swing, 0f, 0f);
-                _legs[1].localRotation = Quaternion.Euler(-swing, 0f, 0f);
+                for (int i = 0; i < _legs.Length; i++)
+                {
+                    float sign = i == 0 ? 1f : -1f;
+                    _legs[i].localRotation = Quaternion.Euler(swing * sign, 0f, 0f);
+                    if (_feet != null && _feet[i] != null)
+                        _feet[i].localRotation = Quaternion.Euler(-swing * sign * 0.35f, 0f, 0f);
+                }
             }
-            if (_leftArm != null) _leftArm.localRotation = Quaternion.Euler(-swing, 0f, 0f);
+            if (_leftArm != null)
+                _leftArm.localRotation = Quaternion.Euler(-swing - recoil * 14f, 0f, 12f);
+            if (_rightArm != null)
+                _rightArm.localRotation = Quaternion.Euler(swing * 0.35f, 0f, -12f);
 
             if (_head != null)
             {
                 Vector3 position = _head.localPosition;
-                position.y = headHeight + Mathf.Sin(gait * 1.6f) * 0.08f;
+                position.y = headHeight + Mathf.Sin(gait * 1.6f) * 0.06f - recoil * 0.07f;
                 _head.localPosition = position;
-                _head.localRotation = Quaternion.Euler(0f, Mathf.Sin(gait * 0.6f) * 12f, 0f);
+                _head.localRotation = Quaternion.Euler(
+                    recoil * 10f, Mathf.Sin(gait * 0.6f) * 12f, Mathf.Sin(gait) * 4f);
+            }
+            if (_torso != null)
+                _torso.localRotation = Quaternion.Euler(-recoil * 9f, 0f, Mathf.Sin(gait * 0.5f) * 3f);
+
+            if (_eyes != null)
+            {
+                float blinkWave = Mathf.Sin(_visualTime * 0.68f + _blinkOffset);
+                float blink = blinkWave > 0.986f ? 0.08f : 1f;
+                for (int i = 0; i < _eyes.Length; i++)
+                    if (_eyes[i] != null) _eyes[i].localScale = new Vector3(1f, blink, 1f);
+            }
+            if (_brows != null)
+            {
+                for (int i = 0; i < _brows.Length; i++)
+                    if (_brows[i] != null)
+                        _brows[i].localRotation = Quaternion.Euler(0f, 0f,
+                            (i == 0 ? 16f : -16f) + Mathf.Sin(gait * 0.5f) * 6f - recoil * 12f);
+            }
+            if (_mouth != null)
+                _mouth.localScale = new Vector3(1f, 1f + Mathf.Sin(gait * 1.1f) * 0.25f + recoil * 0.6f, 1f);
+
+            if (_accessories != null)
+            {
+                for (int i = 0; i < _accessories.Length; i++)
+                {
+                    if (_accessories[i] == null) continue;
+                    float angle = i / (float)_accessories.Length * Mathf.PI * 2f;
+                    Vector3 basePosition = new Vector3(Mathf.Cos(angle) * 0.42f, 0.5f,
+                        Mathf.Sin(angle) * 0.42f);
+                    _accessories[i].localPosition = basePosition + Vector3.up *
+                        (Mathf.Sin(_visualTime * 3f + angle) * 0.06f);
+                    _accessories[i].localRotation = Quaternion.Euler(
+                        Mathf.Sin(angle) * 22f, Mathf.Sin(_visualTime * 2f + angle) * 12f,
+                        -Mathf.Cos(angle) * 22f);
+                }
             }
 
-            float breathe = 1f + Mathf.Sin(gait * 0.8f) * 0.028f;
+            float breathe = 1f + Mathf.Sin(gait * 0.8f) * 0.03f;
             Vector3 juice = ArenaJuice.Active != null
                 ? ArenaJuice.Active.SquashFactor(transform) : Vector3.one;
             transform.localScale = new Vector3(
@@ -321,18 +482,33 @@ namespace Caos.Maps
                 _baseScale.y * (2f - breathe) * juice.y,
                 _baseScale.z * breathe * juice.z);
 
+            if (_telegraph != null)
+            {
+                bool warning = _powerAnimation > 0f;
+                if (_telegraph.enabled != warning) _telegraph.enabled = warning;
+                if (warning)
+                {
+                    float pulse = 1f + Mathf.Sin(_visualTime * 22f) * 0.08f;
+                    _telegraph.transform.localScale = new Vector3(2.6f * pulse, 0.02f, 2.6f * pulse);
+                }
+            }
+
             if (_hammerPivot == null) return;
             if (_powerAnimation > 0f)
             {
-                _powerAnimation = Mathf.Max(0f, _powerAnimation - Time.deltaTime);
+                _powerAnimation = Mathf.Max(0f, _powerAnimation - Time.unscaledDeltaTime);
                 float t = 1f - (_powerAnimation / 0.42f);
                 _hammerPivot.localRotation = Quaternion.Euler(Mathf.Lerp(-115f, 24f, t), 0f, 0f);
             }
             else
             {
+                float idle = _kind == ArenaBossKind.Canion ? 12f : 24f;
                 _hammerPivot.localRotation = Quaternion.Euler(
-                    24f + Mathf.Sin(gait * 0.9f) * 8f, 0f, 0f);
+                    idle + Mathf.Sin(gait * 0.9f) * 8f,
+                    Mathf.Sin(_visualTime * 2.2f) * 6f, 0f);
             }
+            if (_weaponMuzzle != null && _kind == ArenaBossKind.Canion)
+                _weaponMuzzle.localScale = new Vector3(0.64f, 0.08f + Mathf.Sin(gait * 2f) * 0.012f, 0.64f);
         }
 
         void Slam()
@@ -419,6 +595,7 @@ namespace Caos.Maps
             if (IsDead || amount <= 0f) return;
 
             _health.TakeDamage(amount, "disparo");
+            _hurtTimer = 0.18f;
 
             switch (element)
             {
@@ -454,13 +631,19 @@ namespace Caos.Maps
         IEnumerator Flash()
         {
             _flashing = true;
+            bool reduced = ArenaJuice.ReduceFlashing;
             for (int i = 0; i < _renderers.Length; i++)
-                _renderers[i].material.color = new Color(1f, 0.22f, 0.20f);
+            {
+                Color flash = reduced
+                    ? Color.Lerp(_baseColors[i], new Color(1f, 0.84f, 0.72f), 0.18f)
+                    : new Color(1f, 0.25f, 0.21f);
+                ArenaCreatureKit.SetColor(_renderers[i], flash);
+            }
 
-            yield return new WaitForSeconds(0.11f);
+            yield return new WaitForSecondsRealtime(reduced ? 0.08f : 0.11f);
 
             for (int i = 0; i < _renderers.Length; i++)
-                _renderers[i].material.color = _baseColors[i];
+                ArenaCreatureKit.SetColor(_renderers[i], _baseColors[i]);
             _flashing = false;
         }
 

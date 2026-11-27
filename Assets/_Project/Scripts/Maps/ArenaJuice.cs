@@ -225,6 +225,14 @@ namespace Caos.Maps
             FlashTinted(visual, flashTime * 1.6f, DeathColor);
         }
 
+        /// <summary>Aparición: anillo de chispas para anunciar monstruos y jefes.</summary>
+        public void Spawn(Vector3 position, bool big = false)
+        {
+            Vector3 origin = position + Vector3.up * (big ? 0.35f : 0.15f);
+            RadialBurst(origin, big ? 14 : 8, big ? DeathColor : PickupColor,
+                particleSpeed * (big ? 0.75f : 0.5f));
+        }
+
         public void Pickup(Vector3 position)
         {
             AddTrauma(0.08f);

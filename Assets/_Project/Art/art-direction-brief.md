@@ -49,6 +49,22 @@
 - Explicit exclusions: sin texto sobre las mallas, sin luces horneadas en el color base, sin
   texturas externas, sin assets de terceros, sin líneas de contorno negras alrededor de todo.
 
+## Criaturas de Arena Caos
+
+- Monstruos y jefes usan `Assets/_Project/Scripts/Maps/ArenaCreatureKit.cs`: mallas cacheadas
+  (`OrganicCrown`, `RoundedBox`, `RoundedCylinder`, `TaperedTrunk`) y materiales toon cacheados.
+- Silueta: cuerpo redondeado con panza, cabeza sobredimensionada, ojos con pupila, cejas, boca,
+  cuernos y cola en monstruos; cresta tipo y arma (martillo, cañón o núcleo de tormenta) en jefes.
+- Extremidades con pivote arriba: brazos y piernas balancean desde hombro/cadera, con manos y pies
+  propios. Ninguna pieza añade colider: el `CharacterController` original sigue siendo la única
+  física de la criatura.
+- Animación procedural por código: marcha, respiración, parpadeo, movimiento de cola/cresta y
+  retroceso al recibir daño. Se usa `Time.unscaledDeltaTime` y `ArenaJuice.SquashFactor`.
+- Accesibilidad: el flash de daño se sustituye por un tinte claro cuando `Caos.ReduceFlashing`
+  está activo; el anillo de aviso del jefe es geométrico y no depende de destellos.
+- Paleta de aviso: coral `(1, 0.44, 0.28)` para el anillo de peligro; violeta y cian para la
+  aparición de monstruos y jefes respectivamente, coherente con `ArenaJuice`.
+
 ## Technical contract
 
 - Asset dimensions/aspect: mallas procedurales en tiempo de ejecución; sin mapas de imagen.

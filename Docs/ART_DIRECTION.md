@@ -17,10 +17,12 @@ procedurales en runtime: sin arte externo, sin Animator y sin texturas importada
 | Color | Césped verde vivo con tres tonos; tierra cálida; acentos cian/coral/amarillo/violeta para interactivos, peligro, recompensa y elemento. |
 | Borde | Bisel geométrico de 2-4 segmentos y rim light sutil. Sin contornos negros gruesos. |
 | Material | Stylized semi-mate: muy poca rugosidad metálica, highlight blando, fresnel suave, emisión solo en objetos interactivos o elementos. |
-| Luz | Sol cálido direccional equilibrado desde arriba-izquierda, relleno frío bajo, sombras suaves y cielo pastel fijo. Sin niebla y sin bloom, tonemap, vignette ni ajustes de color globales: solo antialiasing de cámara. La profundidad la dan copas de árbol opacas con sombras, suelo lejano, lomas verdes, montañas de nieve apagada y nubes alejadas y discretas. |
+| Luz | Sol cálido direccional equilibrado desde arriba-izquierda, relleno frío bajo, sombras suaves y cielo pastel fijo. Sin niebla y sin bloom, tonemap, vignette ni ajustes de color globales: solo antialiasing de cámara. `PC_RPAsset` y `Mobile_RPAsset` referencian `CaosVolumeProfile` (todo inactivo) como perfil de calidad para que el estado efectivo coincida con esta regla. La profundidad la dan copas de árbol opacas con sombras, suelo lejano, lomas verdes, montañas de nieve apagada y nubes alejadas y discretas. |
 | Detalle | Concentrado en bordes, copas, flores, rocas, lomas y HUD. El horizonte se compone de montañas redondas y nubes fuera del área de juego. La repetición se rompe con ruido en dos escalas, rocío procedural y variación por semilla. Las luces de hito son bombillas de color con intensidad baja: iluminan sin lavar la imagen. |
 | Cámara | Seguimiento suave en `LateUpdate`, encuadre con ligero look-ahead, shake solo en impactos y FOV que respira al correr. |
-| Movimiento | Todo se mueve con senos de baja frecuencia y tiempo real: hierba, copas, nubes, luciérnagas e iconos de HUD. Amplitud pequeña; nunca mareante. |
+| Movimiento | Todo se mueve con senos de baja frecuencia y tiempo real: hierba, copas, nubes, polvo sutil e iconos de HUD. Amplitud pequeña; nunca mareante. |
+| Criaturas | Monstruos y jefes salen de `ArenaCreatureKit`: torso y cabeza orgánicos, cara con ojos/pupilas/cejas/boca, extremidades con pivote, manos, pies, cuernos y cola o armas según el tipo. La animación es procedural (marcha, respiración, parpadeo, retroceso) y usa `ArenaJuice.SquashFactor`; nunca `Animator`. |
+| Señalización | Los jefes muestran un anillo de aviso en el suelo antes de su ataque; la aparición de monstruos y jefes lleva un anillo de chispas. Las guías, bombillas y luces de hito siguen siendo de baja intensidad y sin collider. |
 
 ## Paleta semántica
 

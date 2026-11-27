@@ -38,6 +38,7 @@ namespace Caos.Maps
         [SerializeField] int mountainCount = 14;
         [SerializeField] int edgeHillCount = 18;
         [SerializeField] int cloudCount = 7;
+        [SerializeField] int dustCount = 18;
         [SerializeField] int fireflyCount = 0;
         [SerializeField] int rainCount = 0;
         [SerializeField] bool rain;
@@ -51,6 +52,7 @@ namespace Caos.Maps
         readonly List<Sway> _sways = new List<Sway>();
         readonly List<Drift> _clouds = new List<Drift>();
         readonly List<Firefly> _fireflies = new List<Firefly>();
+        readonly List<Firefly> _dust = new List<Firefly>();
         readonly List<Material> _ownedMaterials = new List<Material>();
 
         Transform _generated;
@@ -61,6 +63,7 @@ namespace Caos.Maps
         float[] _rainSpeeds;
         Vector3[] _rainVertices;
         bool _generatedOnce;
+        float _visualTime;
 
         struct Sway
         {
@@ -134,6 +137,7 @@ namespace Caos.Maps
             BuildEdgeHills(Stream(91));
             BuildMountains(Stream(83));
             BuildClouds(Stream(37));
+            BuildDust(Stream(97));
             BuildFireflies(Stream(53));
             if (rain) BuildRain();
         }
@@ -235,10 +239,22 @@ namespace Caos.Maps
                 Vector3 position = SampleTreePerimeter(rng);
                 float height = 2.8f + (float)rng.NextDouble() * 1.4f;
 
-                // Tronco cónico y curvado: silueta orgánica sin parecer un cilindro.
-                float bend = Mathf.Sin(i * 1.73f) * 0.12f;
-                Mesh trunkMesh = CaosVisualKit.TaperedTrunk(height, 0.15f, 0.085f, bend, i);
+                // Tronco ancho en la base y curvado: silueta orgánica, no un cilindro.
+                float bend = Mathf.Sin(i * 1.73f) * 0.16f;
+                Mesh trunkMesh = CaosVisualKit.TaperedTrunk(height, 0.19f, 0.09f, bend, i);
                 var trunk = CreateMeshObject("Tree_Trunk_" + i, trunkMesh, trunkMaterial, position);
+
+                // Raíces aplanadas: Ensanchan el pie del árbol sin añadir collider.
+                for (int r = 0; r < 3; r++)
+                {
+                    float angle = r * Mathf.PI * 2f / 3f + i * 0.41f;
+                    Vector3 rootOffset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 0.28f;
+                    var root = CreateMeshObject("Tree_Root_" + i + "_" + r,
+                        CaosVisualKit.OrganicCrown(0.24f, 700 + i * 3 + r, 0.32f),
+                        trunkMaterial, position + rootOffset + Vector3.up * 0.06f);
+                    root.transform.localScale = new Vector3(1.15f, 0.65f, 1.15f);
+                    root.transform.rotation = Quaternion.Euler(0f, angle * Mathf.Rad2Deg, 0f);
+                }
 
                 var canopy = new GameObject("Tree_Canopy_" + i);
                 canopy.transform.SetParent(_generated, false);
@@ -258,6 +274,13 @@ namespace Caos.Maps
                 upper.transform.localPosition = new Vector3(0.10f, 0.50f, -0.06f);
                 upper.transform.localScale = new Vector3(0.9f, 0.85f, 0.9f);
 
+                var tip = CreateMeshObject("Crown_Tip",
+                    CaosVisualKit.OrganicCrown(0.38f, i + 57, 0.82f),
+                    i % 2 == 0 ? crownBMaterial : crownAMaterial, canopy.transform.position);
+                tip.transform.SetParent(canopy.transform, true);
+                tip.transform.localPosition = new Vector3(-0.07f, 0.92f, 0.04f);
+                tip.transform.localScale = Vector3.one * 0.82f;
+
                 _sways.Add(new Sway
                 {
                     target = canopy.transform,
@@ -268,13 +291,14 @@ namespace Caos.Maps
                     aroundX = false
                 });
 
-                for (int b = 0; b < 2; b++)
+                for (int b = 0; b < 3; b++)
                 {
                     float angle = (float)rng.NextDouble() * Mathf.PI * 2f;
                     Vector3 offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle))
-                        * (0.9f + (float)rng.NextDouble() * 0.5f);
+                        * (0.9f + (float)rng.NextDouble() * 0.55f);
                     var bush = CreateMeshObject("Bush_" + i + "_" + b,
-                        CaosVisualKit.OrganicCrown(0.44f, i * 3 + b, 0.55f), bushMaterial,
+                        CaosVisualKit.OrganicCrown(0.40f + b * 0.07f, i * 3 + b, 0.55f),
+                        b == 2 ? crownAMaterial : bushMaterial,
                         position + offset + Vector3.up * 0.20f);
                     bush.transform.localScale = new Vector3(0.95f, 0.8f, 0.95f);
                     _sways.Add(new Sway
@@ -295,8 +319,14 @@ namespace Caos.Maps
         void BuildGrass(System.Random rng)
         {
             // Material opaco con color por vértice: las hojas se ven con luz y
-            // no quedan como un velo transparente sobre el suelo.
-            var material = MakeTuft();
+            // no quedan como un velo transparente sobre el suelo. Tres matices
+            // (neutro, cálido, frío) dan profundidad sin texturas ni ruido extra.
+            Material[] materials =
+            {
+                MakeTuft(),
+                MakeTuft(new Color(1f, 0.92f, 0.78f, 1f)),
+                MakeTuft(new Color(0.82f, 0.95f, 1f, 1f))
+            };
             _grassMesh = CreateGrassMesh();
 
             for (int i = 0; i < grassCount; i++)
@@ -315,7 +345,7 @@ namespace Caos.Maps
                 go.AddComponent<MeshFilter>().sharedMesh = flower
                     ? CaosVisualKit.Flower(i % 4)
                     : _grassMesh;
-                go.AddComponent<MeshRenderer>().sharedMaterial = material;
+                go.AddComponent<MeshRenderer>().sharedMaterial = materials[i % materials.Length];
 
                 _sways.Add(new Sway
                 {
@@ -525,6 +555,38 @@ namespace Caos.Maps
             }
         }
 
+        // ---------------------------------------------------------------- polvo
+
+        /// <summary>
+        /// Motas opacas y diminutas: dan vida al aire sin brillar, parpadear ni
+        /// formar velos. Se colocan cerca del borde, nunca en el carril central.
+        /// </summary>
+        void BuildDust(System.Random rng)
+        {
+            if (dustCount <= 0) return;
+            Material dustMaterial = MakeLit(new Color(0.78f, 0.86f, 0.72f));
+            for (int i = 0; i < dustCount; i++)
+            {
+                Vector3 center = SamplePerimeter(rng, 2.2f)
+                    + Vector3.up * (1.2f + (float)rng.NextDouble() * 3.2f);
+                float size = 0.045f + (float)rng.NextDouble() * 0.045f;
+                var mote = CreatePrimitive(PrimitiveType.Sphere, "Dust_" + i, center, dustMaterial);
+                mote.transform.localScale = Vector3.one * size;
+                _dust.Add(new Firefly
+                {
+                    target = mote.transform,
+                    center = center,
+                    radius = new Vector3(
+                        0.45f + (float)rng.NextDouble() * 0.5f,
+                        0.25f + (float)rng.NextDouble() * 0.35f,
+                        0.45f + (float)rng.NextDouble() * 0.5f),
+                    phase = (float)rng.NextDouble() * Mathf.PI * 2f,
+                    speed = 0.18f + (float)rng.NextDouble() * 0.28f,
+                    size = size
+                });
+            }
+        }
+
         // ---------------------------------------------------------- luciérnagas
 
         void BuildFireflies(System.Random rng)
@@ -642,10 +704,12 @@ namespace Caos.Maps
 
         void Update()
         {
-            // timeScale = 0 (mejoras y pausa) congela el ambiente también.
-            float delta = Time.deltaTime;
-            if (delta <= 0f) return;
-            float time = Time.time;
+            // El ambiente sigue vivo en pausa y hit-stop. El paso se acota para
+            // que una suspensión del proceso no produzca un salto brusco.
+            float delta = Mathf.Min(Time.unscaledDeltaTime, 0.05f);
+            _visualTime += delta;
+            if (_visualTime <= 0f) return;
+            float time = _visualTime;
 
             for (int i = 0; i < _sways.Count; i++)
             {
@@ -663,6 +727,16 @@ namespace Caos.Maps
                 position.x += cloud.speed * delta;
                 if (position.x > cloud.wrap) position.x = -cloud.wrap;
                 cloud.target.position = position;
+            }
+
+            for (int i = 0; i < _dust.Count; i++)
+            {
+                Firefly mote = _dust[i];
+                float t = time * mote.speed + mote.phase;
+                mote.target.position = mote.center + new Vector3(
+                    Mathf.Sin(t) * mote.radius.x,
+                    Mathf.Sin(t * 1.3f + 0.7f) * mote.radius.y,
+                    Mathf.Cos(t * 0.9f) * mote.radius.z);
             }
 
             for (int i = 0; i < _fireflies.Count; i++)
@@ -752,9 +826,9 @@ namespace Caos.Maps
         }
 
         /// <summary>Hierba y flores: opacas, con vértices teñidos y brillo suave.</summary>
-        Material MakeTuft()
+        Material MakeTuft(Color? tint = null)
         {
-            var material = MakeStylized(Color.white);
+            var material = MakeStylized(tint ?? Color.white);
             material.SetColor("_ShadowColor", new Color(0.10f, 0.28f, 0.14f, 1f));
             material.SetColor("_RimColor", new Color(0.55f, 0.95f, 0.55f, 1f));
             material.SetFloat("_RimStrength", 0.10f);

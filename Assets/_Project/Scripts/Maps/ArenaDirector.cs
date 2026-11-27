@@ -425,6 +425,8 @@ namespace Caos.Maps
             var monster = go.AddComponent<ArenaMonster>();
             monster.Configure(3.1f + Random.Range(0f, 0.9f), 15f, this);
             _monsters.Add(monster);
+            ArenaJuice.Current.Spawn(go.transform.position);
+            ArenaJuice.Current.Punch(go.transform, 1.22f);
         }
 
         public void SummonMinions(int count, Vector3 origin)
@@ -491,6 +493,7 @@ namespace Caos.Maps
             ShowBanner($"JEFE {index}/3: {BossName(kind)} — {BossPower(kind)}", 4f);
             ArenaAudio.Play(ArenaAudio.Sound.Boss, go.transform.position, 0.95f);
             ArenaJuice.Current.AddTrauma(0.5f);
+            ArenaJuice.Current.Spawn(go.transform.position, true);
             ArenaJuice.Current.Impact(go.transform.position, 0.9f, go.transform);
         }
 

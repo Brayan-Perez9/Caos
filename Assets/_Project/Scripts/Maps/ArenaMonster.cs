@@ -32,8 +32,15 @@ namespace Caos.Maps
         CharacterController _controller;
 
         Transform _head;
+        Transform _torso;
         Transform[] _legs;
         Transform[] _arms;
+        Transform[] _feet;
+        Transform[] _hands;
+        Transform[] _eyes;
+        Transform[] _brows;
+        Transform _mouth;
+        Transform _tail;
         Renderer[] _renderers;
         Color[] _baseColors;
 
@@ -42,6 +49,9 @@ namespace Caos.Maps
         float _nextAttack;
         float _lunge;
         float _verticalSpeed;
+        float _visualTime;
+        float _hurtTimer;
+        float _blinkOffset;
         float _burnTimer;
         float _burnDps;
         float _poisonTimer;
@@ -94,54 +104,120 @@ namespace Caos.Maps
 
             var parts = new List<Renderer>();
             var colors = new List<Color>();
+            var rootRenderer = GetComponent<Renderer>();
+            if (rootRenderer != null) rootRenderer.enabled = false;
 
-            Renderer torso = GetComponent<Renderer>();
-            torso.sharedMaterial = ArenaMaterial.Create(BodyColor);
-            parts.Add(torso);
-            colors.Add(BodyColor);
+            int seed = Mathf.Abs(transform.GetInstanceID()) % 5;
+            Color shadow = Color.Lerp(BodyColor, new Color(0.07f, 0.11f, 0.19f), 0.55f);
+            Color rim = new Color(0.58f, 0.92f, 1f, 1f);
 
-            _head = Part(PrimitiveType.Sphere, "Head",
-                new Vector3(0f, headHeight, 0.08f), Vector3.one * 0.42f, HeadColor, parts, colors);
+            Material bodyMat = ArenaCreatureKit.Toon(BodyColor, shadow, rim, 0.18f, 0.22f);
+            Material headMat = ArenaCreatureKit.Toon(HeadColor,
+                Color.Lerp(HeadColor, shadow, 0.45f), rim, 0.24f, 0.26f);
+            Material limbMat = ArenaCreatureKit.Toon(LegColor,
+                Color.Lerp(LegColor, shadow, 0.4f), rim, 0.16f, 0.2f);
+            Material armMat = ArenaCreatureKit.Toon(ArmColor,
+                Color.Lerp(ArmColor, shadow, 0.4f), rim, 0.16f, 0.2f);
+            Material bellyMat = ArenaCreatureKit.Toon(Color.Lerp(HeadColor, Color.white, 0.28f),
+                Color.Lerp(HeadColor, shadow, 0.35f), rim, 0.2f, 0.24f);
+            Material eyeMat = ArenaCreatureKit.Toon(EyeColor,
+                Color.Lerp(EyeColor, Color.black, 0.35f), new Color(1f, 0.95f, 0.72f),
+                0.3f, 0.48f, 0.07f);
+            Material darkMat = ArenaCreatureKit.Toon(new Color(0.10f, 0.07f, 0.14f),
+                new Color(0.04f, 0.03f, 0.07f), new Color(0.7f, 0.8f, 1f), 0.12f, 0.14f);
+            Material hornMat = ArenaCreatureKit.Toon(new Color(0.96f, 0.78f, 0.35f),
+                new Color(0.42f, 0.28f, 0.12f), new Color(1f, 0.9f, 0.6f), 0.26f, 0.3f);
 
-            for (int side = -1; side <= 1; side += 2)
-            {
-                Part(PrimitiveType.Sphere, "Eye",
-                    new Vector3(side * 0.15f, headHeight + 0.05f, 0.34f),
-                    Vector3.one * 0.10f, EyeColor, parts, colors);
-            }
+            _torso = ArenaCreatureKit.Make(transform, "Torso",
+                CaosVisualKit.OrganicCrown(0.66f, 10 + seed, 0.86f), bodyMat,
+                new Vector3(0f, 0.22f, 0f), Vector3.one * 1.12f, Quaternion.identity,
+                parts, colors, BodyColor);
 
-            _legs = new Transform[2];
-            _arms = new Transform[2];
+            ArenaCreatureKit.Make(transform, "Belly",
+                CaosVisualKit.OrganicCrown(0.34f, 20 + seed, 0.9f), bellyMat,
+                new Vector3(0f, 0.16f, 0.66f), new Vector3(1.05f, 1f, 0.24f),
+                Quaternion.identity, parts, colors, Color.Lerp(HeadColor, Color.white, 0.28f));
+
+            _head = ArenaCreatureKit.Make(transform, "Head",
+                CaosVisualKit.OrganicCrown(0.42f, 30 + seed, 0.86f), headMat,
+                new Vector3(0f, headHeight, 0.08f), Vector3.one, Quaternion.identity,
+                parts, colors, HeadColor);
+
+            _eyes = new Transform[2];
+            _brows = new Transform[2];
             for (int i = 0; i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
-                _legs[i] = Part(PrimitiveType.Cube, "Leg",
-                    new Vector3(side * 0.22f, -0.62f, 0f),
-                    new Vector3(0.18f, 0.55f, 0.18f), LegColor, parts, colors);
-                _arms[i] = Part(PrimitiveType.Cube, "Arm",
-                    new Vector3(side * 0.55f, 0.12f, 0.06f),
-                    new Vector3(0.16f, 0.55f, 0.16f), ArmColor, parts, colors);
+                _eyes[i] = new GameObject("EyePivot_" + i).transform;
+                _eyes[i].SetParent(_head, false);
+                _eyes[i].localPosition = new Vector3(side * 0.16f, 0.05f, 0.36f);
+                ArenaCreatureKit.Make(_eyes[i], "EyeWhite",
+                    CaosVisualKit.OrganicCrown(0.105f, 41 + i, 1f), eyeMat,
+                    Vector3.zero, new Vector3(1f, 1.05f, 0.55f), Quaternion.identity,
+                    parts, colors, EyeColor);
+                ArenaCreatureKit.Make(_eyes[i], "Pupil",
+                    CaosVisualKit.OrganicCrown(0.052f, 45 + i, 1f), darkMat,
+                    new Vector3(0f, 0f, 0.056f), new Vector3(0.85f, 1f, 0.5f),
+                    Quaternion.identity, parts, colors, new Color(0.10f, 0.07f, 0.14f));
+
+                _brows[i] = ArenaCreatureKit.Make(_head, "Brow_" + i,
+                    CaosVisualKit.RoundedBox(new Vector3(0.17f, 0.038f, 0.045f), 0.018f, 2),
+                    darkMat, new Vector3(side * 0.17f, 0.19f, 0.36f), Vector3.one,
+                    Quaternion.Euler(0f, 0f, side * 14f), parts, colors,
+                    new Color(0.10f, 0.07f, 0.14f));
+
+                ArenaCreatureKit.Make(_head, "Horn_" + i,
+                    CaosVisualKit.TaperedTrunk(0.3f, 0.1f, 0.018f, 0.055f, 60 + seed + i),
+                    hornMat, new Vector3(side * 0.28f, 0.32f, -0.02f), Vector3.one,
+                    Quaternion.Euler(12f, 0f, side * -18f), parts, colors,
+                    new Color(0.96f, 0.78f, 0.35f));
             }
+
+            _mouth = ArenaCreatureKit.Make(_head, "Mouth",
+                CaosVisualKit.RoundedBox(new Vector3(0.24f, 0.05f, 0.045f), 0.022f, 2),
+                darkMat, new Vector3(0f, -0.13f, 0.39f), Vector3.one, Quaternion.identity,
+                parts, colors, new Color(0.10f, 0.07f, 0.14f));
+
+            _legs = new Transform[2];
+            _arms = new Transform[2];
+            _feet = new Transform[2];
+            _hands = new Transform[2];
+            for (int i = 0; i < 2; i++)
+            {
+                float side = i == 0 ? -1f : 1f;
+                _legs[i] = ArenaCreatureKit.MakeLimb(transform, "LegPivot_" + i,
+                    0.105f, 0.55f, limbMat, new Vector3(side * 0.22f, -0.35f, 0f),
+                    Quaternion.identity, LegColor, parts, colors);
+                _feet[i] = ArenaCreatureKit.Make(_legs[i], "Foot",
+                    CaosVisualKit.OrganicCrown(0.16f, 70 + seed + i, 0.5f), limbMat,
+                    new Vector3(0f, -0.54f, 0.06f), new Vector3(1.15f, 0.7f, 1.35f),
+                    Quaternion.identity, parts, colors, LegColor);
+
+                _arms[i] = ArenaCreatureKit.MakeLimb(transform, "ArmPivot_" + i,
+                    0.085f, 0.5f, armMat, new Vector3(side * 0.57f, 0.42f, 0.05f),
+                    Quaternion.Euler(0f, 0f, side * 12f), ArmColor, parts, colors);
+                _hands[i] = ArenaCreatureKit.Make(_arms[i], "Hand",
+                    CaosVisualKit.OrganicCrown(0.13f, 80 + seed + i, 0.92f), armMat,
+                    new Vector3(0f, -0.5f, 0f), Vector3.one, Quaternion.identity,
+                    parts, colors, ArmColor);
+            }
+
+            _tail = new GameObject("TailPivot").transform;
+            _tail.SetParent(transform, false);
+            _tail.localPosition = new Vector3(0f, 0.06f, -0.52f);
+            _tail.localRotation = Quaternion.Euler(-90f, 0f, 0f);
+            ArenaCreatureKit.Make(_tail, "Tail",
+                CaosVisualKit.TaperedTrunk(0.52f, 0.12f, 0.02f, 0.09f, 90 + seed),
+                bodyMat, Vector3.zero, Vector3.one, Quaternion.identity,
+                parts, colors, BodyColor);
+            ArenaCreatureKit.Make(_tail, "TailTip",
+                CaosVisualKit.OrganicCrown(0.11f, 95 + seed, 0.9f), hornMat,
+                new Vector3(0f, 0.52f, 0f), Vector3.one, Quaternion.identity,
+                parts, colors, new Color(0.96f, 0.78f, 0.35f));
 
             _renderers = parts.ToArray();
             _baseColors = colors.ToArray();
-        }
-
-        Transform Part(PrimitiveType type, string name, Vector3 localPosition, Vector3 localScale,
-            Color color, List<Renderer> renderers, List<Color> colors)
-        {
-            GameObject part = GameObject.CreatePrimitive(type);
-            part.name = name;
-            part.transform.SetParent(transform, false);
-            part.transform.localPosition = localPosition;
-            part.transform.localScale = localScale;
-            Destroy(part.GetComponent<Collider>());
-
-            Renderer renderer = part.GetComponent<Renderer>();
-            renderer.sharedMaterial = ArenaMaterial.Create(color);
-            renderers.Add(renderer);
-            colors.Add(color);
-            return part.transform;
+            _blinkOffset = seed * 0.31f;
         }
 
         void Update()
@@ -235,28 +311,69 @@ namespace Caos.Maps
 
         void Animate(float distance)
         {
-            float gait = Time.time * (distance > 0.1f ? 11f : 3f);
-            float swing = Mathf.Sin(gait) * 26f;
+            _visualTime += Time.unscaledDeltaTime;
+            _hurtTimer = Mathf.Max(0f, _hurtTimer - Time.unscaledDeltaTime);
+
+            bool moving = distance > 0.1f;
+            float gait = _visualTime * (moving ? 10.5f : 2.6f);
+            float swing = Mathf.Sin(gait) * (moving ? 28f : 6f);
+            float recoil = _hurtTimer > 0f
+                ? Mathf.Sin((1f - _hurtTimer / 0.18f) * Mathf.PI) : 0f;
 
             if (_legs != null)
             {
-                _legs[0].localRotation = Quaternion.Euler(swing, 0f, 0f);
-                _legs[1].localRotation = Quaternion.Euler(-swing, 0f, 0f);
+                for (int i = 0; i < _legs.Length; i++)
+                {
+                    float sign = i == 0 ? 1f : -1f;
+                    _legs[i].localRotation = Quaternion.Euler(swing * sign, 0f, 0f);
+                    if (_feet != null && _feet[i] != null)
+                        _feet[i].localRotation = Quaternion.Euler(-swing * sign * 0.35f, 0f, 0f);
+                }
             }
             if (_arms != null)
             {
-                _arms[0].localRotation = Quaternion.Euler(-swing * 0.8f, 0f, 0f);
-                _arms[1].localRotation = Quaternion.Euler(swing * 0.8f, 0f, 0f);
+                for (int i = 0; i < _arms.Length; i++)
+                {
+                    float sign = i == 0 ? -1f : 1f;
+                    _arms[i].localRotation = Quaternion.Euler(
+                        swing * sign * 0.85f - recoil * 16f, 0f,
+                        sign * (12f + Mathf.Sin(gait * 0.5f) * 4f));
+                    if (_hands != null && _hands[i] != null)
+                        _hands[i].localRotation = Quaternion.Euler(-swing * sign * 0.4f, 0f, 0f);
+                }
             }
             if (_head != null)
             {
                 Vector3 headPosition = _head.localPosition;
-                headPosition.y = headHeight + Mathf.Sin(gait * 2f) * 0.055f;
+                headPosition.y = headHeight + Mathf.Sin(gait * 2f) * 0.045f - recoil * 0.08f;
                 _head.localPosition = headPosition;
-                _head.localRotation = Quaternion.Euler(0f, Mathf.Sin(gait * 0.5f) * 10f, 0f);
+                _head.localRotation = Quaternion.Euler(
+                    recoil * 12f, Mathf.Sin(gait * 0.5f) * 10f, Mathf.Sin(gait) * 4f);
             }
 
-            float breathe = 1f + Mathf.Sin(gait * 0.7f) * 0.035f;
+            if (_torso != null)
+                _torso.localRotation = Quaternion.Euler(-recoil * 10f, 0f, Mathf.Sin(gait * 0.5f) * 2.5f);
+
+            if (_eyes != null)
+            {
+                float blinkWave = Mathf.Sin(_visualTime * 0.82f + _blinkOffset);
+                float blink = blinkWave > 0.988f ? 0.08f : 1f;
+                for (int i = 0; i < _eyes.Length; i++)
+                    if (_eyes[i] != null) _eyes[i].localScale = new Vector3(1f, blink, 1f);
+            }
+            if (_brows != null)
+            {
+                for (int i = 0; i < _brows.Length; i++)
+                    if (_brows[i] != null)
+                        _brows[i].localRotation = Quaternion.Euler(0f, 0f,
+                            (i == 0 ? 14f : -14f) + Mathf.Sin(gait * 0.5f) * 5f - recoil * 10f);
+            }
+            if (_mouth != null)
+                _mouth.localScale = new Vector3(1f, 1f + Mathf.Sin(gait * 1.3f) * 0.22f + recoil * 0.5f, 1f);
+            if (_tail != null)
+                _tail.localRotation = Quaternion.Euler(-90f, Mathf.Sin(_visualTime * 3.4f) * 22f, 0f);
+
+            float breathe = 1f + Mathf.Sin(gait * 0.7f) * (moving ? 0.035f : 0.055f);
             Vector3 juice = ArenaJuice.Active != null
                 ? ArenaJuice.Active.SquashFactor(transform) : Vector3.one;
             transform.localScale = new Vector3(
@@ -271,6 +388,7 @@ namespace Caos.Maps
             if (IsDead || amount <= 0f) return;
 
             _health.TakeDamage(amount, "disparo");
+            _hurtTimer = 0.18f;
             ApplyElement(element, direction, amount, allowChain);
 
             ChaosFx.Burst(hitPoint, BloodColor, Random.Range(5, 9));
@@ -321,13 +439,19 @@ namespace Caos.Maps
         IEnumerator Flash()
         {
             _flashing = true;
+            bool reduced = ArenaJuice.ReduceFlashing;
             for (int i = 0; i < _renderers.Length; i++)
-                _renderers[i].material.color = new Color(1f, 0.25f, 0.22f);
+            {
+                Color flash = reduced
+                    ? Color.Lerp(_baseColors[i], new Color(1f, 0.82f, 0.7f), 0.18f)
+                    : new Color(1f, 0.28f, 0.22f);
+                ArenaCreatureKit.SetColor(_renderers[i], flash);
+            }
 
-            yield return new WaitForSeconds(0.12f);
+            yield return new WaitForSecondsRealtime(reduced ? 0.08f : 0.12f);
 
             for (int i = 0; i < _renderers.Length; i++)
-                _renderers[i].material.color = _baseColors[i];
+                ArenaCreatureKit.SetColor(_renderers[i], _baseColors[i]);
             _flashing = false;
         }
 
