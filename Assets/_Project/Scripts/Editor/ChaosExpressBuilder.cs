@@ -422,6 +422,7 @@ namespace Caos.EditorTools
             camera.tag = "MainCamera";
             camera.fieldOfView = 50f;
             camera.nearClipPlane = 0.15f;
+            SandboxSceneBuilder.SetPartySky(camera);
             cameraObject.AddComponent<AudioListener>();
             SandboxSceneBuilder.EnablePostProcessing(cameraObject);
             cameraObject.AddComponent<PlayerCamera>().SetTarget(player.transform);

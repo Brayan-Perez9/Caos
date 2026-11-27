@@ -346,6 +346,13 @@ namespace Caos.Maps
         /// </summary>
         void BuildMountains(System.Random rng)
         {
+            // Suelo lejano sin collider: da apoyo visual a las montañas y evita
+            // que la arena parezca una isla flotando sobre el cielo.
+            var farGround = CreatePrimitive(PrimitiveType.Plane, "FarGround",
+                new Vector3(0f, groundY - 0.75f, 0f),
+                MakeLit(new Color(0.34f, 0.64f, 0.42f, 1f)));
+            farGround.transform.localScale = new Vector3(26f, 1f, 26f);
+
             var material = MakeStylized(Color.white);
             float inner = Mathf.Max(halfExtents.x, halfExtents.y) + 20f;
             float outer = inner + 26f;

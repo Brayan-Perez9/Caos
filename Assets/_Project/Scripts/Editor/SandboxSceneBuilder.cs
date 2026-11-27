@@ -130,6 +130,14 @@ namespace Caos.EditorTools
             data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
         }
 
+        /// <summary>Cielo pastel fijo: evita el fondo blanco cuando no hay skybox.</summary>
+        public static void SetPartySky(Camera camera)
+        {
+            if (camera == null) return;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(0.47f, 0.76f, 0.96f, 1f);
+        }
+
         static void BuildArena(Transform parent)
         {
             // Suelo: el plano de Unity mide 10x10 con escala 1, asÃ­ que escala 3 => 30x30.
@@ -287,6 +295,7 @@ namespace Caos.EditorTools
             camera.tag = "MainCamera";
             camera.fieldOfView = 50f;
             camera.nearClipPlane = 0.15f;
+            SetPartySky(camera);
             cameraObject.AddComponent<AudioListener>();
             EnablePostProcessing(cameraObject);
             cameraObject.AddComponent<PlayerCamera>().SetTarget(player.transform);
