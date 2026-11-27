@@ -38,7 +38,7 @@ namespace Caos.Maps
         [SerializeField] int mountainCount = 14;
         [SerializeField] int edgeHillCount = 18;
         [SerializeField] int cloudCount = 7;
-        [SerializeField] int fireflyCount = 18;
+        [SerializeField] int fireflyCount = 0;
         [SerializeField] int rainCount = 0;
         [SerializeField] bool rain;
         [SerializeField] Material ambientMaterial;
