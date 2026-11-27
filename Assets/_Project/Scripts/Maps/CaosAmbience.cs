@@ -39,7 +39,7 @@ namespace Caos.Maps
         [SerializeField] int edgeHillCount = 18;
         [SerializeField] int cloudCount = 7;
         [SerializeField] int fireflyCount = 18;
-        [SerializeField] int rainCount = 140;
+        [SerializeField] int rainCount = 0;
         [SerializeField] bool rain;
         [SerializeField] Material ambientMaterial;
         [SerializeField] Material foliageMaterial;
@@ -584,10 +584,12 @@ namespace Caos.Maps
                 for (int quad = 0; quad < 2; quad++)
                 {
                     int b = vertexStart + quad * 4;
-                    colors[b] = new Color(1f, 1f, 1f, 0.05f);
-                    colors[b + 1] = new Color(1f, 1f, 1f, 0.05f);
-                    colors[b + 2] = new Color(1f, 1f, 1f, 0.55f);
-                    colors[b + 3] = new Color(1f, 1f, 1f, 0.55f);
+                    // Gotas oscuras y semitransparentes: nunca blanco puro,
+                    // que con ZWrite Off y muchas gotas superpuestas crea una niebla blanca.
+                    colors[b] = new Color(0.30f, 0.52f, 0.62f, 0.08f);
+                    colors[b + 1] = new Color(0.30f, 0.52f, 0.62f, 0.08f);
+                    colors[b + 2] = new Color(0.30f, 0.52f, 0.62f, 0.20f);
+                    colors[b + 3] = new Color(0.30f, 0.52f, 0.62f, 0.20f);
 
                     int t = i * TrianglesPerDrop + quad * 6;
                     triangles[t] = b;

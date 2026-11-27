@@ -59,7 +59,7 @@ namespace Caos.EditorTools
 
             BuildArena(root.transform);
             CaosAmbience.Ensure(root.transform, 20261127, AmbientBiome.Candy,
-                new Vector2(13.5f, 13.5f), 0f, true,
+                new Vector2(13.5f, 13.5f), 0f, false,
                 SandboxSceneBuilder.GetAmbientMaterial(),
                 SandboxSceneBuilder.GetBlueGrassMaterial());
             BuildCargoStation(root.transform);

@@ -57,7 +57,7 @@ namespace Caos.EditorTools
 
             BuildFloors(root.transform);
             CaosAmbience.Ensure(root.transform, 20261126, AmbientBiome.Neon,
-                new Vector2(21f, 21f), 0f, true,
+                new Vector2(21f, 21f), 0f, false,
                 SandboxSceneBuilder.GetAmbientMaterial(),
                 SandboxSceneBuilder.GetBlueGrassMaterial());
             BuildCover(root.transform);
