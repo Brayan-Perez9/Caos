@@ -9,6 +9,7 @@ namespace Caos.Maps
     /// Feedback visual de todos los mapas: sacudida de cámara por trauma,
     /// destellos breves, squash &amp; stretch y chispas procedurales agrupadas.
     /// Solo toma eventos discretos; no cambia la simulación ni mueve colisiones.
+    /// Todo lo visible durante pausa/hit-stop avanza con tiempo real.
     /// </summary>
     public class ArenaJuice : MonoBehaviour
     {
@@ -17,7 +18,7 @@ namespace Caos.Maps
         /// <summary>Solo el bus ya creado; no instancia nada desde el Update de los enemigos.</summary>
         public static ArenaJuice Active => _instance;
 
-        /// <summary>Accesibilidad: sustituye el blanco por un tinte suave.</summary>
+        /// <summary>Accesibilidad: sustituye el destello por un tinte estático legible.</summary>
         public static bool ReduceFlashing
         {
             get => PlayerPrefs.GetInt("Caos.ReduceFlashing", 0) == 1;
@@ -27,6 +28,9 @@ namespace Caos.Maps
                 PlayerPrefs.Save();
             }
         }
+
+        /// <summary>El botón de pausa escribe esta misma preferencia desde PlayerCamera.</summary>
+        static bool MotionReduced => PlayerPrefs.GetInt("Caos.ReduceMotion", 0) == 1;
 
         /// <summary>Se crea solo cuando algo pide feedback, sin tocar las escenas.</summary>
         public static ArenaJuice Current
@@ -53,11 +57,15 @@ namespace Caos.Maps
         [SerializeField] float flashTime = 0.09f;
         [SerializeField] float squashTime = 0.22f;
 
+        const float SparkBaseScale = 0.11f;
+        const int MaxBrightFlashesPerSecond = 3;
+
         struct Spark
         {
             public Transform transform;
             public Renderer renderer;
             public Vector3 velocity;
+            public Vector3 spin;
             public float life;
         }
 
@@ -65,15 +73,25 @@ namespace Caos.Maps
         readonly Dictionary<Transform, Vector3> _restScales = new Dictionary<Transform, Vector3>();
         readonly Dictionary<Transform, Vector3> _squashFactors = new Dictionary<Transform, Vector3>();
         readonly Dictionary<Transform, Coroutine> _squashes = new Dictionary<Transform, Coroutine>();
+        readonly Dictionary<Renderer, MaterialPropertyBlock> _flashOriginals =
+            new Dictionary<Renderer, MaterialPropertyBlock>();
+        readonly Dictionary<Transform, Coroutine> _flashRoutines =
+            new Dictionary<Transform, Coroutine>();
+        readonly float[] _flashTimes = new float[MaxBrightFlashesPerSecond];
+        int _flashCount;
+        PlayerCamera _follow;
         Material _sparkMaterial;
         MaterialPropertyBlock _block;
         static Shader _litShader;
+        static Mesh _sparkMesh;
 
-        static readonly Color HitColor = new Color32(255, 222, 120, 255);
-        static readonly Color HurtColor = new Color32(255, 86, 90, 255);
-        static readonly Color PickupColor = new Color32(120, 240, 255, 255);
-        static readonly Color DeathColor = new Color32(255, 124, 200, 255);
-        static readonly Color LandColor = new Color32(200, 210, 220, 255);
+        // Paleta semántica: amarillo = impacto, coral = daño, cian = recompensa,
+        // violeta = remate/elemento, celeste = aterrizaje (sin grises neutros).
+        static readonly Color HitColor = new Color32(255, 209, 102, 255);
+        static readonly Color HurtColor = new Color32(255, 107, 107, 255);
+        static readonly Color PickupColor = new Color32(53, 208, 255, 255);
+        static readonly Color DeathColor = new Color32(123, 97, 255, 255);
+        static readonly Color LandColor = new Color32(143, 233, 255, 255);
 
         void Awake()
         {
@@ -90,41 +108,56 @@ namespace Caos.Maps
             if (_litShader != null)
             {
                 _sparkMaterial = new Material(_litShader);
-                if (_sparkMaterial.HasProperty("_BaseColor"))
-                    _sparkMaterial.SetColor("_BaseColor", Color.white);
-                else if (_sparkMaterial.HasProperty("_Color"))
-                    _sparkMaterial.SetColor("_Color", Color.white);
+                if (_sparkMaterial.HasProperty(BaseColorId))
+                    _sparkMaterial.SetColor(BaseColorId, Color.white);
+                else if (_sparkMaterial.HasProperty(ColorId))
+                    _sparkMaterial.SetColor(ColorId, Color.white);
+                if (_sparkMaterial.HasProperty(SmoothnessId))
+                    _sparkMaterial.SetFloat(SmoothnessId, 0.2f);
             }
 
             _block = new MaterialPropertyBlock();
+            if (_sparkMesh == null) _sparkMesh = CreateSparkMesh();
 
             for (int i = 0; i < poolSize; i++)
             {
-                var spark = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                spark.name = "Chispa";
+                // Malla diamantada compartida: menos triángulos que una esfera y sin Collider.
+                var spark = new GameObject("Chispa");
                 spark.transform.SetParent(transform, false);
-                spark.transform.localScale = Vector3.one * 0.09f;
-                spark.gameObject.SetActive(false);
-                Destroy(spark.GetComponent<Collider>());
-                spark.GetComponent<Renderer>().sharedMaterial = _sparkMaterial;
+                spark.transform.localScale = Vector3.one * SparkBaseScale;
+
+                var filter = spark.AddComponent<MeshFilter>();
+                filter.sharedMesh = _sparkMesh;
+                var renderer = spark.AddComponent<MeshRenderer>();
+                renderer.sharedMaterial = _sparkMaterial;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                spark.SetActive(false);
 
                 _sparks.Add(new Spark
                 {
                     transform = spark.transform,
-                    renderer = spark.GetComponent<Renderer>(),
+                    renderer = renderer,
                 });
             }
         }
 
         void OnDestroy()
         {
-            if (_instance == this) _instance = null;
+            bool owned = _instance == this;
+            if (owned) _instance = null;
             if (_sparkMaterial != null) Destroy(_sparkMaterial);
+            if (owned && _sparkMesh != null)
+            {
+                Destroy(_sparkMesh);
+                _sparkMesh = null;
+            }
         }
 
         void Update()
         {
-            float dt = Time.unscaledDeltaTime;
+            // Tiempo real: las chispas siguen vivas durante hit-stop y pausa.
+            float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
             for (int i = 0; i < _sparks.Count; i++)
             {
                 Spark spark = _sparks[i];
@@ -134,12 +167,18 @@ namespace Caos.Maps
                 if (spark.life <= 0f)
                 {
                     spark.transform.gameObject.SetActive(false);
+                    spark.spin = Vector3.zero;
+                    _sparks[i] = spark;
                     continue;
                 }
 
-                spark.velocity.y -= 12f * dt;
+                spark.velocity.y -= 10f * dt;
                 spark.transform.position += spark.velocity * dt;
-                float scale = 0.09f * Mathf.Clamp01(spark.life / particleLifetime);
+                if (spark.spin.sqrMagnitude > 0f)
+                    spark.transform.Rotate(spark.spin * dt, Space.Self);
+
+                float k = Mathf.Clamp01(spark.life / particleLifetime);
+                float scale = SparkBaseScale * Mathf.SmoothStep(0f, 1f, k);
                 spark.transform.localScale = Vector3.one * scale;
 
                 _sparks[i] = spark;
@@ -154,7 +193,7 @@ namespace Caos.Maps
             AddTrauma(0.12f + strength * 0.45f);
             Burst(position, 6 + Mathf.RoundToInt(strength * 8f), HitColor, particleSpeed);
             Punch(visual, 1.24f);
-            Flash(visual);
+            FlashTinted(visual, flashTime, HitColor);
         }
 
         /// <summary>
@@ -181,63 +220,113 @@ namespace Caos.Maps
         {
             AddTrauma(0.85f);
             Burst(position, 24, DeathColor, particleSpeed * 1.5f);
+            RadialBurst(position, 10, PickupColor, particleSpeed * 0.9f);
             Punch(visual, 1.4f);
-            Flash(visual, flashTime * 1.6f);
+            FlashTinted(visual, flashTime * 1.6f, DeathColor);
         }
 
         public void Pickup(Vector3 position)
         {
             AddTrauma(0.08f);
-            Burst(position + Vector3.up * 0.6f, 8, PickupColor, particleSpeed * 0.6f);
+            Vector3 origin = position + Vector3.up * 0.6f;
+            Burst(origin, 8, PickupColor, particleSpeed * 0.6f);
+            RadialBurst(origin, 6, PickupColor, particleSpeed * 0.42f);
         }
 
         public void Land(Vector3 position, float impactSpeed)
         {
             AddTrauma(Mathf.Clamp(impactSpeed * 0.016f, 0.05f, 0.22f));
             Burst(position, 5, LandColor, particleSpeed * 0.45f);
+            RadialBurst(position, 4, LandColor, particleSpeed * 0.3f);
         }
 
         public void PlayerHurt(Vector3 position)
         {
             AddTrauma(0.55f);
-            Burst(position + Vector3.up, 12, HurtColor, particleSpeed);
+            Vector3 origin = position + Vector3.up;
+            Burst(origin, 12, HurtColor, particleSpeed);
+            RadialBurst(origin, 8, HurtColor, particleSpeed * 0.8f);
         }
 
         /// <summary>Suma trauma; la cámara lo decay con tiempo real.</summary>
         public void AddTrauma(float amount)
         {
-            var follow = Camera.main != null
-                ? Camera.main.GetComponent<PlayerCamera>()
-                : null;
-            if (follow == null)
-                follow = FindFirstObjectByType<PlayerCamera>();
+            if (_follow == null)
+                _follow = Camera.main != null ? Camera.main.GetComponent<PlayerCamera>() : null;
+            if (_follow == null)
+                _follow = FindFirstObjectByType<PlayerCamera>();
 
-            if (follow != null) follow.AddTrauma(amount);
+            if (_follow != null) _follow.AddTrauma(amount);
         }
 
         // ---------------------------------------------------------- feedback
 
+        /// <summary>Chispas en abanico; la preferencia de movimiento reduce cantidad y velocidad.</summary>
         void Burst(Vector3 position, int count, Color color, float speed)
         {
+            bool reduced = MotionReduced;
+            if (reduced)
+            {
+                count = Mathf.Max(2, Mathf.CeilToInt(count * 0.55f));
+                speed *= 0.7f;
+            }
+
             for (int i = 0; i < count; i++)
             {
-                Spark spark;
-                int index = NextSpark();
-                if (index < 0) return;
-
-                spark = _sparks[index];
                 Vector3 direction = Random.onUnitSphere;
-                direction.y = Mathf.Abs(direction.y) * 0.85f + 0.18f;
-                spark.velocity = direction.normalized * speed * Random.Range(0.55f, 1.15f);
-                spark.life = particleLifetime * Random.Range(0.75f, 1f);
-                spark.transform.position = position + Vector3.up * 0.25f;
-                spark.transform.gameObject.SetActive(true);
-
-                _block.SetColor(BaseColorId, color);
-                _block.SetColor(ColorId, color);
-                spark.renderer.SetPropertyBlock(_block);
-                _sparks[index] = spark;
+                direction.y = Mathf.Abs(direction.y) * 0.8f + 0.15f;
+                Vector3 velocity = direction.normalized * speed * Random.Range(0.55f, 1.15f);
+                Vector3 spin = reduced
+                    ? Vector3.zero
+                    : new Vector3(Random.Range(-320f, 320f), Random.Range(-320f, 320f),
+                        Random.Range(-320f, 320f));
+                EmitSpark(position, velocity, color, spin);
             }
+        }
+
+        /// <summary>Anillo de chispas radiales: lee la dirección del golpe sin coste extra.</summary>
+        void RadialBurst(Vector3 position, int count, Color color, float speed)
+        {
+            bool reduced = MotionReduced;
+            if (reduced)
+            {
+                count = Mathf.Max(2, Mathf.CeilToInt(count * 0.5f));
+                speed *= 0.6f;
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                float angle = (i / (float)count) * Mathf.PI * 2f + Random.Range(-0.12f, 0.12f);
+                Vector3 radial = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+                Vector3 velocity = radial * speed * Random.Range(0.8f, 1.2f)
+                    + Vector3.up * speed * (reduced ? 0.22f : 0.35f);
+                Vector3 spin = reduced ? Vector3.zero : new Vector3(0f, 0f, Random.Range(-260f, 260f));
+                EmitSpark(position, velocity, color, spin);
+            }
+        }
+
+        bool EmitSpark(Vector3 position, Vector3 velocity, Color color, Vector3 spin)
+        {
+            int index = NextSpark();
+            if (index < 0) return false;
+
+            Spark spark = _sparks[index];
+            spark.velocity = velocity;
+            spark.life = particleLifetime * Random.Range(0.8f, 1f);
+            spark.spin = spin;
+
+            Transform t = spark.transform;
+            t.position = position + Vector3.up * 0.2f;
+            t.localRotation = Quaternion.identity;
+            t.localScale = Vector3.one * SparkBaseScale;
+            t.gameObject.SetActive(true);
+
+            _block.Clear();
+            _block.SetColor(BaseColorId, color);
+            _block.SetColor(ColorId, color);
+            spark.renderer.SetPropertyBlock(_block);
+            _sparks[index] = spark;
+            return true;
         }
 
         int NextSpark()
@@ -249,6 +338,27 @@ namespace Caos.Maps
 
         static int BaseColorId => Shader.PropertyToID("_BaseColor");
         static int ColorId => Shader.PropertyToID("_Color");
+        static int SmoothnessId => Shader.PropertyToID("_Smoothness");
+
+        /// <summary>Diamante de 8 caras, creado una vez y compartido por todo el pool.</summary>
+        static Mesh CreateSparkMesh()
+        {
+            var mesh = new Mesh { name = "ChispaDiamante" };
+            mesh.vertices = new[]
+            {
+                new Vector3(0f, 1f, 0f), new Vector3(0f, -1f, 0f),
+                new Vector3(1f, 0f, 0f), new Vector3(-1f, 0f, 0f),
+                new Vector3(0f, 0f, 1f), new Vector3(0f, 0f, -1f),
+            };
+            mesh.triangles = new[]
+            {
+                0, 4, 2, 0, 3, 4, 0, 5, 3, 0, 2, 5,
+                1, 2, 4, 1, 4, 3, 1, 3, 5, 1, 5, 2,
+            };
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
 
         /// <summary>Escala el visual con overshoot y vuelve exactamente a su reposo.</summary>
         public void Punch(Transform visual, float amount = 1.25f)
@@ -264,7 +374,9 @@ namespace Caos.Maps
             if (_squashes.TryGetValue(visual, out Coroutine running) && running != null)
                 StopCoroutine(running);
 
-            _squashes[visual] = StartCoroutine(Squash(visual, rest, amount));
+            // Con menos movimiento el rebote sigue siendo legible, pero mucho más corto.
+            float presented = MotionReduced ? 1f + Mathf.Max(0f, amount - 1f) * 0.4f : amount;
+            _squashes[visual] = StartCoroutine(Squash(visual, rest, presented));
         }
 
         IEnumerator Squash(Transform visual, Vector3 rest, float amount)
@@ -272,12 +384,14 @@ namespace Caos.Maps
             var squashed = new Vector3(amount, 1f / amount, amount);
             for (float elapsed = 0f; elapsed < squashTime; elapsed += Time.unscaledDeltaTime)
             {
+                if (visual == null) break;
                 float k = EaseOutBack(Mathf.Clamp01(elapsed / squashTime));
                 _squashFactors[visual] = Vector3.LerpUnclamped(squashed, Vector3.one, k);
                 yield return null;
             }
 
-            _squashFactors[visual] = Vector3.one;
+            if (visual != null) _squashFactors[visual] = Vector3.one;
+            _squashFactors.Remove(visual);
             _squashes.Remove(visual);
         }
 
@@ -293,37 +407,89 @@ namespace Caos.Maps
         /// <summary>Blanquea los materiales del objetivo durante unos frames.</summary>
         public void Flash(Transform visual, float duration = 0f)
         {
+            FlashTinted(visual, duration, HitColor);
+        }
+
+        /// <summary>
+        /// Mezcla el color del impacto con el color original del material: con
+        /// "menos destellos" queda un tinte estático, no una luz blanca ni un apagón.
+        /// </summary>
+        void FlashTinted(Transform visual, float duration, Color tint)
+        {
             if (visual == null) return;
             if (duration <= 0f) duration = flashTime;
 
+            bool bright = !ReduceFlashing && AllowBrightFlash();
+            float strength = bright ? 0.7f : 0.34f;
+            if (!bright) duration = Mathf.Max(duration, 0.16f);
+
             var renderers = visual.GetComponentsInChildren<Renderer>(true);
             if (renderers.Length > 16) System.Array.Resize(ref renderers, 16);
+            if (renderers.Length == 0) return;
 
-            var originals = new MaterialPropertyBlock[renderers.Length];
+            if (_flashRoutines.TryGetValue(visual, out Coroutine running) && running != null)
+                StopCoroutine(running);
+
             for (int i = 0; i < renderers.Length; i++)
             {
-                originals[i] = new MaterialPropertyBlock();
-                renderers[i].GetPropertyBlock(originals[i]);
+                Renderer r = renderers[i];
+                if (r == null) continue;
 
-                // Sin flashes grandes: el tinte suave no supera el umbral
-                // de fotosensibilidad y sigue haciendo legible el impacto.
-                Color flash = ReduceFlashing
-                    ? new Color(0.45f, 0.68f, 1f)
-                    : Color.white;
+                if (!_flashOriginals.TryGetValue(r, out MaterialPropertyBlock original))
+                {
+                    original = new MaterialPropertyBlock();
+                    r.GetPropertyBlock(original);
+                    _flashOriginals[r] = original;
+                }
+
+                Color baseColor = ReadOriginalColor(r, original, BaseColorId);
+                Color tinted = Color.Lerp(baseColor, tint, strength);
+
+                // Se copia el bloque original para conservar texturas y propiedades;
+                // solo se reescribe el color, así que no se pierde información.
                 _block.Clear();
-                _block.SetColor(BaseColorId, flash);
-                _block.SetColor(ColorId, flash);
-                renderers[i].SetPropertyBlock(_block);
+                r.GetPropertyBlock(_block);
+                _block.SetColor(BaseColorId, tinted);
+                _block.SetColor(ColorId, tinted);
+                r.SetPropertyBlock(_block);
             }
 
-            StartCoroutine(RestoreFlash(renderers, originals, duration));
+            _flashRoutines[visual] = StartCoroutine(RestoreFlash(visual, renderers, duration));
         }
 
-        IEnumerator RestoreFlash(Renderer[] renderers, MaterialPropertyBlock[] originals, float duration)
+        static Color ReadOriginalColor(Renderer renderer, MaterialPropertyBlock block, int id)
+        {
+            if (block.HasProperty(id)) return block.GetColor(id);
+            var material = renderer.sharedMaterial;
+            return material != null && material.HasProperty(id) ? material.GetColor(id) : Color.white;
+        }
+
+        IEnumerator RestoreFlash(Transform visual, Renderer[] renderers, float duration)
         {
             yield return new WaitForSecondsRealtime(duration);
             for (int i = 0; i < renderers.Length; i++)
-                if (renderers[i] != null) renderers[i].SetPropertyBlock(originals[i]);
+            {
+                Renderer r = renderers[i];
+                if (r == null || !_flashOriginals.TryGetValue(r, out MaterialPropertyBlock original))
+                    continue;
+                r.SetPropertyBlock(original);
+                _flashOriginals.Remove(r);
+            }
+            _flashRoutines.Remove(visual);
+        }
+
+        /// <summary>Máximo 3 destellos brillantes por segundo (WCAG 2.3.1).</summary>
+        bool AllowBrightFlash()
+        {
+            float now = Time.unscaledTime;
+            int fresh = 0;
+            for (int i = 0; i < _flashCount; i++)
+                if (now - _flashTimes[i] < 1f) _flashTimes[fresh++] = _flashTimes[i];
+
+            _flashCount = fresh;
+            if (_flashCount >= _flashTimes.Length) return false;
+            _flashTimes[_flashCount++] = now;
+            return true;
         }
     }
 }

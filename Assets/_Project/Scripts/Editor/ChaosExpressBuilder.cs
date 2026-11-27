@@ -77,7 +77,7 @@ namespace Caos.EditorTools
         static Material Mat(string name) => SandboxSceneBuilder.GetMaterial(name);
 
         static GameObject Box(string name, Vector3 position, Vector3 scale, string material,
-            Transform parent, bool trigger = false)
+            Transform parent, bool trigger = false, bool rounded = true)
         {
             var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.name = name;
@@ -86,6 +86,7 @@ namespace Caos.EditorTools
             box.transform.SetParent(parent, true);
             box.GetComponent<Renderer>().sharedMaterial = Mat(material);
             if (trigger) box.GetComponent<Collider>().isTrigger = true;
+            if (rounded) SandboxSceneBuilder.RoundBox(box, scale);
             return box;
         }
 
@@ -99,6 +100,7 @@ namespace Caos.EditorTools
             cylinder.transform.SetParent(parent, true);
             cylinder.GetComponent<Renderer>().sharedMaterial = Mat(material);
             if (trigger) cylinder.GetComponent<Collider>().isTrigger = true;
+            SandboxSceneBuilder.RoundCylinder(cylinder, scale);
             return cylinder;
         }
 
@@ -106,7 +108,7 @@ namespace Caos.EditorTools
         static GameObject Trail(string name, Vector3 position, Vector3 scale, string material,
             Transform parent)
         {
-            var trail = Box(name, position, scale, material, parent);
+            var trail = Box(name, position, scale, material, parent, false, false);
             UnityEngine.Object.DestroyImmediate(trail.GetComponent<Collider>());
             return trail;
         }
@@ -115,7 +117,7 @@ namespace Caos.EditorTools
             float range = 10f)
         {
             Cylinder(name + "_Pole", position + Vector3.up * 1.4f,
-                new Vector3(0.14f, 1.4f, 0.14f), "Pedestal", parent);
+                new Vector3(0.14f, 1.4f, 0.14f), "Stylized_Mint", parent);
             var lamp = new GameObject(name + "_Light");
             lamp.transform.SetParent(parent, false);
             lamp.transform.position = position + Vector3.up * 2.6f;
@@ -421,6 +423,7 @@ namespace Caos.EditorTools
             camera.fieldOfView = 50f;
             camera.nearClipPlane = 0.15f;
             cameraObject.AddComponent<AudioListener>();
+            SandboxSceneBuilder.EnablePostProcessing(cameraObject);
             cameraObject.AddComponent<PlayerCamera>().SetTarget(player.transform);
 
             new GameObject("MissionDirector").AddComponent<ChaosExpressMission>();

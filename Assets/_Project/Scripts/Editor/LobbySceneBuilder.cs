@@ -32,6 +32,7 @@ namespace Caos.EditorTools
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.06f, 0.07f, 0.11f);
             cameraObject.AddComponent<AudioListener>();
+            SandboxSceneBuilder.EnablePostProcessing(cameraObject);
 
             new GameObject("CaosNetPeer").AddComponent<CaosNetPeer>();
             new GameObject("CaosLobby").AddComponent<CaosLobby>();

@@ -118,6 +118,7 @@ namespace Caos.EditorTools
             camera.backgroundColor = new Color(0.07f, 0.08f, 0.11f);
 
             cameraObject.AddComponent<AudioListener>();
+            SandboxSceneBuilder.EnablePostProcessing(cameraObject);
         }
 
         static void AddSceneToBuildSettings()

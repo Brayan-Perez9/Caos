@@ -4,6 +4,8 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using Caos.Interactions;
 using Caos.Maps;
 using Caos.Player;
@@ -86,23 +88,49 @@ namespace Caos.EditorTools
             var sun = new GameObject("Sun");
             var light = sun.AddComponent<Light>();
             light.type = LightType.Directional;
-            light.color = new Color(1f, 0.96f, 0.88f);
-            light.intensity = 1.2f;
+            light.color = new Color(1f, 0.93f, 0.80f);
+            light.intensity = 1.35f;
             light.shadows = LightShadows.Soft;
+            light.shadowStrength = 0.72f;
             sun.transform.rotation = Quaternion.Euler(52f, -38f, 0f);
 
-            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.60f, 0.74f, 0.95f);
-            RenderSettings.ambientEquatorColor = new Color(0.74f, 0.73f, 0.68f);
-            RenderSettings.ambientGroundColor = new Color(0.36f, 0.33f, 0.31f);
-            RenderSettings.ambientIntensity = 0.85f;
+            // Relleno frío sin sombras: separa siluetas sin competir con el sol.
+            var fillObject = new GameObject("FillLight");
+            var fill = fillObject.AddComponent<Light>();
+            fill.type = LightType.Directional;
+            fill.color = new Color(0.55f, 0.80f, 1f);
+            fill.intensity = 0.28f;
+            fill.shadows = LightShadows.None;
+            fillObject.transform.rotation = Quaternion.Euler(28f, 142f, 0f);
 
-            // Niebla suave: da profundidad al mapa grande sin ocultar la ruta.
+            RenderSettings.ambientMode = AmbientMode.Trilight;
+            RenderSettings.ambientSkyColor = new Color(0.56f, 0.91f, 1f);
+            RenderSettings.ambientEquatorColor = new Color(1f, 0.84f, 0.65f);
+            RenderSettings.ambientGroundColor = new Color(0.22f, 0.42f, 0.28f);
+            RenderSettings.ambientIntensity = 0.95f;
+
+            // Niebla celeste clara: profundidad sin ocultar la ruta ni el HUD.
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.Linear;
-            RenderSettings.fogColor = new Color(0.08f, 0.10f, 0.16f);
-            RenderSettings.fogStartDistance = 28f;
-            RenderSettings.fogEndDistance = 95f;
+            RenderSettings.fogColor = new Color(0.68f, 0.88f, 0.96f);
+            RenderSettings.fogStartDistance = 34f;
+            RenderSettings.fogEndDistance = 110f;
+
+            var volumeObject = new GameObject("Global Volume");
+            var volume = volumeObject.AddComponent<Volume>();
+            volume.isGlobal = true;
+            volume.priority = 1f;
+            volume.profile = GetCaosVolumeProfile();
+        }
+
+        /// <summary>Activa el postprocesado URP en una cámara del build.</summary>
+        public static void EnablePostProcessing(GameObject cameraObject)
+        {
+            if (cameraObject == null) return;
+            var data = cameraObject.GetComponent<UniversalAdditionalCameraData>();
+            if (data == null) data = cameraObject.AddComponent<UniversalAdditionalCameraData>();
+            data.renderPostProcessing = true;
+            data.antialiasing = AntialiasingMode.FastApproximateAntialiasing;
         }
 
         static void BuildArena(Transform parent)
@@ -263,6 +291,7 @@ namespace Caos.EditorTools
             camera.fieldOfView = 50f;
             camera.nearClipPlane = 0.15f;
             cameraObject.AddComponent<AudioListener>();
+            EnablePostProcessing(cameraObject);
             cameraObject.AddComponent<PlayerCamera>().SetTarget(player.transform);
 
             new GameObject("PrototypeHud").AddComponent<PrototypeHud>();
@@ -315,7 +344,28 @@ namespace Caos.EditorTools
             if (parent != null) box.transform.SetParent(parent, true);
 
             SetMaterial(box, material);
+            RoundBox(box, scale);
             return box;
+        }
+
+        /// <summary>Vista biselada; el BoxCollider original conserva su tamaño.</summary>
+        public static void RoundBox(GameObject target, Vector3 size, float radiusFraction = 0.18f)
+        {
+            if (target == null) return;
+            var source = target.GetComponent<Renderer>();
+            if (source == null || source.sharedMaterial == null) return;
+            float thickness = Mathf.Min(size.x, Mathf.Min(size.y, size.z));
+            float radius = Mathf.Clamp(thickness * radiusFraction, 0.008f, thickness * 0.45f);
+            CaosVisualKit.ApplyRoundedVisual(target, size, radius, source.sharedMaterial, 3);
+        }
+
+        /// <summary>Vista cilíndrica redondeada; el collider original no se toca.</summary>
+        public static void RoundCylinder(GameObject target, Vector3 scale)
+        {
+            if (target == null) return;
+            var source = target.GetComponent<Renderer>();
+            if (source == null || source.sharedMaterial == null) return;
+            CaosVisualKit.ApplyCylinderVisual(target, scale, source.sharedMaterial);
         }
 
         static void CreateCrate(Vector3 position, Transform parent)
@@ -395,24 +445,27 @@ namespace Caos.EditorTools
         {
             const string path = MaterialFolder + "Grass.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (material != null) return material;
-
             var shader = Shader.Find("Caos/Grass");
             if (shader == null)
             {
                 Debug.LogWarning("[Caos] No se encontró el shader Caos/Grass.");
-                return GetMaterial("Ramp");
+                return material != null ? material : GetMaterial("Ramp");
             }
 
-            material = new Material(shader);
-            material.SetColor("_BaseColor", new Color(0.10f, 0.38f, 0.13f, 1f));
-            material.SetColor("_BladeColor", new Color(0.42f, 0.82f, 0.27f, 1f));
-            material.SetColor("_SoilColor", new Color(0.24f, 0.17f, 0.09f, 1f));
-            material.SetFloat("_Scale", 2.4f);
-            material.SetFloat("_WindSpeed", 0.9f);
-            material.SetFloat("_WindStrength", 0.06f);
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else if (material.shader != shader) material.shader = shader;
 
-            AssetDatabase.CreateAsset(material, path);
+            material.SetColor("_BaseColor", new Color(0.118f, 0.420f, 0.227f, 1f));
+            material.SetColor("_BladeColor", new Color(0.208f, 0.659f, 0.361f, 1f));
+            material.SetColor("_SoilColor", new Color(0.420f, 0.290f, 0.184f, 1f));
+            material.SetFloat("_Scale", 2.2f);
+            material.SetFloat("_WindSpeed", 0.9f);
+            material.SetFloat("_WindStrength", 0.055f);
+            EditorUtility.SetDirty(material);
             return material;
         }
 
@@ -421,23 +474,26 @@ namespace Caos.EditorTools
         {
             const string path = MaterialFolder + "Dirt.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (material != null) return material;
-
             var shader = Shader.Find("Caos/Dirt");
             if (shader == null)
             {
                 Debug.LogWarning("[Caos] No se encontró el shader Caos/Dirt.");
-                return GetMaterial("Ramp");
+                return material != null ? material : GetMaterial("Ramp");
             }
 
-            material = new Material(shader);
-            material.SetColor("_BaseColor", new Color(0.34f, 0.22f, 0.12f, 1f));
-            material.SetColor("_LightColor", new Color(0.54f, 0.39f, 0.23f, 1f));
-            material.SetColor("_DeepColor", new Color(0.19f, 0.12f, 0.07f, 1f));
-            material.SetFloat("_Scale", 3f);
-            material.SetFloat("_Strata", 8f);
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else if (material.shader != shader) material.shader = shader;
 
-            AssetDatabase.CreateAsset(material, path);
+            material.SetColor("_BaseColor", new Color(0.420f, 0.290f, 0.184f, 1f));
+            material.SetColor("_LightColor", new Color(0.651f, 0.486f, 0.322f, 1f));
+            material.SetColor("_DeepColor", new Color(0.227f, 0.165f, 0.110f, 1f));
+            material.SetFloat("_Scale", 2.6f);
+            material.SetFloat("_Strata", 7f);
+            EditorUtility.SetDirty(material);
             return material;
         }
 
@@ -446,30 +502,124 @@ namespace Caos.EditorTools
         {
             const string path = MaterialFolder + "BlueGrass.mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
-            if (material != null) return material;
-
             var shader = Shader.Find("Caos/Grass");
             if (shader == null)
             {
                 Debug.LogWarning("[Caos] No se encontró el shader Caos/Grass.");
-                return GetMaterial("Neon");
+                return material != null ? material : GetMaterial("Neon");
             }
 
-            material = new Material(shader);
-            material.SetColor("_BaseColor", new Color(0.06f, 0.24f, 0.72f, 1f));
-            material.SetColor("_BladeColor", new Color(0.20f, 0.68f, 1f, 1f));
-            material.SetColor("_SoilColor", new Color(0.04f, 0.12f, 0.34f, 1f));
-            material.SetFloat("_Scale", 3.2f);
-            material.SetFloat("_WindSpeed", 1.1f);
-            material.SetFloat("_WindStrength", 0.09f);
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else if (material.shader != shader) material.shader = shader;
 
-            AssetDatabase.CreateAsset(material, path);
+            material.SetColor("_BaseColor", new Color(0.165f, 0.482f, 0.847f, 1f));
+            material.SetColor("_BladeColor", new Color(0.404f, 0.784f, 1f, 1f));
+            material.SetColor("_SoilColor", new Color(0.078f, 0.192f, 0.361f, 1f));
+            material.SetFloat("_Scale", 3.0f);
+            material.SetFloat("_WindSpeed", 1.05f);
+            material.SetFloat("_WindStrength", 0.075f);
+            EditorUtility.SetDirty(material);
             return material;
+        }
+
+        /// <summary>Material stylized con rim suave; se guarda como asset referenciado.</summary>
+        public static Material GetStylizedMaterial(string variant)
+        {
+            if (string.IsNullOrEmpty(variant)) variant = "Cyan";
+            string path = MaterialFolder + "Stylized_" + variant + ".mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            var shader = Shader.Find("Caos/ToonStylized");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Caos] No se encontró el shader Caos/ToonStylized.");
+                return material != null ? material : GetMaterial("Platform");
+            }
+
+            if (material == null)
+            {
+                material = new Material(shader);
+                AssetDatabase.CreateAsset(material, path);
+            }
+            else if (material.shader != shader) material.shader = shader;
+
+            material.SetColor("_BaseColor", StylizedPalette(variant));
+            material.SetColor("_ShadowColor", new Color(0.14f, 0.24f, 0.34f, 1f));
+            material.SetColor("_RimColor", new Color(0.35f, 0.82f, 1f, 1f));
+            material.SetFloat("_RimPower", 3.2f);
+            material.SetFloat("_RimStrength", 0.24f);
+            material.SetFloat("_Emission", variant == "Coral" || variant == "Cyan" ? 0.12f : 0.03f);
+            material.SetFloat("_Smoothness", 0.32f);
+            material.SetFloat("_NoiseScale", 1.5f);
+            material.SetColor("_LightDir", new Vector4(0.45f, 0.85f, 0.30f, 0f));
+            EditorUtility.SetDirty(material);
+            return material;
+        }
+
+        static Color StylizedPalette(string variant)
+        {
+            switch (variant)
+            {
+                case "Coral": return new Color(1f, 0.42f, 0.42f, 1f);
+                case "Lemon": return new Color(1f, 0.82f, 0.40f, 1f);
+                case "Violet": return new Color(0.48f, 0.38f, 1f, 1f);
+                case "Mint": return new Color(0.42f, 0.89f, 0.68f, 1f);
+                case "Platform": return new Color(0.38f, 0.72f, 0.92f, 1f);
+                default: return new Color(0.21f, 0.82f, 1f, 1f);
+            }
+        }
+
+        /// <summary>Perfil URP moderado: bloom suave, tonemap y vignette ligero.</summary>
+        public static VolumeProfile GetCaosVolumeProfile()
+        {
+            const string path = "Assets/Settings/CaosVolumeProfile.asset";
+            var profile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(path);
+            if (profile != null) return profile;
+
+            profile = ScriptableObject.CreateInstance<VolumeProfile>();
+            profile.name = "CaosVolumeProfile";
+
+            var bloom = profile.Add<Bloom>(true);
+            bloom.intensity.Override(0.22f);
+            bloom.threshold.Override(0.85f);
+            bloom.scatter.Override(0.55f);
+            bloom.tint.Override(new Color(1f, 0.96f, 0.88f));
+
+            var tonemapping = profile.Add<Tonemapping>(true);
+            tonemapping.mode.Override(TonemappingMode.ACES);
+
+            var vignette = profile.Add<Vignette>(true);
+            vignette.intensity.Override(0.16f);
+            vignette.smoothness.Override(0.50f);
+            vignette.rounded.Override(true);
+
+            var color = profile.Add<ColorAdjustments>(true);
+            color.postExposure.Override(0.08f);
+            color.contrast.Override(5f);
+            color.saturation.Override(8f);
+
+            AssetDatabase.CreateAsset(profile, path);
+            AddSubAssetIfNeeded(bloom, profile);
+            AddSubAssetIfNeeded(tonemapping, profile);
+            AddSubAssetIfNeeded(vignette, profile);
+            AddSubAssetIfNeeded(color, profile);
+            AssetDatabase.SaveAssets();
+            return profile;
+        }
+
+        static void AddSubAssetIfNeeded(UnityEngine.Object child, UnityEngine.Object parent)
+        {
+            if (child == null || AssetDatabase.Contains(child)) return;
+            AssetDatabase.AddObjectToAsset(child, parent);
         }
 
         public static Material GetMaterial(string materialName)
         {
             if (materialName == "NeonGrid") return GetNeonGridMaterial();
+            if (materialName.StartsWith("Stylized_")) return GetStylizedMaterial(materialName.Substring("Stylized_".Length));
             if (materialName == "Grass") return GetGrassMaterial();
             if (materialName == "Dirt") return GetDirtMaterial();
             if (materialName == "BlueGrass") return GetBlueGrassMaterial();

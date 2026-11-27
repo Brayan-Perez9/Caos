@@ -70,7 +70,7 @@ namespace Caos.EditorTools
         static Material Mat(string name) => SandboxSceneBuilder.GetMaterial(name);
 
         static GameObject Box(string name, Vector3 position, Vector3 scale, string material,
-            Transform parent, bool trigger = false)
+            Transform parent, bool trigger = false, bool rounded = true)
         {
             var box = GameObject.CreatePrimitive(PrimitiveType.Cube);
             box.name = name;
@@ -79,6 +79,7 @@ namespace Caos.EditorTools
             box.transform.SetParent(parent, true);
             box.GetComponent<Renderer>().sharedMaterial = Mat(material);
             if (trigger) box.GetComponent<Collider>().isTrigger = true;
+            if (rounded) SandboxSceneBuilder.RoundBox(box, scale);
             return box;
         }
 
@@ -91,6 +92,7 @@ namespace Caos.EditorTools
             cylinder.transform.localScale = scale;
             cylinder.transform.SetParent(parent, true);
             cylinder.GetComponent<Renderer>().sharedMaterial = Mat(material);
+            SandboxSceneBuilder.RoundCylinder(cylinder, scale);
             return cylinder;
         }
 
@@ -98,7 +100,7 @@ namespace Caos.EditorTools
         static GameObject Trail(string name, Vector3 position, Vector3 scale, string material,
             Transform parent)
         {
-            var trail = Box(name, position, scale, material, parent);
+            var trail = Box(name, position, scale, material, parent, false, false);
             UnityEngine.Object.DestroyImmediate(trail.GetComponent<Collider>());
             return trail;
         }
@@ -108,7 +110,7 @@ namespace Caos.EditorTools
             float range = 12f)
         {
             Cylinder(name + "_Pole", position + Vector3.up * 1.5f,
-                new Vector3(0.16f, 1.5f, 0.16f), "Pedestal", parent);
+                new Vector3(0.16f, 1.5f, 0.16f), "Stylized_Mint", parent);
             var lamp = new GameObject(name + "_Light");
             lamp.transform.SetParent(parent, false);
             lamp.transform.position = position + Vector3.up * 2.8f;
@@ -129,20 +131,20 @@ namespace Caos.EditorTools
 
             // Piso alto en forma de U: deja el hueco central para la escalera.
             Box("UpperFloor_W", new Vector3(-9f, 4f, -2f),
-                new Vector3(8f, 0.5f, 20f), "Platform", parent);
+                new Vector3(8f, 0.5f, 20f), "Stylized_Platform", parent);
             Box("UpperFloor_E", new Vector3(9f, 4f, -2f),
-                new Vector3(8f, 0.5f, 20f), "Platform", parent);
+                new Vector3(8f, 0.5f, 20f), "Stylized_Platform", parent);
             Box("UpperFloor_S", new Vector3(0f, 4f, 13f),
-                new Vector3(26f, 0.5f, 8f), "Platform", parent);
+                new Vector3(26f, 0.5f, 8f), "Stylized_Platform", parent);
 
             // Meseta y puentes: unen el último peldaño con el piso alto para
             // que los enemigos no se queden parados en el borde.
             Box("StairLanding", new Vector3(0f, 4f, 8.6f),
                 new Vector3(6f, 0.5f, 3.6f), "Dirt", parent);
             Box("UpperBridge_W", new Vector3(-9f, 4f, 8.5f),
-                new Vector3(8f, 0.5f, 2f), "Platform", parent);
+                new Vector3(8f, 0.5f, 2f), "Stylized_Platform", parent);
             Box("UpperBridge_E", new Vector3(9f, 4f, 8.5f),
-                new Vector3(8f, 0.5f, 2f), "Platform", parent);
+                new Vector3(8f, 0.5f, 2f), "Stylized_Platform", parent);
 
             // 15 peldaños de 0.28 m: por debajo del stepOffset del jugador.
             const int steps = 15;
@@ -158,19 +160,19 @@ namespace Caos.EditorTools
 
             // Barandillas del piso alto y de la escalera.
             Box("Rail_N_L", new Vector3(-9f, 5.05f, -12f),
-                new Vector3(8f, 0.8f, 0.28f), "Neon", parent);
+                new Vector3(8f, 0.8f, 0.28f), "Stylized_Cyan", parent);
             Box("Rail_N_R", new Vector3(9f, 5.05f, -12f),
-                new Vector3(8f, 0.8f, 0.28f), "Neon", parent);
+                new Vector3(8f, 0.8f, 0.28f), "Stylized_Cyan", parent);
             Box("Rail_S", new Vector3(0f, 5.05f, 17f),
-                new Vector3(26f, 0.8f, 0.28f), "Neon", parent);
+                new Vector3(26f, 0.8f, 0.28f), "Stylized_Cyan", parent);
             Box("Rail_W", new Vector3(-13f, 5.05f, 2.5f),
-                new Vector3(0.28f, 0.8f, 29f), "Neon", parent);
+                new Vector3(0.28f, 0.8f, 29f), "Stylized_Cyan", parent);
             Box("Rail_E", new Vector3(13f, 5.05f, 2.5f),
-                new Vector3(0.28f, 0.8f, 29f), "Neon", parent);
+                new Vector3(0.28f, 0.8f, 29f), "Stylized_Cyan", parent);
             Box("StairRail_L", new Vector3(-3.4f, 5.05f, -1.9f),
-                new Vector3(0.22f, 0.8f, 18.2f), "Neon", parent);
+                new Vector3(0.22f, 0.8f, 18.2f), "Stylized_Cyan", parent);
             Box("StairRail_R", new Vector3(3.4f, 5.05f, -1.9f),
-                new Vector3(0.22f, 0.8f, 18.2f), "Neon", parent);
+                new Vector3(0.22f, 0.8f, 18.2f), "Stylized_Cyan", parent);
 
             // Guiado sin paredes: el suelo apunta a la escalera y al jefe.
             Trail("Guide_SpawnToStair", new Vector3(0f, 0.02f, -15f),
@@ -209,7 +211,7 @@ namespace Caos.EditorTools
             };
             for (int i = 0; i < pillars.Length; i++)
                 Box("Pillar_" + i, pillars[i], new Vector3(0.6f, 4f, 0.6f),
-                    "Pedestal", parent);
+                    "Stylized_Violet", parent);
 
             // Franjas decorativas de "lava".
             Box("LavaStrip_L", new Vector3(-21f, 0.04f, 0f),
@@ -229,14 +231,14 @@ namespace Caos.EditorTools
             };
             for (int i = 0; i < crates.Length; i++)
                 Box("Cover_" + i, crates[i], new Vector3(2.4f, 1.4f, 2.4f),
-                    "Crate", parent);
+                    "Stylized_Coral", parent);
 
             Box("UpperCover_A", new Vector3(-9f, 4.9f, 3f),
-                new Vector3(2f, 1.3f, 2f), "Candy", parent);
+                new Vector3(2f, 1.3f, 2f), "Stylized_Lemon", parent);
             Box("UpperCover_B", new Vector3(9f, 4.9f, -5f),
-                new Vector3(2f, 1.3f, 2f), "Candy", parent);
+                new Vector3(2f, 1.3f, 2f), "Stylized_Lemon", parent);
             Box("UpperCover_C", new Vector3(0f, 4.9f, 11f),
-                new Vector3(2.2f, 1.3f, 2.2f), "Candy", parent);
+                new Vector3(2.2f, 1.3f, 2.2f), "Stylized_Lemon", parent);
         }
 
         // ----------------------------------------------------------- armas
@@ -315,6 +317,7 @@ namespace Caos.EditorTools
             camera.fieldOfView = 55f;
             camera.nearClipPlane = 0.15f;
             cameraObject.AddComponent<AudioListener>();
+            SandboxSceneBuilder.EnablePostProcessing(cameraObject);
 
             PlayerCamera follow = cameraObject.AddComponent<PlayerCamera>();
             follow.SetTarget(player.transform);

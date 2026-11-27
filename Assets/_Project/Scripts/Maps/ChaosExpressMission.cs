@@ -66,15 +66,30 @@ namespace Caos.Maps
         GUIStyle _titleStyle;
         GUIStyle _sectionStyle;
         GUIStyle _textStyle;
+        GUIStyle _timerStyle;
         GUIStyle _objectiveStyle;
         GUIStyle _doneStyle;
         GUIStyle _markerStyle;
         GUIStyle _bannerStyle;
         GUIStyle _resultStyle;
         GUIStyle _buttonStyle;
+        GUIStyle _buttonLabelStyle;
 
         static readonly Color DarkButton = new Color32(70, 72, 90, 255);
         static readonly Color ReadyButton = new Color32(255, 196, 64, 255);
+
+        static readonly Color PanelColor = new Color32(11, 27, 43, 209);      // #0B1B2B al 82 %
+        static readonly Color TextColor = new Color32(247, 251, 255, 255);    // #F7FBFF
+        static readonly Color AccentYellow = new Color32(255, 209, 102, 255); // #FFD166
+        static readonly Color HealthyGreen = new Color32(143, 227, 136, 255); // #8FE388
+        static readonly Color LowRed = new Color32(255, 61, 61, 255);
+        static readonly Color Cyan = new Color32(53, 208, 255, 255);
+        static readonly Color Coral = new Color32(255, 107, 107, 255);
+        static readonly Color Violet = new Color32(123, 97, 255, 255);
+
+        static Texture2D _hudRoundTexture;
+        static GUIStyle _hudPanelStyle;
+        static float _hudScale = -1f;
 
         bool IsNetHost => CaosSession.NetworkGame && _peer != null && _peer.IsHost;
         bool IsNetClient => CaosSession.NetworkGame && _peer != null && _peer.IsClient;
@@ -714,27 +729,35 @@ namespace Caos.Maps
 
         void OnGUI()
         {
-            EnsureStyles();
+            float scale = HudScale();
+            EnsureStyles(scale);
 
-            float width = Mathf.Min(680f, Screen.width - 32f);
-            GUILayout.BeginArea(new Rect(16f, 16f, width, 288f));
+            float margin = S(16f, scale);
+            float width = Mathf.Min(S(680f, scale), Screen.width - margin * 2f);
+            float height = S(288f, scale);
+            var panel = new Rect(margin, margin, width, height);
+            DrawHudPanel(panel, scale, PanelColor);
+
+            float inset = S(14f, scale);
+            GUILayout.BeginArea(new Rect(panel.x + inset, panel.y + S(8f, scale),
+                panel.width - inset * 2f, panel.height - S(16f, scale)));
             GUILayout.Label("CAOS EXPRESS · PARTIDA RÁPIDA", _titleStyle);
             string room = IsNetHost || IsNetClient ? "  ·  MULTIJUGADOR" : string.Empty;
-            GUILayout.Label($"TIEMPO  {FormatTime(_timeLeft)}{room}", _textStyle);
-            GUILayout.Space(4f);
+            GUILayout.Label($"TIEMPO  {FormatTime(_timeLeft)}{room}", _timerStyle);
+            GUILayout.Space(S(4f, scale));
 
             float hp = _playerHealth != null ? _playerHealth.Current / _playerHealth.Max : 0f;
+            Color previous = GUI.color;
+            GUI.color = hp <= 0.35f ? Coral : TextColor;
             GUILayout.Label(_playerHealth != null
                 ? $"VIDA  {Mathf.CeilToInt(_playerHealth.Current)} / {Mathf.CeilToInt(_playerHealth.Max)}"
                 : "VIDA  --", _textStyle);
-            var bar = GUILayoutUtility.GetRect(width - 20f, 16f);
-            GUI.Box(bar, GUIContent.none);
-            var fill = new Rect(bar.x + 2f, bar.y + 2f, (bar.width - 4f) * Mathf.Clamp01(hp), bar.height - 4f);
-            GUI.color = new Color(0.35f, 0.95f, 0.55f);
-            GUI.DrawTexture(fill, Texture2D.whiteTexture);
-            GUI.color = Color.white;
+            GUI.color = previous;
 
-            GUILayout.Space(6f);
+            var bar = GUILayoutUtility.GetRect(S(120f, scale), S(16f, scale), GUILayout.ExpandWidth(true));
+            DrawHudBar(bar, scale, hp, hp <= 0.35f ? LowRed : HealthyGreen);
+
+            GUILayout.Space(S(6f, scale));
             GUILayout.Label("OBJETIVOS", _sectionStyle);
             GUILayout.Label(Objective(1, "Tumbar 3 dianas", _targets, targetGoal),
                 _targets >= targetGoal ? _doneStyle : _objectiveStyle);
@@ -747,45 +770,53 @@ namespace Caos.Maps
             GUILayout.Label("Clic izq.: coger / lanzar · con martillo: golpear", _textStyle);
             GUILayout.EndArea();
 
-            DrawMarker(_targetMarker, "1 · DIANAS", _targets < targetGoal);
-            DrawMarker(_parcelMarker, "2 · PAQUETES", _parcels < parcelGoal);
-            DrawMarker(_bossMarker, "JEFE", _bossAlive);
-            DrawRemoteNames();
+            DrawMarker(_targetMarker, "1 · DIANAS", _targets < targetGoal, scale);
+            DrawMarker(_parcelMarker, "2 · PAQUETES", _parcels < parcelGoal, scale);
+            DrawMarker(_bossMarker, "JEFE", _bossAlive, scale);
+            DrawRemoteNames(scale);
 
             if (Time.time < _bannerUntil)
             {
-                var rect = new Rect(0f, Screen.height * 0.34f, Screen.width, 46f);
+                float bannerHeight = S(46f, scale);
+                var rect = new Rect(0f, Screen.height * 0.34f, Screen.width, bannerHeight);
+                DrawRoundHud(rect, new Color(0.04f, 0.10f, 0.16f, 0.82f), _hudPanelStyle);
                 GUI.Label(rect, _banner, _bannerStyle);
             }
 
             if (_phase == Phase.Playing) return;
 
-            float panelWidth = Mathf.Min(540f, Screen.width - 40f);
-            var panel = new Rect((Screen.width - panelWidth) * 0.5f,
-                (Screen.height - 260f) * 0.5f, panelWidth, 260f);
-            GUILayout.BeginArea(panel, GUI.skin.box);
-            GUILayout.Space(18f);
-            GUILayout.Label(_phase == Phase.Won
-                ? "¡JEFE DERROTADO! MISIÓN COMPLETA"
-                : "MISIÓN FALLIDA", _resultStyle);
-            GUILayout.Space(10f);
-            if (!string.IsNullOrEmpty(_loseReason)) GUILayout.Label(_loseReason, _bannerStyle);
-            GUILayout.Label($"Dianas {_targets}/{targetGoal} · Paquetes {_parcels}/{parcelGoal} · " +
-                $"Patitos {_ducks}/{duckGoal} · Monstruos {_monstersKilled}", _textStyle);
-            GUILayout.Space(16f);
+            float panelWidth = Mathf.Min(S(540f, scale), Screen.width - margin * 2f);
+            float panelHeight = S(260f, scale);
+            var result = new Rect((Screen.width - panelWidth) * 0.5f,
+                (Screen.height - panelHeight) * 0.5f, panelWidth, panelHeight);
+            DrawHudPanel(result, scale, PanelColor);
 
+            float contentX = result.x + S(20f, scale);
+            float contentWidth = result.width - S(40f, scale);
+            GUI.Label(new Rect(contentX, result.y + S(16f, scale), contentWidth, S(36f, scale)),
+                _phase == Phase.Won ? "¡JEFE DERROTADO! MISIÓN COMPLETA" : "MISIÓN FALLIDA",
+                _resultStyle);
+            if (!string.IsNullOrEmpty(_loseReason))
+                GUI.Label(new Rect(contentX, result.y + S(58f, scale), contentWidth, S(28f, scale)),
+                    _loseReason, _bannerStyle);
+            GUI.Label(new Rect(contentX, result.y + S(92f, scale), contentWidth, S(40f, scale)),
+                $"Dianas {_targets}/{targetGoal} · Paquetes {_parcels}/{parcelGoal} · " +
+                $"Patitos {_ducks}/{duckGoal} · Monstruos {_monstersKilled}", _textStyle);
+
+            var action = new Rect(contentX, result.y + S(150f, scale), contentWidth, S(48f, scale));
             if (CaosSession.NetworkGame)
             {
-                if (GUILayout.Button("VOLVER AL LOBBY", _buttonStyle, GUILayout.Height(48f)))
-                    ReturnToLobby();
+                DrawHudButtonBackground(action, scale, Cyan);
+                if (GUI.Button(action, "VOLVER AL LOBBY", _buttonLabelStyle)) ReturnToLobby();
             }
             else
             {
-                if (GUILayout.Button("REPETIR PARTIDA", _buttonStyle, GUILayout.Height(48f)))
+                DrawHudButtonBackground(action, scale, AccentYellow);
+                if (GUI.Button(action, "REPETIR PARTIDA", _buttonLabelStyle))
                     SceneManager.LoadScene(SceneManager.GetActiveScene().name);
-                GUILayout.Label("o pulsa R", _textStyle);
+                GUI.Label(new Rect(contentX, action.yMax + S(4f, scale), contentWidth, S(26f, scale)),
+                    "o pulsa R", _textStyle);
             }
-            GUILayout.EndArea();
         }
 
         static string Objective(int number, string label, int current, int goal)
@@ -808,7 +839,7 @@ namespace Caos.Maps
             return "3. Martillo y jefe  (termina los pedidos 1-2)";
         }
 
-        void DrawMarker(Transform marker, string text, bool active)
+        void DrawMarker(Transform marker, string text, bool active, float scale)
         {
             if (!active || marker == null || Camera.main == null) return;
 
@@ -817,14 +848,16 @@ namespace Caos.Maps
 
             float x = screen.x;
             float y = Screen.height - screen.y;
-            if (x < 80f || x > Screen.width - 80f || y < 60f || y > Screen.height - 60f) return;
+            float edgeX = S(80f, scale);
+            float edgeY = S(60f, scale);
+            if (x < edgeX || x > Screen.width - edgeX || y < edgeY || y > Screen.height - edgeY) return;
 
-            var rect = new Rect(x - 80f, y - 15f, 160f, 30f);
-            GUI.Box(rect, GUIContent.none);
+            var rect = new Rect(x - S(80f, scale), y - S(15f, scale), S(160f, scale), S(30f, scale));
+            DrawHudPanel(rect, scale, PanelColor);
             GUI.Label(rect, text, _markerStyle);
         }
 
-        void DrawRemoteNames()
+        void DrawRemoteNames(float scale)
         {
             if (Camera.main == null) return;
             foreach (var remote in _remotes.Values)
@@ -832,7 +865,9 @@ namespace Caos.Maps
                 if (remote == null) continue;
                 Vector3 screen = Camera.main.WorldToScreenPoint(remote.transform.position + Vector3.up * 1.6f);
                 if (screen.z <= 0f) continue;
-                var rect = new Rect(screen.x - 70f, Screen.height - screen.y - 12f, 140f, 24f);
+                var rect = new Rect(screen.x - S(70f, scale), Screen.height - screen.y - S(12f, scale),
+                    S(140f, scale), S(24f, scale));
+                DrawRoundHud(rect, new Color(0.04f, 0.10f, 0.16f, 0.72f), _hudPanelStyle);
                 GUI.Label(rect, remote.PlayerName, _markerStyle);
             }
         }
@@ -843,60 +878,182 @@ namespace Caos.Maps
             return $"{total / 60}:{total % 60:00}";
         }
 
-        void EnsureStyles()
+        static float HudScale()
         {
-            if (_titleStyle != null) return;
+            return Mathf.Clamp(Mathf.Min(Screen.width / 1920f, Screen.height / 1080f), 0.8f, 1.5f);
+        }
+
+        static float S(float pixels, float scale) => pixels * scale;
+
+        static void DrawHudPanel(Rect rect, float scale, Color color)
+        {
+            DrawRoundHud(new Rect(rect.x + S(2f, scale), rect.y + S(3f, scale), rect.width, rect.height),
+                new Color(0f, 0f, 0f, 0.35f), _hudPanelStyle);
+            DrawRoundHud(rect, color, _hudPanelStyle);
+
+            Color previous = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.10f);
+            GUI.DrawTexture(new Rect(rect.x + S(10f, scale), rect.y + S(2f, scale),
+                Mathf.Max(0f, rect.width - S(20f, scale)), S(2f, scale)), Texture2D.whiteTexture);
+            GUI.color = previous;
+        }
+
+        static void DrawHudButtonBackground(Rect rect, float scale, Color accent)
+        {
+            bool hover = rect.Contains(Event.current.mousePosition);
+            Color baseColor = Color.Lerp(PanelColor, accent, 0.16f);
+            if (hover) baseColor = Color.Lerp(baseColor, Color.white, 0.12f);
+            DrawHudPanel(rect, scale, baseColor);
+            DrawRoundHud(new Rect(rect.x + S(8f, scale), rect.yMax - S(4f, scale),
+                Mathf.Max(0f, rect.width - S(16f, scale)), S(3f, scale)), accent, _hudPanelStyle);
+        }
+
+        static void DrawHudBar(Rect rect, float scale, float ratio, Color fill)
+        {
+            DrawRoundHud(rect, new Color(0.05f, 0.07f, 0.11f, 0.95f), _hudPanelStyle);
+
+            float clamped = Mathf.Clamp01(ratio);
+            if (clamped <= 0f) return;
+
+            var fillRect = new Rect(rect.x + S(2f, scale), rect.y + S(2f, scale),
+                Mathf.Max(S(2f, scale), (rect.width - S(4f, scale)) * clamped),
+                rect.height - S(4f, scale));
+            DrawRoundHud(fillRect, fill, _hudPanelStyle);
+
+            Color previous = GUI.color;
+            GUI.color = new Color(1f, 1f, 1f, 0.18f);
+            GUI.DrawTexture(new Rect(fillRect.x + S(3f, scale), fillRect.y + S(2f, scale),
+                Mathf.Max(0f, fillRect.width - S(6f, scale)), S(2f, scale)), Texture2D.whiteTexture);
+            GUI.color = previous;
+        }
+
+        static void DrawRoundHud(Rect rect, Color color, GUIStyle style)
+        {
+            Color previous = GUI.color;
+            GUI.color = color;
+            GUI.Box(rect, GUIContent.none, style);
+            GUI.color = previous;
+        }
+
+        static void EnsureHudTextures()
+        {
+            if (_hudRoundTexture != null) return;
+
+            _hudRoundTexture = MakeRoundedHudTexture();
+            _hudPanelStyle = new GUIStyle
+            {
+                normal = new GUIStyleState { background = _hudRoundTexture },
+                border = new RectOffset(14, 14, 14, 14),
+            };
+        }
+
+        static Texture2D MakeRoundedHudTexture()
+        {
+            const int size = 64;
+            const float radius = 13f;
+            const float feather = 2.5f;
+
+            var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "Caos Express UI Rounded",
+                hideFlags = HideFlags.HideAndDontSave,
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Bilinear,
+            };
+            var pixels = new Color32[size * size];
+
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    var p = new Vector2(x + 0.5f - size * 0.5f, y + 0.5f - size * 0.5f);
+                    var q = new Vector2(Mathf.Abs(p.x), Mathf.Abs(p.y)) -
+                            new Vector2(size * 0.5f - radius, size * 0.5f - radius);
+                    float distance = Mathf.Min(Mathf.Max(q.x, q.y), 0f) +
+                                     new Vector2(Mathf.Max(q.x, 0f), Mathf.Max(q.y, 0f)).magnitude -
+                                     radius;
+                    byte alpha = (byte)Mathf.RoundToInt(Mathf.Clamp01(0.5f - distance / feather) * 255f);
+                    pixels[y * size + x] = new Color32(255, 255, 255, alpha);
+                }
+            }
+
+            texture.SetPixels32(pixels);
+            texture.Apply();
+            return texture;
+        }
+
+        void EnsureStyles(float scale)
+        {
+            EnsureHudTextures();
+            if (_titleStyle != null && Mathf.Abs(_hudScale - scale) < 0.001f) return;
+            _hudScale = scale;
 
             _titleStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 20, fontStyle = FontStyle.Bold,
+                fontSize = Mathf.RoundToInt(20f * scale), fontStyle = FontStyle.Bold,
             };
-            _titleStyle.normal.textColor = new Color(1f, 0.85f, 0.35f);
+            _titleStyle.normal.textColor = AccentYellow;
 
             _sectionStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14, fontStyle = FontStyle.Bold,
+                fontSize = Mathf.Max(13, Mathf.RoundToInt(14f * scale)), fontStyle = FontStyle.Bold,
             };
-            _sectionStyle.normal.textColor = new Color(1f, 0.75f, 0.4f);
+            _sectionStyle.normal.textColor = AccentYellow;
 
-            _textStyle = new GUIStyle(GUI.skin.label) { fontSize = 14 };
-            _textStyle.normal.textColor = Color.white;
+            _textStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = Mathf.Max(13, Mathf.RoundToInt(14f * scale)),
+            };
+            _textStyle.normal.textColor = TextColor;
+
+            _timerStyle = new GUIStyle(_textStyle) { fontStyle = FontStyle.Bold };
+            _timerStyle.normal.textColor = Cyan;
 
             _objectiveStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 15, fontStyle = FontStyle.Bold,
+                fontSize = Mathf.Max(13, Mathf.RoundToInt(15f * scale)), fontStyle = FontStyle.Bold,
             };
-            _objectiveStyle.normal.textColor = new Color(0.95f, 0.95f, 1f);
+            _objectiveStyle.normal.textColor = TextColor;
 
             _doneStyle = new GUIStyle(_objectiveStyle);
-            _doneStyle.normal.textColor = new Color(0.4f, 1f, 0.6f);
+            _doneStyle.normal.textColor = HealthyGreen;
 
             _markerStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 14, fontStyle = FontStyle.Bold,
+                fontSize = Mathf.Max(13, Mathf.RoundToInt(14f * scale)), fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
             };
-            _markerStyle.normal.textColor = Color.white;
+            _markerStyle.normal.textColor = TextColor;
 
             _bannerStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 23, fontStyle = FontStyle.Bold,
+                fontSize = Mathf.RoundToInt(23f * scale), fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
                 wordWrap = true,
             };
-            _bannerStyle.normal.textColor = new Color(1f, 0.92f, 0.5f);
+            _bannerStyle.normal.textColor = AccentYellow;
 
             _resultStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 27, fontStyle = FontStyle.Bold,
+                fontSize = Mathf.RoundToInt(27f * scale), fontStyle = FontStyle.Bold,
                 alignment = TextAnchor.MiddleCenter,
             };
-            _resultStyle.normal.textColor = new Color(1f, 0.85f, 0.35f);
+            _resultStyle.normal.textColor = AccentYellow;
 
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
-                fontSize = 18, fontStyle = FontStyle.Bold,
+                fontSize = Mathf.RoundToInt(18f * scale), fontStyle = FontStyle.Bold,
             };
+
+            _buttonLabelStyle = new GUIStyle(GUI.skin.button)
+            {
+                fontSize = Mathf.Max(14, Mathf.RoundToInt(18f * scale)), fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter,
+            };
+            _buttonLabelStyle.normal.textColor = TextColor;
+            _buttonLabelStyle.hover.textColor = TextColor;
+            _buttonLabelStyle.active.textColor = TextColor;
+            _buttonLabelStyle.focused.textColor = TextColor;
         }
     }
 }

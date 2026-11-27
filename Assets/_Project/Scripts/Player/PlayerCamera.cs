@@ -8,6 +8,7 @@ namespace Caos.Player
     /// abajo) que sigue al personaje con suavizado. No gira con el ratón;
     /// el cursor queda libre para apuntar y hacer clic.
     /// La rueda del ratón acerca / aleja el personaje.
+    /// pitch=55º y yaw=0º se conservan: de ellos depende el movimiento relativo.
     /// </summary>
     [RequireComponent(typeof(Camera))]
     public class PlayerCamera : MonoBehaviour
@@ -26,20 +27,36 @@ namespace Caos.Player
 
         [Header("Seguimiento")]
         [SerializeField] float followSmoothTime = 0.12f;
+        [SerializeField] float lookAhead = 0.7f;
+        [SerializeField] float lookAheadSmoothTime = 0.22f;
+        [SerializeField] float teleportSnapDistance = 8f;
 
         [Header("Game feel (solo visual)")]
         [SerializeField] float traumaDecay = 1.2f;
         [SerializeField] float maxOffset = 0.22f;
-        [SerializeField] float maxRoll = 0.7f;
+        [SerializeField] float maxRoll = 0.7f;        // legado: no se aplica al transform base
         [SerializeField] float shakeStrength = 0.8f;
         [SerializeField] bool reduceMotion;
 
+        [Header("Encuadre")]
+        [SerializeField] float baseFov = 56f;
+        [SerializeField] float fovSpeedBonus = 3f;
+        [SerializeField] float fovSpeedReference = 9f;
+        [SerializeField] float fovSmoothTime = 0.18f;
+
         Transform target;
+        Camera _camera;
+        Vector3 _followPosition;
         Vector3 _smoothVelocity;
+        Vector3 _lastTargetPosition;
+        Vector3 _lookAheadOffset;
+        Vector3 _lookAheadVelocity;
+        float _planarSpeed;
         float _targetDistance;
         float _zoomVelocity;
         float _trauma;
         float _shakeTime;
+        float _fovVelocity;
 
         public float Distance => distance;
 
@@ -57,7 +74,11 @@ namespace Caos.Player
             PlayerPrefs.Save();
         }
 
-        public void SetTarget(Transform playerTarget) => target = playerTarget;
+        public void SetTarget(Transform playerTarget)
+        {
+            target = playerTarget;
+            if (target != null) _lastTargetPosition = target.position;
+        }
 
         /// <summary>El trauma se suma y decae con tiempo real, también en pausa.</summary>
         public void AddTrauma(float amount)
@@ -67,6 +88,9 @@ namespace Caos.Player
 
         void Start()
         {
+            _camera = GetComponent<Camera>();
+            if (_camera != null) _camera.fieldOfView = baseFov;
+
             if (target == null)
             {
                 var controller = FindFirstObjectByType<PlayerController>();
@@ -78,8 +102,12 @@ namespace Caos.Player
             Cursor.visible = true;
 
             reduceMotion = PlayerPrefs.GetInt("Caos.ReduceMotion", 0) == 1;
+            _ = maxRoll; // parámetro conservado por compatibilidad; el roll se omite
+                         // para no alterar la base de movimiento relativa a la cámara.
 
-            _targetDistance = distance;
+            _targetDistance = Mathf.Clamp(distance, minDistance, maxDistance);
+            _lookAheadOffset = Vector3.zero;
+            _planarSpeed = 0f;
             ApplyTransform(true);
         }
 
@@ -99,50 +127,99 @@ namespace Caos.Player
 
         void LateUpdate()
         {
+            // Tiempo real: suavizado, FOV y shake siguen vivos en hit-stop/pausa.
+            float realDelta = Mathf.Max(0f, Time.unscaledDeltaTime);
+            float step = Mathf.Min(realDelta, 0.1f);
+
+            if (target != null)
+            {
+                Vector3 targetPosition = target.position;
+                Vector3 planarDelta = targetPosition - _lastTargetPosition;
+
+                if (planarDelta.magnitude > teleportSnapDistance)
+                {
+                    // Respawn/teleport: corte limpio, sin latigazo de seguimiento.
+                    _smoothVelocity = Vector3.zero;
+                    _lookAheadVelocity = Vector3.zero;
+                    _lookAheadOffset = Vector3.zero;
+                    _followPosition = targetPosition + Vector3.up * pivotHeight;
+                }
+
+                Vector3 planarVelocity = new Vector3(planarDelta.x, 0f, planarDelta.z)
+                    / Mathf.Max(step, 0.0001f);
+                _lastTargetPosition = targetPosition;
+                _planarSpeed = Mathf.Clamp01(planarVelocity.magnitude / Mathf.Max(0.001f, fovSpeedReference));
+
+                Vector3 desiredLead = reduceMotion
+                    ? Vector3.zero
+                    : planarVelocity.normalized * (_planarSpeed * lookAhead);
+                _lookAheadOffset = Vector3.SmoothDamp(_lookAheadOffset, desiredLead,
+                    ref _lookAheadVelocity, lookAheadSmoothTime, Mathf.Infinity, step);
+            }
+
             distance = Mathf.SmoothDamp(distance, _targetDistance, ref _zoomVelocity,
-                zoomSmoothTime);
-            ApplyTransform(false);
+                zoomSmoothTime, Mathf.Infinity, step);
+            ApplyTransform(false, realDelta);
         }
 
-        void ApplyTransform(bool snap)
+        void ApplyTransform(bool snap, float realDelta = 0f)
         {
             if (target == null) return;
 
             Quaternion rotation = Quaternion.Euler(pitch, yaw, 0f);
             Vector3 pivot = target.position + Vector3.up * pivotHeight;
-            Vector3 desired = pivot - rotation * Vector3.forward * distance;
+            Vector3 desired = pivot - rotation * Vector3.forward * distance + _lookAheadOffset;
 
             if (snap)
             {
-                transform.rotation = rotation;
+                _followPosition = desired;
                 transform.position = desired;
+                transform.rotation = rotation;
+                ApplyFov(true, 0f);
                 return;
             }
 
-            transform.position = Vector3.SmoothDamp(transform.position, desired,
-                ref _smoothVelocity, followSmoothTime);
-            transform.rotation = rotation;
+            float step = Mathf.Min(realDelta, 0.1f);
+            // Se suaviza una posición lógica: el offset de shake NO realimenta el SmoothDamp.
+            _followPosition = Vector3.SmoothDamp(_followPosition, desired, ref _smoothVelocity,
+                followSmoothTime, Mathf.Infinity, step);
 
-            // Sacudida con trauma^2 y senos a ritmos distintos: nunca azúcar
-            // aleatorio por frame. Usa tiempo real para no quedarse torcida.
-            float realDelta = Time.unscaledDeltaTime;
+            transform.position = _followPosition + ShakeOffset(rotation, realDelta);
+            // Sin roll: pitch/yaw exactos mantienen el movimiento relativo del jugador.
+            transform.rotation = rotation;
+            ApplyFov(false, step);
+        }
+
+        void ApplyFov(bool snap, float step)
+        {
+            if (_camera == null) return;
+            float desired = baseFov + (reduceMotion ? 0f : fovSpeedBonus * _planarSpeed);
+            _camera.fieldOfView = snap
+                ? desired
+                : Mathf.SmoothDamp(_camera.fieldOfView, desired, ref _fovVelocity,
+                    fovSmoothTime, Mathf.Infinity, step);
+        }
+
+        Vector3 ShakeOffset(Quaternion rotation, float realDelta)
+        {
             _trauma = Mathf.Max(0f, _trauma - traumaDecay * realDelta);
             if (_trauma <= 0f)
             {
                 _shakeTime = 0f;
-                return;
+                return Vector3.zero;
             }
 
-            float shake = _trauma * _trauma * shakeStrength
-                * (reduceMotion ? 0.3f : 1f);
+            float shake = _trauma * _trauma * shakeStrength * (reduceMotion ? 0.25f : 1f);
             _shakeTime += realDelta * 30f;
 
-            Vector3 offset = transform.right * (maxOffset * shake * Mathf.Sin(_shakeTime * 1.7f))
-                + transform.up * (maxOffset * shake * Mathf.Sin(_shakeTime * 2.3f));
-            float roll = reduceMotion ? 0f : maxRoll * shake * Mathf.Sin(_shakeTime * 1.1f);
+            // Senos a ritmos distintos: temblor continuo, nunca zumbido aleatorio.
+            float x = 0.6f * Mathf.Sin(_shakeTime * 1.7f)
+                + 0.4f * Mathf.Sin(_shakeTime * 3.1f);
+            float y = 0.6f * Mathf.Sin(_shakeTime * 2.3f + 1.7f)
+                + 0.4f * Mathf.Sin(_shakeTime * 4.3f);
 
-            transform.position += offset;
-            transform.rotation = rotation * Quaternion.Euler(0f, 0f, roll);
+            return (rotation * Vector3.right) * (maxOffset * shake * x)
+                + (rotation * Vector3.up) * (maxOffset * shake * y);
         }
     }
 }

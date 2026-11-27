@@ -32,6 +32,8 @@ namespace Caos.Maps
         [SerializeField] float groundY;
         [SerializeField] int treeCount = 14;
         [SerializeField] int grassCount = 80;
+        [SerializeField] int flowerCount = 28;
+        [SerializeField] int rockCount = 16;
         [SerializeField] int cloudCount = 7;
         [SerializeField] int fireflyCount = 18;
         [SerializeField] int rainCount = 140;
@@ -125,6 +127,7 @@ namespace Caos.Maps
 
             BuildTreesAndBushes(Stream(11));
             BuildGrass(Stream(23));
+            BuildFlowersAndRocks(Stream(67), Stream(71));
             BuildClouds(Stream(37));
             BuildFireflies(Stream(53));
             if (rain) BuildRain();
@@ -202,23 +205,28 @@ namespace Caos.Maps
                 Vector3 position = SamplePerimeter(rng, 1.8f);
                 float height = 2.4f + (float)rng.NextDouble() * 1.5f;
 
-                var trunk = CreatePrimitive(PrimitiveType.Cylinder, "Tree_Trunk_" + i,
-                    position + Vector3.up * height * 0.5f, trunkMaterial);
-                trunk.transform.localScale = new Vector3(0.19f, height * 0.5f, 0.19f);
+                // Tronco cónico y curvado: silueta orgánica sin parecer un cilindro.
+                float bend = Mathf.Sin(i * 1.73f) * 0.12f;
+                Mesh trunkMesh = CaosVisualKit.TaperedTrunk(height, 0.15f, 0.085f, bend, i);
+                var trunk = CreateMeshObject("Tree_Trunk_" + i, trunkMesh, trunkMaterial, position);
 
                 var canopy = new GameObject("Tree_Canopy_" + i);
                 canopy.transform.SetParent(_generated, false);
-                canopy.transform.position = position + Vector3.up * (height + 0.1f);
+                canopy.transform.position = position + Vector3.up * (height + 0.05f);
 
-                var lower = CreatePrimitive(PrimitiveType.Sphere, "Crown_Lower",
-                    canopy.transform.position, i % 2 == 0 ? crownAMaterial : crownBMaterial);
+                var lower = CreateMeshObject("Crown_Lower",
+                    CaosVisualKit.OrganicCrown(0.92f, i, 0.72f),
+                    i % 2 == 0 ? crownAMaterial : crownBMaterial, canopy.transform.position);
                 lower.transform.SetParent(canopy.transform, true);
-                lower.transform.localScale = new Vector3(1.5f, 1.05f, 1.5f);
+                lower.transform.localPosition = Vector3.zero;
+                lower.transform.localScale = new Vector3(1.12f, 1f, 1.12f);
 
-                var upper = CreatePrimitive(PrimitiveType.Sphere, "Crown_Upper",
-                    canopy.transform.position + Vector3.up * 0.65f, crownAMaterial);
+                var upper = CreateMeshObject("Crown_Upper",
+                    CaosVisualKit.OrganicCrown(0.66f, i + 29, 0.78f),
+                    crownBMaterial, canopy.transform.position);
                 upper.transform.SetParent(canopy.transform, true);
-                upper.transform.localScale = new Vector3(1.0f, 0.85f, 1.0f);
+                upper.transform.localPosition = new Vector3(0.12f, 0.58f, -0.08f);
+                upper.transform.localScale = new Vector3(0.95f, 0.9f, 0.95f);
 
                 _sways.Add(new Sway
                 {
@@ -235,9 +243,19 @@ namespace Caos.Maps
                     float angle = (float)rng.NextDouble() * Mathf.PI * 2f;
                     Vector3 offset = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle))
                         * (0.9f + (float)rng.NextDouble() * 0.5f);
-                    var bush = CreatePrimitive(PrimitiveType.Sphere, "Bush_" + i + "_" + b,
-                        position + offset + Vector3.up * 0.28f, bushMaterial);
-                    bush.transform.localScale = new Vector3(0.75f, 0.44f, 0.75f);
+                    var bush = CreateMeshObject("Bush_" + i + "_" + b,
+                        CaosVisualKit.OrganicCrown(0.52f, i * 3 + b, 0.55f), bushMaterial,
+                        position + offset + Vector3.up * 0.24f);
+                    bush.transform.localScale = new Vector3(1.05f, 0.85f, 1.05f);
+                    _sways.Add(new Sway
+                    {
+                        target = bush.transform,
+                        rest = bush.transform.localRotation,
+                        phase = i * 0.9f + b * 2.1f,
+                        speed = 1.1f + b * 0.2f,
+                        amplitude = 1.4f + b * 0.5f,
+                        aroundX = true
+                    });
                 }
             }
         }
@@ -251,14 +269,20 @@ namespace Caos.Maps
 
             for (int i = 0; i < grassCount; i++)
             {
+                bool flower = i % 7 == 0;
                 Vector3 position = SampleOpen(rng, 0.8f);
-                var go = new GameObject("Grass_" + i);
+                var go = new GameObject(flower ? "Flower_Grass_" + i : "Grass_" + i);
                 go.transform.SetParent(_generated, false);
                 go.transform.position = position;
-                go.transform.localScale = Vector3.one * (0.65f + (float)rng.NextDouble() * 0.7f);
+                float size = flower
+                    ? 0.85f + (float)rng.NextDouble() * 0.5f
+                    : 0.65f + (float)rng.NextDouble() * 0.7f;
+                go.transform.localScale = Vector3.one * size;
                 go.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
 
-                go.AddComponent<MeshFilter>().sharedMesh = _grassMesh;
+                go.AddComponent<MeshFilter>().sharedMesh = flower
+                    ? CaosVisualKit.Flower(i % 4)
+                    : _grassMesh;
                 go.AddComponent<MeshRenderer>().sharedMaterial = material;
 
                 _sways.Add(new Sway
@@ -270,6 +294,44 @@ namespace Caos.Maps
                     amplitude = 4f + (float)rng.NextDouble() * 4f,
                     aroundX = i % 3 == 0
                 });
+            }
+        }
+
+        // -------------------------------------------------- flores y rocas
+
+        /// <summary>Detalle de borde: flores ligeras y rocas sin colisión.</summary>
+        void BuildFlowersAndRocks(System.Random flowerRng, System.Random rockRng)
+        {
+            var flowerMaterial = MakeAmbient(Color.white);
+            for (int i = 0; i < flowerCount; i++)
+            {
+                Vector3 position = SampleOpen(flowerRng, 1.1f);
+                var flower = CreateMeshObject("Flower_Detail_" + i,
+                    CaosVisualKit.Flower(i % 4), flowerMaterial, position);
+                flower.transform.rotation = Quaternion.Euler(0f, (float)flowerRng.NextDouble() * 360f, 0f);
+                flower.transform.localScale = Vector3.one *
+                    (0.75f + (float)flowerRng.NextDouble() * 0.55f);
+                _sways.Add(new Sway
+                {
+                    target = flower.transform,
+                    rest = flower.transform.localRotation,
+                    phase = i * 1.31f,
+                    speed = 1.2f + (i % 3) * 0.18f,
+                    amplitude = 2.2f + (i % 4) * 0.4f,
+                    aroundX = i % 2 == 0
+                });
+            }
+
+            var rockMaterial = MakeLit(new Color(0.52f, 0.50f, 0.46f));
+            for (int i = 0; i < rockCount; i++)
+            {
+                float radius = 0.22f + (float)rockRng.NextDouble() * 0.22f;
+                Vector3 position = SamplePerimeter(rockRng, 1.4f) + Vector3.up * radius * 0.30f;
+                var rock = CreateMeshObject("Rock_" + i,
+                    CaosVisualKit.Rock(radius, i), rockMaterial, position);
+                rock.transform.rotation = Quaternion.Euler(
+                    0f, (float)rockRng.NextDouble() * 360f,
+                    (float)(rockRng.NextDouble() - 0.5) * 8f);
             }
         }
 
@@ -333,8 +395,9 @@ namespace Caos.Maps
                 int puffs = 4 + rng.Next(3);
                 for (int p = 0; p < puffs; p++)
                 {
-                    var puff = CreatePrimitive(PrimitiveType.Sphere, "Puff",
-                        cluster.transform.position, material);
+                    var puff = CreateMeshObject("Puff",
+                        CaosVisualKit.OrganicCrown(1f, i * 7 + p, 0.55f),
+                        material, cluster.transform.position);
                     puff.transform.SetParent(cluster.transform, true);
                     puff.transform.localPosition = new Vector3(
                         (float)(rng.NextDouble() - 0.5) * 5f,
@@ -528,6 +591,16 @@ namespace Caos.Maps
         }
 
         // ------------------------------------------------------------- materiales
+
+        GameObject CreateMeshObject(string name, Mesh mesh, Material material, Vector3 position)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(_generated, false);
+            go.transform.position = position;
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshRenderer>().sharedMaterial = material;
+            return go;
+        }
 
         GameObject CreatePrimitive(PrimitiveType type, string name, Vector3 position,
             Material material)
