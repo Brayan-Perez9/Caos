@@ -72,6 +72,14 @@ Shader "Caos/ToonStylized"
                 return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
             }
 
+            // Normalizar sin dividir por cero: una normal degenerada genera NaN,
+            // y el buffer HDR lo propaga como velo blanco por toda la pantalla.
+            float3 CaosSafeNormalize(float3 v)
+            {
+                float lenSq = max(dot(v, v), 1e-8);
+                return v * rsqrt(lenSq);
+            }
+
             Varyings vert(Attributes input)
             {
                 Varyings output;
@@ -84,9 +92,9 @@ Shader "Caos/ToonStylized"
 
             half4 frag(Varyings input) : SV_Target
             {
-                float3 normal = normalize(input.normalWS);
-                float3 viewDir = normalize(_WorldSpaceCameraPos - input.positionWS);
-                float3 lightDir = normalize(_LightDir.xyz);
+                float3 normal = CaosSafeNormalize(input.normalWS);
+                float3 viewDir = CaosSafeNormalize(_WorldSpaceCameraPos - input.positionWS);
+                float3 lightDir = CaosSafeNormalize(_LightDir.xyz);
 
                 // Las primitivas de Unity no siempre incluyen el atributo COLOR.
                 // Si llega a cero se trata como blanco: evita bombillas y detalles
@@ -104,7 +112,7 @@ Shader "Caos/ToonStylized"
                 color += _RimColor.rgb * rim * _RimStrength;
 
                 // Reflejo stylized, dependiente de la suavidad del material.
-                float3 halfDir = normalize(viewDir + lightDir);
+                float3 halfDir = CaosSafeNormalize(viewDir + lightDir);
                 float gloss = lerp(8.0, 48.0, _Smoothness);
                 float spec = pow(saturate(dot(normal, halfDir)), gloss) * _Smoothness * 0.32;
                 color += spec;

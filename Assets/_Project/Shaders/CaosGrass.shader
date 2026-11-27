@@ -59,6 +59,13 @@ Shader "Caos/Grass"
                 return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
             }
 
+            // Normalizar sin dividir por cero: evita NaN en el buffer HDR.
+            float3 CaosSafeNormalize(float3 v)
+            {
+                float lenSq = max(dot(v, v), 1e-8);
+                return v * rsqrt(lenSq);
+            }
+
             float Noise(float2 p)
             {
                 float2 i = floor(p);
@@ -107,8 +114,8 @@ Shader "Caos/Grass"
                 color += _BladeColor.rgb * dew * dew * 0.16;
 
                 // Sombreado falso con la normal: da volumen sin pasar a Lit.
-                float ndl = saturate(dot(normalize(input.normalWS),
-                    normalize(_LightDir.xyz))) * 0.5 + 0.5;
+                float ndl = saturate(dot(CaosSafeNormalize(input.normalWS),
+                    CaosSafeNormalize(_LightDir.xyz))) * 0.5 + 0.5;
                 color *= lerp(0.72, 1.16, ndl);
 
                 float radius = length(input.positionWS.xz);

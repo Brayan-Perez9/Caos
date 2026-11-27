@@ -124,6 +124,13 @@ namespace Caos.EditorTools
         public static void EnablePostProcessing(GameObject cameraObject)
         {
             if (cameraObject == null) return;
+
+            // HDR fuera: con buffer HDR + postprocesado esta GPU/driver convertía
+            // los valores fuera de rango en un velo blanco con siluetas negras.
+            // Ningún efecto del juego necesita HDR.
+            var camera = cameraObject.GetComponent<Camera>();
+            if (camera != null) camera.allowHDR = false;
+
             var data = cameraObject.GetComponent<UniversalAdditionalCameraData>();
             if (data == null) data = cameraObject.AddComponent<UniversalAdditionalCameraData>();
             data.renderPostProcessing = true;
