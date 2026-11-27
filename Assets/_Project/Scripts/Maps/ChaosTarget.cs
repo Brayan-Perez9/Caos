@@ -29,6 +29,7 @@ namespace Caos.Maps
             if (_mission == null) _mission = FindFirstObjectByType<ChaosExpressMission>();
             _mission?.TargetDown();
             ChaosFx.Burst(transform.position, new Color(1f, 0.86f, 0.35f), 6);
+            ArenaJuice.Current.Hit(transform.position, 0.6f);
             Destroy(gameObject);
         }
     }

@@ -98,6 +98,31 @@ namespace Caos.EditorTools
             return cylinder;
         }
 
+        /// <summary>Franja de guía sin colisión: marca la ruta sin cambiar la física.</summary>
+        static GameObject Trail(string name, Vector3 position, Vector3 scale, string material,
+            Transform parent)
+        {
+            var trail = Box(name, position, scale, material, parent);
+            UnityEngine.Object.DestroyImmediate(trail.GetComponent<Collider>());
+            return trail;
+        }
+
+        static void Beacon(string name, Vector3 position, Color color, Transform parent,
+            float range = 10f)
+        {
+            Cylinder(name + "_Pole", position + Vector3.up * 1.4f,
+                new Vector3(0.14f, 1.4f, 0.14f), "Pedestal", parent);
+            var lamp = new GameObject(name + "_Light");
+            lamp.transform.SetParent(parent, false);
+            lamp.transform.position = position + Vector3.up * 2.6f;
+            var light = lamp.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = color;
+            light.intensity = 2.2f;
+            light.range = range;
+            light.shadows = LightShadows.None;
+        }
+
         static Rigidbody Body(GameObject go, float mass = 1f)
         {
             var body = go.AddComponent<Rigidbody>();
@@ -153,7 +178,7 @@ namespace Caos.EditorTools
             floor.transform.position = Vector3.zero;
             floor.transform.localScale = new Vector3(3f, 1f, 3f);
             floor.transform.SetParent(parent, true);
-            floor.GetComponent<Renderer>().sharedMaterial = Mat("Candy");
+            floor.GetComponent<Renderer>().sharedMaterial = Mat("NeonGrid");
 
             Box("Wall_N", new Vector3(0f, 1.5f, 15f), new Vector3(31f, 3f, 1f), "Neon", parent);
             Box("Wall_E", new Vector3(15f, 1.5f, 0f), new Vector3(1f, 3f, 31f), "Mint", parent);
@@ -172,6 +197,28 @@ namespace Caos.EditorTools
                         "Lemon", parent);
                 }
             }
+
+            // Rutas: el spawn mira al norte, así que cada estación tiene una
+            // franja que conecta con la siguiente. El hueco sur queda avisado.
+            Trail("Guide_Cargo", new Vector3(-8f, 0.02f, -8f),
+                new Vector3(0.4f, 0.03f, 8f), "Mint", parent);
+            Trail("Guide_Targets", new Vector3(8f, 0.02f, -7f),
+                new Vector3(0.4f, 0.03f, 8f), "Lava", parent);
+            Trail("Guide_Parcels", new Vector3(0f, 0.02f, 2f),
+                new Vector3(0.4f, 0.03f, 8f), "Lemon", parent);
+            Trail("Guide_Finish", new Vector3(0f, 0.02f, 8.5f),
+                new Vector3(0.4f, 0.03f, 5f), "Neon", parent);
+            Trail("Warning_SouthGap", new Vector3(0f, 0.02f, -13.7f),
+                new Vector3(9f, 0.03f, 0.5f), "Lava", parent);
+
+            Beacon("Beacon_Cargo", new Vector3(-8f, 0f, -10f),
+                new Color(0.35f, 1f, 0.7f), parent, 9f);
+            Beacon("Beacon_Targets", new Vector3(8f, 0f, -10f),
+                new Color(1f, 0.4f, 0.28f), parent, 9f);
+            Beacon("Beacon_Parcels", new Vector3(0f, 2.5f, 6f),
+                new Color(1f, 0.85f, 0.3f), parent, 9f);
+            Beacon("Beacon_Finish", new Vector3(0f, 0f, 13f),
+                new Color(0.3f, 0.9f, 1f), parent, 11f);
         }
 
         static void BuildCargoStation(Transform parent)

@@ -27,7 +27,7 @@ Los dos jugadores deben estar en la misma Wi-Fi o LAN. El código guarda la IP y
 - **Clic izquierdo**: coger / lanzar objetos; con el martillo, golpear
 - **Ratón**: apuntar en la Arena Caos (el personaje mira al cursor)
 - **1 / 2 / 3**: elegir mejora cuando aparece el panel
-- **ESC**: pausa (reanudar / volver al lobby / salir)
+- **ESC**: pausa (reanudar / menos movimiento de cámara / menos destellos / volver al lobby / salir)
 - **P**: personalizar (con la pestaña **ATUENDO** puedes poner el **Mono** o **Pororo**)
 
 Si saltas desde el segundo piso de la Arena Caos se abre un **paracaídas automático**: caes despacio y puedes dirigirte mientras desciendes. Se recoge al aterrizar.
@@ -60,6 +60,14 @@ Cada arma tiene un color y un elemento:
 - A los **30 s** los monstruos se vuelven más rápidos y aparecen más.
 - A los **90 s**, **120 s** y **150 s** llegan tres jefes: **Martillo** (pisotón), **Cañón** (ráfaga de 3 disparos) y **Tormenta** (teletransporte, lluvia de proyectiles y clones). Derrota a los tres para ganar.
 - Los monstruos tienen piernas y sangran; al recibir daño aparece sangre también en pantalla y se oyen efectos generados por código, sin archivos de sonido.
+
+## Ambiente y guiado
+
+Los mapas usan un shader URP procedural (`Caos/NeonGrid`) para el suelo: rejilla en coordenadas de mundo, pulso suave y penumbra hacia el borde, sin texturas ni assets externos. Hay niebla ligera, puntos de luz por elemento y **franjas guía** que llevan del spawn a la escalera, de la escalera al jefe y, en Caos Express, de cada estación a la siguiente. El hueco sur de Caos Express está marcado con una franja roja.
+
+El diseño se ha revisado con las métricas reales del controlador: salto de **1,15 m** y alcance de unos **4,2 m** corriendo. Los peldaños suben **0,28 m** (por debajo del `stepOffset` de 0,35/0,42), la meseta superior empieza en **4,25 m** y hay puentes a ambos lados: la ruta crítica no exige saltos imposibles ni callejones sin salida. Las dianas de Caos Express se cuentan como tumbadas si se lanzan lejos, así que no pueden bloquear la misión.
+
+Los impactos tienen feedback por capas (chispas, rebote, destello corto y sacudida de cámara con `trauma²` que decae con tiempo real). La pausa incluye **CÁMARA: MENOS MOVIMIENTO** y **DESTELLOS: REDUCIDOS** para quien prefiera menos movimiento o menos brillo. Ningún efecto mueve colisiones ni cambia la cadencia de disparo.
 
 ## Actualizaciones
 

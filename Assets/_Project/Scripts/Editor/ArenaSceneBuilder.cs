@@ -90,12 +90,38 @@ namespace Caos.EditorTools
             return cylinder;
         }
 
+        /// <summary>Franja guía: solo visual, no estorba al caminar ni a la IA.</summary>
+        static GameObject Trail(string name, Vector3 position, Vector3 scale, string material,
+            Transform parent)
+        {
+            var trail = Box(name, position, scale, material, parent);
+            UnityEngine.Object.DestroyImmediate(trail.GetComponent<Collider>());
+            return trail;
+        }
+
+        /// <summary>Hito luminoso visible desde lejos: orienta sin muros nuevos.</summary>
+        static void Beacon(string name, Vector3 position, Color color, Transform parent,
+            float range = 12f)
+        {
+            Cylinder(name + "_Pole", position + Vector3.up * 1.5f,
+                new Vector3(0.16f, 1.5f, 0.16f), "Pedestal", parent);
+            var lamp = new GameObject(name + "_Light");
+            lamp.transform.SetParent(parent, false);
+            lamp.transform.position = position + Vector3.up * 2.8f;
+            var light = lamp.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = color;
+            light.intensity = 2.6f;
+            light.range = range;
+            light.shadows = LightShadows.None;
+        }
+
         // ------------------------------------------------------------ pisos
 
         static void BuildFloors(Transform parent)
         {
             Box("GroundFloor", new Vector3(0f, -0.3f, 0f),
-                new Vector3(48f, 0.6f, 48f), "MenuFloor", parent);
+                new Vector3(48f, 0.6f, 48f), "NeonGrid", parent);
 
             // Piso alto en forma de U: deja el hueco central para la escalera.
             Box("UpperFloor_W", new Vector3(-9f, 4f, -2f),
@@ -141,6 +167,24 @@ namespace Caos.EditorTools
                 new Vector3(0.22f, 0.8f, 18.2f), "Neon", parent);
             Box("StairRail_R", new Vector3(3.4f, 5.05f, -1.9f),
                 new Vector3(0.22f, 0.8f, 18.2f), "Neon", parent);
+
+            // Guiado sin paredes: el suelo apunta a la escalera y al jefe.
+            Trail("Guide_SpawnToStair", new Vector3(0f, 0.02f, -15f),
+                new Vector3(0.5f, 0.03f, 7f), "Neon", parent);
+            Trail("Guide_StairToBoss", new Vector3(0f, 4.28f, 12f),
+                new Vector3(0.5f, 0.03f, 8f), "Neon", parent);
+            Trail("Guide_LowerWest", new Vector3(-5.5f, 0.02f, -6f),
+                new Vector3(0.28f, 0.03f, 11f), "Lemon", parent);
+            Trail("Guide_LowerEast", new Vector3(5.5f, 0.02f, -6f),
+                new Vector3(0.28f, 0.03f, 11f), "Candy", parent);
+
+            // Landmarks: se ven desde el spawn y desde el piso alto.
+            Beacon("Beacon_Spawn", new Vector3(0f, 0f, -13f),
+                new Color(0.25f, 0.85f, 1f), parent, 10f);
+            Beacon("Beacon_Landing", new Vector3(0f, 4.25f, 9.4f),
+                new Color(1f, 0.35f, 0.7f), parent, 12f);
+            Beacon("Beacon_Boss", new Vector3(0f, 0f, 20f),
+                new Color(1f, 0.45f, 0.2f), parent, 14f);
 
             // Muros perimetrales del piso bajo.
             Box("Wall_N", new Vector3(0f, 1.6f, -24f),
@@ -218,6 +262,17 @@ namespace Caos.EditorTools
             GameObject weapon = Box(name, position, new Vector3(0.9f, 0.28f, 0.3f),
                 material, parent, true);
             weapon.AddComponent<ArenaWeaponPickup>().Configure(kind, element);
+
+            // Cada elemento tiene su color: se localiza de un vistazo.
+            var lamp = new GameObject(name + "_Glow");
+            lamp.transform.SetParent(parent, false);
+            lamp.transform.position = position + Vector3.up * 0.8f;
+            var light = lamp.AddComponent<Light>();
+            light.type = LightType.Point;
+            light.color = ArenaElementInfo.Color(element);
+            light.intensity = 1.8f;
+            light.range = 6.5f;
+            light.shadows = LightShadows.None;
         }
 
         // ---------------------------------------------------------- jugador

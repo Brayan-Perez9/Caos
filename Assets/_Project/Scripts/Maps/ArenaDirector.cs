@@ -221,6 +221,7 @@ namespace Caos.Maps
             _nextFire = Time.time + 0.15f;
             ShowBanner($"ARMA: {WeaponLabel()} · {ArenaElementInfo.Label(element)} — {ArenaElementInfo.Effect(element)}", 2.6f);
             ArenaAudio.Play(ArenaAudio.Sound.Upgrade, pickup.transform.position, 0.55f);
+            ArenaJuice.Current.Pickup(pickup.transform.position);
             Destroy(pickup.gameObject);
         }
 
@@ -262,6 +263,8 @@ namespace Caos.Maps
 
             ArenaAudio.Play(ArenaAudio.Sound.Shoot, origin,
                 _weapon == ArenaWeaponKind.Escopeta ? 0.65f : 0.4f);
+            // Tier pequeño: apenas un toque, para no castigar disparos rápidos.
+            ArenaJuice.Current.AddTrauma(_weapon == ArenaWeaponKind.Escopeta ? 0.09f : 0.045f);
         }
 
         void SpawnProjectile(Vector3 origin, Vector3 direction, float speed, float damage)
@@ -487,6 +490,8 @@ namespace Caos.Maps
 
             ShowBanner($"JEFE {index}/3: {BossName(kind)} — {BossPower(kind)}", 4f);
             ArenaAudio.Play(ArenaAudio.Sound.Boss, go.transform.position, 0.95f);
+            ArenaJuice.Current.AddTrauma(0.5f);
+            ArenaJuice.Current.Impact(go.transform.position, 0.9f, go.transform);
         }
 
         public float MonsterSpeed(float baseSpeed)
@@ -551,6 +556,7 @@ namespace Caos.Maps
                 away.y = 0f;
                 if (away.sqrMagnitude > 0.01f) _player.AddImpulse(away.normalized * 3.5f);
                 ArenaAudio.Play(ArenaAudio.Sound.Hurt, _player.transform.position, 0.7f);
+                ArenaJuice.Current.PlayerHurt(_player.transform.position);
             }
 
             ShowBanner($"¡AUCH! -{finalDamage:0}", 1.1f);

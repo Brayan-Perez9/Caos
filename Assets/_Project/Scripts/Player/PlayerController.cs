@@ -1,4 +1,5 @@
 using UnityEngine;
+using Caos.Maps;
 
 namespace Caos.Player
 {
@@ -34,6 +35,7 @@ namespace Caos.Player
         Vector3 _velocity;
         float _lastGroundedTime = float.NegativeInfinity;
         float _lastJumpPressedTime = float.NegativeInfinity;
+        bool _wasGrounded;
 
         public bool IsGrounded => _controller != null && _controller.isGrounded;
         public Vector3 Velocity => _velocity;
@@ -85,6 +87,11 @@ namespace Caos.Player
 
             if (InputEnabled && _input.JumpPressed) _lastJumpPressedTime = Time.time;
             if (_controller.isGrounded) _lastGroundedTime = Time.time;
+
+            // Flanco de aterrizaje: feedback solo al tocar suelo, no cada frame.
+            if (_controller.isGrounded && !_wasGrounded && _velocity.y < -1f)
+                ArenaJuice.Active?.Land(transform.position, -_velocity.y);
+            _wasGrounded = _controller.isGrounded;
 
             MoveHorizontally();
             ApplyGravityAndJump();

@@ -92,6 +92,14 @@ namespace Caos.EditorTools
             RenderSettings.ambientSkyColor = new Color(0.60f, 0.74f, 0.95f);
             RenderSettings.ambientEquatorColor = new Color(0.74f, 0.73f, 0.68f);
             RenderSettings.ambientGroundColor = new Color(0.36f, 0.33f, 0.31f);
+            RenderSettings.ambientIntensity = 0.85f;
+
+            // Niebla suave: da profundidad al mapa grande sin ocultar la ruta.
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            RenderSettings.fogColor = new Color(0.08f, 0.10f, 0.16f);
+            RenderSettings.fogStartDistance = 28f;
+            RenderSettings.fogEndDistance = 95f;
         }
 
         static void BuildArena(Transform parent)
@@ -324,8 +332,41 @@ namespace Caos.EditorTools
             if (renderer != null) renderer.sharedMaterial = GetMaterial(materialName);
         }
 
+        /// <summary>
+        /// Suelo procedural URP: rejilla en coordenadas de mundo, pulso y
+        /// penumbra. No usa texturas ni assets de arte externos.
+        /// </summary>
+        public static Material GetNeonGridMaterial()
+        {
+            const string path = MaterialFolder + "NeonGrid.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material != null) return material;
+
+            var shader = Shader.Find("Caos/NeonGrid");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Caos] No se encontró el shader Caos/NeonGrid; se usa MenuFloor.");
+                return GetMaterial("MenuFloor");
+            }
+
+            material = new Material(shader);
+            material.SetColor("_BaseColor", new Color(0.028f, 0.045f, 0.075f, 1f));
+            material.SetColor("_GridColor", new Color(0.10f, 0.78f, 1f, 1f));
+            material.SetColor("_AccentColor", new Color(1f, 0.30f, 0.62f, 1f));
+            material.SetFloat("_GridScale", 0.5f);
+            material.SetFloat("_LineWidth", 0.03f);
+            material.SetFloat("_PulseSpeed", 1.4f);
+            material.SetFloat("_FadeStart", 18f);
+            material.SetFloat("_FadeEnd", 34f);
+
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
         public static Material GetMaterial(string materialName)
         {
+            if (materialName == "NeonGrid") return GetNeonGridMaterial();
+
             string path = MaterialFolder + materialName + ".mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (material != null) return material;

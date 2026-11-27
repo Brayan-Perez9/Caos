@@ -314,10 +314,12 @@ namespace Caos.Maps
             }
 
             float breathe = 1f + Mathf.Sin(gait * 0.8f) * 0.028f;
+            Vector3 juice = ArenaJuice.Active != null
+                ? ArenaJuice.Active.SquashFactor(transform) : Vector3.one;
             transform.localScale = new Vector3(
-                _baseScale.x * breathe,
-                _baseScale.y * (2f - breathe),
-                _baseScale.z * breathe);
+                _baseScale.x * breathe * juice.x,
+                _baseScale.y * (2f - breathe) * juice.y,
+                _baseScale.z * breathe * juice.z);
 
             if (_hammerPivot == null) return;
             if (_powerAnimation > 0f)
@@ -341,6 +343,7 @@ namespace Caos.Maps
             ChaosFx.Burst(transform.position + Vector3.up * 0.35f,
                 new Color(0.45f, 0.20f, 0.14f), 24);
             ArenaAudio.Play(ArenaAudio.Sound.Boss, transform.position, 0.85f);
+            ArenaJuice.Current.AddTrauma(0.65f);
             _director?.ShowBanner("¡PISOTÓN DEL JEFE 1!", 1.6f);
 
             if (_player != null &&
@@ -373,6 +376,7 @@ namespace Caos.Maps
 
             ChaosFx.Burst(origin, new Color(1f, 0.52f, 0.16f), 7);
             ArenaAudio.Play(ArenaAudio.Sound.Shoot, origin, 0.8f);
+            ArenaJuice.Current.AddTrauma(0.3f);
             _director?.ShowBanner("¡CAÑÓN DEL JEFE 2!", 1.5f);
         }
 
@@ -393,6 +397,7 @@ namespace Caos.Maps
 
             ChaosFx.Burst(transform.position, new Color(0.66f, 0.25f, 0.95f), 24);
             ArenaAudio.Play(ArenaAudio.Sound.Boss, transform.position, 0.9f);
+            ArenaJuice.Current.AddTrauma(0.55f);
             _director?.ShowBanner("¡JEFE 3: TORMENTA Y CLONES!", 2f);
 
             Vector3 origin = transform.position + Vector3.up * 1f;
@@ -440,6 +445,7 @@ namespace Caos.Maps
 
             ChaosFx.Burst(hitPoint, BloodColor, Random.Range(3, 6));
             ArenaAudio.Play(ArenaAudio.Sound.Hit, hitPoint, 0.32f);
+            ArenaJuice.Current.Impact(hitPoint, 0.55f, transform);
 
             if (_renderers != null && !_flashing) StartCoroutine(Flash());
             if (IsDead) Die();
@@ -464,6 +470,7 @@ namespace Caos.Maps
             _dead = true;
             ChaosFx.Burst(transform.position + Vector3.up, BloodColor, 36);
             ArenaAudio.Play(ArenaAudio.Sound.Death, transform.position, 0.9f);
+            ArenaJuice.Current.BigHit(transform.position + Vector3.up);
             _director?.BossDefeated(this);
             Destroy(gameObject);
         }

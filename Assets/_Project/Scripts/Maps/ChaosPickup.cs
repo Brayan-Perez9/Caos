@@ -18,6 +18,7 @@ namespace Caos.Maps
             if (secret) _mission.DuckFound();
             else _mission.ParcelCollected();
 
+            ArenaJuice.Current.Pickup(transform.position);
             gameObject.SetActive(false);
         }
     }

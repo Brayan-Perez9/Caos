@@ -257,10 +257,12 @@ namespace Caos.Maps
             }
 
             float breathe = 1f + Mathf.Sin(gait * 0.7f) * 0.035f;
+            Vector3 juice = ArenaJuice.Active != null
+                ? ArenaJuice.Active.SquashFactor(transform) : Vector3.one;
             transform.localScale = new Vector3(
-                _baseScale.x * breathe,
-                _baseScale.y * (2f - breathe),
-                _baseScale.z * breathe);
+                _baseScale.x * breathe * juice.x,
+                _baseScale.y * (2f - breathe) * juice.y,
+                _baseScale.z * breathe * juice.z);
         }
 
         public void TakeDamage(float amount, Vector3 hitPoint, Vector3 direction,
@@ -273,6 +275,7 @@ namespace Caos.Maps
 
             ChaosFx.Burst(hitPoint, BloodColor, Random.Range(5, 9));
             ArenaAudio.Play(ArenaAudio.Sound.Hit, hitPoint, 0.45f);
+            ArenaJuice.Current.Impact(hitPoint, 0.35f, transform);
 
             if (_renderers != null && !_flashing) StartCoroutine(Flash());
             if (IsDead) Die();
@@ -333,6 +336,7 @@ namespace Caos.Maps
             if (_dead) return;
             _dead = true;
             ChaosFx.Burst(transform.position + Vector3.up * 0.7f, BloodColor, 18);
+            ArenaJuice.Current.BigHit(transform.position);
             _director?.MonsterKilled(this);
             Destroy(gameObject);
         }

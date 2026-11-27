@@ -27,14 +27,43 @@ namespace Caos.Player
         [Header("Seguimiento")]
         [SerializeField] float followSmoothTime = 0.12f;
 
+        [Header("Game feel (solo visual)")]
+        [SerializeField] float traumaDecay = 1.2f;
+        [SerializeField] float maxOffset = 0.22f;
+        [SerializeField] float maxRoll = 0.7f;
+        [SerializeField] float shakeStrength = 0.8f;
+        [SerializeField] bool reduceMotion;
+
         Transform target;
         Vector3 _smoothVelocity;
         float _targetDistance;
         float _zoomVelocity;
+        float _trauma;
+        float _shakeTime;
 
         public float Distance => distance;
 
+        /// <summary>Sacudida opcional para quien quiera menos movimiento de cámara.</summary>
+        public bool ReduceMotion
+        {
+            get => reduceMotion;
+            set => reduceMotion = value;
+        }
+
+        public void ToggleReduceMotion()
+        {
+            reduceMotion = !reduceMotion;
+            PlayerPrefs.SetInt("Caos.ReduceMotion", reduceMotion ? 1 : 0);
+            PlayerPrefs.Save();
+        }
+
         public void SetTarget(Transform playerTarget) => target = playerTarget;
+
+        /// <summary>El trauma se suma y decae con tiempo real, también en pausa.</summary>
+        public void AddTrauma(float amount)
+        {
+            _trauma = Mathf.Clamp01(_trauma + Mathf.Max(0f, amount));
+        }
 
         void Start()
         {
@@ -47,6 +76,8 @@ namespace Caos.Player
             // Cámara fija: el cursor se queda visible (no hace falta candado).
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+
+            reduceMotion = PlayerPrefs.GetInt("Caos.ReduceMotion", 0) == 1;
 
             _targetDistance = distance;
             ApplyTransform(true);
@@ -81,10 +112,37 @@ namespace Caos.Player
             Vector3 pivot = target.position + Vector3.up * pivotHeight;
             Vector3 desired = pivot - rotation * Vector3.forward * distance;
 
+            if (snap)
+            {
+                transform.rotation = rotation;
+                transform.position = desired;
+                return;
+            }
+
+            transform.position = Vector3.SmoothDamp(transform.position, desired,
+                ref _smoothVelocity, followSmoothTime);
             transform.rotation = rotation;
-            transform.position = snap
-                ? desired
-                : Vector3.SmoothDamp(transform.position, desired, ref _smoothVelocity, followSmoothTime);
+
+            // Sacudida con trauma^2 y senos a ritmos distintos: nunca azúcar
+            // aleatorio por frame. Usa tiempo real para no quedarse torcida.
+            float realDelta = Time.unscaledDeltaTime;
+            _trauma = Mathf.Max(0f, _trauma - traumaDecay * realDelta);
+            if (_trauma <= 0f)
+            {
+                _shakeTime = 0f;
+                return;
+            }
+
+            float shake = _trauma * _trauma * shakeStrength
+                * (reduceMotion ? 0.3f : 1f);
+            _shakeTime += realDelta * 30f;
+
+            Vector3 offset = transform.right * (maxOffset * shake * Mathf.Sin(_shakeTime * 1.7f))
+                + transform.up * (maxOffset * shake * Mathf.Sin(_shakeTime * 2.3f));
+            float roll = reduceMotion ? 0f : maxRoll * shake * Mathf.Sin(_shakeTime * 1.1f);
+
+            transform.position += offset;
+            transform.rotation = rotation * Quaternion.Euler(0f, 0f, roll);
         }
     }
 }
