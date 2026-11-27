@@ -57,7 +57,9 @@ namespace Caos.EditorTools
 
             BuildFloors(root.transform);
             CaosAmbience.Ensure(root.transform, 20261126, AmbientBiome.Neon,
-                new Vector2(21f, 21f), 0f, true, SandboxSceneBuilder.GetAmbientMaterial());
+                new Vector2(21f, 21f), 0f, true,
+                SandboxSceneBuilder.GetAmbientMaterial(),
+                SandboxSceneBuilder.GetBlueGrassMaterial());
             BuildCover(root.transform);
             BuildWeapons(root.transform);
             BuildPlayer(root.transform, spawn.transform);
@@ -123,7 +125,7 @@ namespace Caos.EditorTools
         static void BuildFloors(Transform parent)
         {
             Box("GroundFloor", new Vector3(0f, -0.3f, 0f),
-                new Vector3(48f, 0.6f, 48f), "NeonGrid", parent);
+                new Vector3(48f, 0.6f, 48f), "Grass", parent);
 
             // Piso alto en forma de U: deja el hueco central para la escalera.
             Box("UpperFloor_W", new Vector3(-9f, 4f, -2f),
@@ -136,7 +138,7 @@ namespace Caos.EditorTools
             // Meseta y puentes: unen el último peldaño con el piso alto para
             // que los enemigos no se queden parados en el borde.
             Box("StairLanding", new Vector3(0f, 4f, 8.6f),
-                new Vector3(6f, 0.5f, 3.6f), "Platform", parent);
+                new Vector3(6f, 0.5f, 3.6f), "Dirt", parent);
             Box("UpperBridge_W", new Vector3(-9f, 4f, 8.5f),
                 new Vector3(8f, 0.5f, 2f), "Platform", parent);
             Box("UpperBridge_E", new Vector3(9f, 4f, 8.5f),
@@ -151,7 +153,7 @@ namespace Caos.EditorTools
                 float top = stepRise * (i + 1);
                 float z = -11f + i * stepDepth;
                 Box("Stair_" + i.ToString("00"), new Vector3(0f, top * 0.5f, z),
-                    new Vector3(6f, top, stepDepth), "Ramp", parent);
+                    new Vector3(6f, top, stepDepth), "Dirt", parent);
             }
 
             // Barandillas del piso alto y de la escalera.

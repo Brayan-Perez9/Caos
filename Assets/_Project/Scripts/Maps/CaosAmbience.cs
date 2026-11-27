@@ -37,8 +37,11 @@ namespace Caos.Maps
         [SerializeField] int rainCount = 140;
         [SerializeField] bool rain;
         [SerializeField] Material ambientMaterial;
+        [SerializeField] Material foliageMaterial;
 
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        static readonly int BladeColorId = Shader.PropertyToID("_BladeColor");
+        static readonly int SoilColorId = Shader.PropertyToID("_SoilColor");
 
         readonly List<Sway> _sways = new List<Sway>();
         readonly List<Drift> _clouds = new List<Drift>();
@@ -83,7 +86,8 @@ namespace Caos.Maps
 
         /// <summary>Añade el ambiente a una escena generada por los builders.</summary>
         public static CaosAmbience Ensure(Transform parent, int mapSeed, AmbientBiome mapBiome,
-            Vector2 extents, float floorY, bool withRain, Material ambientTemplate)
+            Vector2 extents, float floorY, bool withRain, Material ambientTemplate,
+            Material foliageTemplate)
         {
             var go = new GameObject("CaosAmbience");
             go.transform.SetParent(parent, false);
@@ -94,6 +98,7 @@ namespace Caos.Maps
             ambience.groundY = floorY;
             ambience.rain = withRain;
             ambience.ambientMaterial = ambientTemplate;
+            ambience.foliageMaterial = foliageTemplate;
             return ambience;
         }
 
@@ -171,25 +176,26 @@ namespace Caos.Maps
             switch (biome)
             {
                 case AmbientBiome.Neon:
-                    crownA = new Color(0.10f, 0.72f, 0.86f);
-                    crownB = new Color(0.92f, 0.24f, 0.62f);
-                    bushColor = new Color(0.16f, 0.62f, 0.70f);
+                    crownA = new Color(0.06f, 0.24f, 0.78f);
+                    crownB = new Color(0.16f, 0.52f, 1f);
+                    bushColor = new Color(0.10f, 0.38f, 0.90f);
                     break;
                 case AmbientBiome.Candy:
-                    crownA = new Color(1f, 0.58f, 0.74f);
-                    crownB = new Color(1f, 0.84f, 0.42f);
-                    bushColor = new Color(0.52f, 0.82f, 0.55f);
+                    crownA = new Color(0.18f, 0.42f, 1f);
+                    crownB = new Color(0.36f, 0.72f, 1f);
+                    bushColor = new Color(0.22f, 0.56f, 1f);
                     break;
                 default:
-                    crownA = new Color(0.20f, 0.58f, 0.28f);
-                    crownB = new Color(0.36f, 0.74f, 0.34f);
-                    bushColor = new Color(0.28f, 0.66f, 0.30f);
+                    crownA = new Color(0.05f, 0.20f, 0.72f);
+                    crownB = new Color(0.22f, 0.58f, 1f);
+                    bushColor = new Color(0.12f, 0.40f, 0.86f);
                     break;
             }
 
-            Material crownAMaterial = MakeLit(crownA);
-            Material crownBMaterial = MakeLit(crownB);
-            Material bushMaterial = MakeLit(bushColor);
+            // Copas y arbustos azules con la misma textura de pasto del suelo.
+            Material crownAMaterial = MakeFoliage(crownA);
+            Material crownBMaterial = MakeFoliage(crownB);
+            Material bushMaterial = MakeFoliage(bushColor);
 
             for (int i = 0; i < treeCount; i++)
             {
@@ -559,6 +565,26 @@ namespace Caos.Maps
             }
 
             if (material.HasProperty(BaseColorId)) material.SetColor(BaseColorId, color);
+            _ownedMaterials.Add(material);
+            return material;
+        }
+
+        /// <summary>Copas azules con la textura de pasto del suelo.</summary>
+        Material MakeFoliage(Color color)
+        {
+            Material material;
+            if (foliageMaterial != null) material = new Material(foliageMaterial);
+            else
+            {
+                var shader = Shader.Find("Caos/Grass") ?? Shader.Find(LitShaderName);
+                material = new Material(shader);
+            }
+
+            if (material.HasProperty(BaseColorId)) material.SetColor(BaseColorId, color);
+            if (material.HasProperty(BladeColorId))
+                material.SetColor(BladeColorId, Color.Lerp(color, Color.white, 0.32f));
+            if (material.HasProperty(SoilColorId))
+                material.SetColor(SoilColorId, color * 0.35f);
             _ownedMaterials.Add(material);
             return material;
         }

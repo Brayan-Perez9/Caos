@@ -67,7 +67,7 @@ namespace Caos.EditorTools
 
             BuildArena(root.transform);
             CaosAmbience.Ensure(root.transform, 20261128, AmbientBiome.Pradera,
-                new Vector2(13.5f, 13.5f), 0f, false, GetAmbientMaterial());
+                new Vector2(13.5f, 13.5f), 0f, false, GetAmbientMaterial(), GetBlueGrassMaterial());
             BuildProps(root.transform);
             BuildStairsAndHighPlatform(root.transform);
             BuildMovingPlatforms(root.transform);
@@ -113,7 +113,7 @@ namespace Caos.EditorTools
             ground.transform.position = Vector3.zero;
             ground.transform.localScale = new Vector3(3f, 1f, 3f);
             ground.transform.SetParent(parent, true);
-            SetMaterial(ground, "Sand");
+            SetMaterial(ground, "Grass");
 
             // Tres muros; el lado sur queda abierto para poder caerse.
             CreateBox("Wall_N", new Vector3(0f, 1.5f, ArenaHalf), new Vector3(31f, 3f, 1f), "Wall", parent);
@@ -148,7 +148,7 @@ namespace Caos.EditorTools
             ball.GetComponent<Collider>().sharedMaterial = GetPhysicsMaterial("Bouncy", 0.4f, 0.9f);
 
             // Rampa
-            var ramp = CreateBox("Ramp", new Vector3(6f, 1.5f, -2f), new Vector3(6f, 0.5f, 8f), "Ramp", parent);
+            var ramp = CreateBox("Ramp", new Vector3(6f, 1.5f, -2f), new Vector3(6f, 0.5f, 8f), "Dirt", parent);
             ramp.transform.rotation = Quaternion.Euler(-20f, 0f, 0f);
         }
 
@@ -164,7 +164,7 @@ namespace Caos.EditorTools
 
             for (int i = 0; i < stepCount; i++)
             {
-                var step = CreateBox($"Step_{i + 1}", Vector3.zero, new Vector3(4f, stepHeight, stepDepth), "Ramp", stairs.transform);
+                var step = CreateBox($"Step_{i + 1}", Vector3.zero, new Vector3(4f, stepHeight, stepDepth), "Dirt", stairs.transform);
                 step.transform.localPosition = new Vector3(0f, stepHeight * (i + 0.5f), stepDepth * i);
             }
 
@@ -390,9 +390,89 @@ namespace Caos.EditorTools
             return material;
         }
 
+        /// <summary>Pasto procedural con viento: suelo de todos los mapas.</summary>
+        public static Material GetGrassMaterial()
+        {
+            const string path = MaterialFolder + "Grass.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material != null) return material;
+
+            var shader = Shader.Find("Caos/Grass");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Caos] No se encontró el shader Caos/Grass.");
+                return GetMaterial("Ramp");
+            }
+
+            material = new Material(shader);
+            material.SetColor("_BaseColor", new Color(0.10f, 0.38f, 0.13f, 1f));
+            material.SetColor("_BladeColor", new Color(0.42f, 0.82f, 0.27f, 1f));
+            material.SetColor("_SoilColor", new Color(0.24f, 0.17f, 0.09f, 1f));
+            material.SetFloat("_Scale", 2.4f);
+            material.SetFloat("_WindSpeed", 0.9f);
+            material.SetFloat("_WindStrength", 0.06f);
+
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        /// <summary>Tierra procedural para peldaños y rampas.</summary>
+        public static Material GetDirtMaterial()
+        {
+            const string path = MaterialFolder + "Dirt.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material != null) return material;
+
+            var shader = Shader.Find("Caos/Dirt");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Caos] No se encontró el shader Caos/Dirt.");
+                return GetMaterial("Ramp");
+            }
+
+            material = new Material(shader);
+            material.SetColor("_BaseColor", new Color(0.34f, 0.22f, 0.12f, 1f));
+            material.SetColor("_LightColor", new Color(0.54f, 0.39f, 0.23f, 1f));
+            material.SetColor("_DeepColor", new Color(0.19f, 0.12f, 0.07f, 1f));
+            material.SetFloat("_Scale", 3f);
+            material.SetFloat("_Strata", 8f);
+
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        /// <summary>Follaje azul con la misma textura de pasto procedural.</summary>
+        public static Material GetBlueGrassMaterial()
+        {
+            const string path = MaterialFolder + "BlueGrass.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material != null) return material;
+
+            var shader = Shader.Find("Caos/Grass");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Caos] No se encontró el shader Caos/Grass.");
+                return GetMaterial("Neon");
+            }
+
+            material = new Material(shader);
+            material.SetColor("_BaseColor", new Color(0.06f, 0.24f, 0.72f, 1f));
+            material.SetColor("_BladeColor", new Color(0.20f, 0.68f, 1f, 1f));
+            material.SetColor("_SoilColor", new Color(0.04f, 0.12f, 0.34f, 1f));
+            material.SetFloat("_Scale", 3.2f);
+            material.SetFloat("_WindSpeed", 1.1f);
+            material.SetFloat("_WindStrength", 0.09f);
+
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
         public static Material GetMaterial(string materialName)
         {
             if (materialName == "NeonGrid") return GetNeonGridMaterial();
+            if (materialName == "Grass") return GetGrassMaterial();
+            if (materialName == "Dirt") return GetDirtMaterial();
+            if (materialName == "BlueGrass") return GetBlueGrassMaterial();
 
             string path = MaterialFolder + materialName + ".mat";
             var material = AssetDatabase.LoadAssetAtPath<Material>(path);

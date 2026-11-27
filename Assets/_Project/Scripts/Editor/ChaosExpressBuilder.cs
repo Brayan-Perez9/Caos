@@ -59,7 +59,9 @@ namespace Caos.EditorTools
 
             BuildArena(root.transform);
             CaosAmbience.Ensure(root.transform, 20261127, AmbientBiome.Candy,
-                new Vector2(13.5f, 13.5f), 0f, true, SandboxSceneBuilder.GetAmbientMaterial());
+                new Vector2(13.5f, 13.5f), 0f, true,
+                SandboxSceneBuilder.GetAmbientMaterial(),
+                SandboxSceneBuilder.GetBlueGrassMaterial());
             BuildCargoStation(root.transform);
             BuildTargetStation(root.transform);
             BuildParcelStation(root.transform);
@@ -180,7 +182,7 @@ namespace Caos.EditorTools
             floor.transform.position = Vector3.zero;
             floor.transform.localScale = new Vector3(3f, 1f, 3f);
             floor.transform.SetParent(parent, true);
-            floor.GetComponent<Renderer>().sharedMaterial = Mat("NeonGrid");
+            floor.GetComponent<Renderer>().sharedMaterial = Mat("Grass");
 
             Box("Wall_N", new Vector3(0f, 1.5f, 15f), new Vector3(31f, 3f, 1f), "Neon", parent);
             Box("Wall_E", new Vector3(15f, 1.5f, 0f), new Vector3(1f, 3f, 31f), "Mint", parent);
@@ -282,7 +284,7 @@ namespace Caos.EditorTools
             Box("ParcelPlatform", new Vector3(0f, 2.25f, 6f), new Vector3(7f, 0.5f, 7f), "Platform", parent);
 
             var ramp = Box("ParcelRamp", new Vector3(0f, 1.15f, 2.6f),
-                new Vector3(5f, 0.4f, 4.6f), "Ramp", parent);
+                new Vector3(5f, 0.4f, 4.6f), "Dirt", parent);
             ramp.transform.rotation = Quaternion.Euler(-20f, 0f, 0f);
 
             CreateMovingPlatform("ParcelLift", new Vector3(-5f, 1f, 4f),
