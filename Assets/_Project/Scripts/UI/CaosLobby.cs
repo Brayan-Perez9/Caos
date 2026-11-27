@@ -95,7 +95,8 @@ namespace Caos.UI
                     {
                         _started = true;
                         CaosSession.Prepare(false, _name);
-                        SceneManager.LoadScene(MissionSceneName);
+                        LoadScene(MissionSceneName, "Preparando la misión...",
+                            "Generando el caos...", CaosFrontendArt.Slot.Arena);
                     }
                     break;
                 case CaosMessageKind.DungeonStart:
@@ -107,7 +108,8 @@ namespace Caos.UI
                         if (fields.Length > 0 && int.TryParse(fields[0], out int seed))
                             CaosSession.DungeonSeed = seed;
                         CaosSession.Prepare(false, playerName);
-                        SceneManager.LoadScene(DungeonSceneName);
+                        LoadScene(DungeonSceneName, "Preparando la mazmorra...",
+                            "Generando el caos...", CaosFrontendArt.Slot.Dungeon);
                     }
                     break;
             }
@@ -153,7 +155,8 @@ namespace Caos.UI
             _started = true;
             CaosSession.Prepare(true, _name);
             _peer.Broadcast(CaosMessageKind.Start, _name);
-            SceneManager.LoadScene(MissionSceneName);
+            LoadScene(MissionSceneName, "Preparando la misión...",
+                "Generando el caos...", CaosFrontendArt.Slot.Arena);
         }
 
         void StartDungeon()
@@ -165,11 +168,21 @@ namespace Caos.UI
             CaosSession.DungeonSeed = seed;
             _peer.Broadcast(CaosMessageKind.DungeonStart,
                 CaosNetMessages.Join(seed.ToString(), _name));
-            SceneManager.LoadScene(DungeonSceneName);
+            LoadScene(DungeonSceneName, "Preparando la mazmorra...",
+                "Generando el caos...", CaosFrontendArt.Slot.Dungeon);
+        }
+
+        void LoadScene(string sceneName, string subtitle, string detail,
+            CaosFrontendArt.Slot slot)
+        {
+            CaosSceneLoader.Begin(sceneName, "ARENA CAOS", subtitle, detail,
+                CaosFrontendArt.Get(slot));
         }
 
         void OnGUI()
         {
+            if (CaosSceneLoader.IsLoading) return;
+
             EnsureStyles();
 
             float width = Mathf.Min(700f, Screen.width - 40f);

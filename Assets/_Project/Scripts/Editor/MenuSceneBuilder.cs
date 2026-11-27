@@ -61,6 +61,9 @@ namespace Caos.EditorTools
             new GameObject("CustomizationMenu").AddComponent<CustomizationMenu>();
             new GameObject("CaosLobbyEntry").AddComponent<CaosLobbyEntry>();
             new GameObject("CaosUpdater").AddComponent<CaosUpdater>();
+
+            // El bootstrap en runtime también lo añade a escenas ya existentes.
+            new GameObject("CaosFrontend").AddComponent<CaosFrontend>();
         }
 
         static void BuildStage(Transform parent)

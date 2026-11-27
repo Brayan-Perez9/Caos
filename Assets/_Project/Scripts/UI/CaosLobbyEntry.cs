@@ -1,13 +1,12 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using Caos.Net;
 using Caos.Player;
 
 namespace Caos.UI
 {
     /// <summary>
-    /// Entrada independiente al lobby en la escena Menu. No forma parte del
-    /// panel de personalización: dibuja su propio botón arriba a la izquierda.
+    /// Entrada independiente al lobby en la escena Menu. Queda oculta mientras
+    /// la nueva pantalla de entrada está activa.
     /// </summary>
     public class CaosLobbyEntry : MonoBehaviour
     {
@@ -15,6 +14,8 @@ namespace Caos.UI
 
         void OnGUI()
         {
+            if (CaosFrontend.Active || CaosSceneLoader.IsLoading) return;
+
             if (_buttonStyle == null)
             {
                 _buttonStyle = new GUIStyle(GUI.skin.button)
@@ -33,7 +34,9 @@ namespace Caos.UI
 
                 CaosSession.ResetForMenu();
                 CaosSession.LocalName = PlayerPrefs.GetString("Caos.PlayerName", "Jugador");
-                SceneManager.LoadScene("Lobby");
+                CaosSceneLoader.Begin("Lobby", "ARENA CAOS",
+                    "Conectando con la sala...", "Abriendo el lobby multijugador...",
+                    CaosFrontendArt.Get(CaosFrontendArt.Slot.Startup));
             }
         }
     }

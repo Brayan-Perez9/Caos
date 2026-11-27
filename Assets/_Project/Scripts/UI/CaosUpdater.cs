@@ -237,6 +237,10 @@ namespace Caos.UI
 
         void OnGUI()
         {
+            if (CaosSceneLoader.IsLoading) return;
+            if (CaosFrontend.Active &&
+                CaosFrontend.Instance.Screen != CaosFrontendScreen.Lobby) return;
+
             EnsureStyles();
 
             float buttonWidth = 190f;

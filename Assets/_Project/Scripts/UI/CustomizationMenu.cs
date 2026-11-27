@@ -55,50 +55,54 @@ namespace Caos.UI
 
         void Update()
         {
+            if (CaosFrontend.Active) return;
+
             // Vitrina: el personaje gira despacio.
             if (_preview != null)
                 _preview.Rotate(0f, 24f * Time.deltaTime, 0f, Space.World);
         }
 
-        void Play()
-        {
-            if (_character != null) _character.Save();
-            CaosSession.ResetForMenu();
-            SceneManager.LoadScene(GameSceneName);
-        }
+        void Play() => LeaveTo(GameSceneName, "Preparando el tablero...",
+            "Abriendo el mundo de Arena Caos...", CaosFrontendArt.Slot.Startup);
 
-        void PlayMission()
-        {
-            if (_character != null) _character.Save();
-            CaosSession.ResetForMenu();
-            SceneManager.LoadScene(MissionSceneName);
-        }
+        void PlayMission() => LeaveTo(MissionSceneName, "Preparando la misión...",
+            "Generando el caos...", CaosFrontendArt.Slot.Arena);
 
-        void PlayArena()
-        {
-            if (_character != null) _character.Save();
-            CaosSession.ResetForMenu();
-            SceneManager.LoadScene(ArenaSceneName);
-        }
+        void PlayArena() => LeaveTo(ArenaSceneName, "Preparando las arenas...",
+            "Calentando a los campeones...", CaosFrontendArt.Slot.Arena);
 
-        void PlayDungeon()
-        {
-            if (_character != null) _character.Save();
-            CaosSession.ResetForMenu();
-            SceneManager.LoadScene(DungeonSceneName);
-        }
+        void PlayDungeon() => LeaveTo(DungeonSceneName, "Preparando la mazmorra...",
+            "Generando el caos...", CaosFrontendArt.Slot.Dungeon);
 
         void OpenLobby()
         {
             if (_character != null) _character.Save();
+            CaosSession.ResetForMenu();
             CaosSession.LocalName = _character != null ? _character.PlayerName : "Jugador";
-            SceneManager.LoadScene(LobbySceneName);
+            CaosSceneLoader.Begin(LobbySceneName, "ARENA CAOS",
+                "Conectando con la sala...", "Abriendo el lobby multijugador...",
+                CaosFrontendArt.Get(CaosFrontendArt.Slot.Startup));
+        }
+
+        void LeaveTo(string sceneName, string subtitle, string detail,
+            CaosFrontendArt.Slot slot)
+        {
+            if (CaosFrontend.Active) return;
+            if (_character != null) _character.Save();
+            CaosSession.ResetForMenu();
+            CaosSession.LocalName = _character != null
+                ? _character.PlayerName
+                : PlayerPrefs.GetString("Caos.PlayerName", "Jugador");
+            CaosSceneLoader.Begin(sceneName, "ARENA CAOS", subtitle, detail,
+                CaosFrontendArt.Get(slot));
         }
 
         // ---------------------------------------------------------- dibujo
 
         void OnGUI()
         {
+            if (CaosFrontend.Active || CaosSceneLoader.IsLoading) return;
+
             EnsureStyles();
 
             float panelWidth = Mathf.Clamp(Screen.width * 0.42f, 420f, 560f);
