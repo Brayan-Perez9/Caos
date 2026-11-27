@@ -53,13 +53,18 @@ namespace Caos.Maps
             var plane = new Plane(Vector3.up, transform.position + Vector3.up * aimHeight);
             if (plane.Raycast(ray, out float distance)) _aimPoint = ray.GetPoint(distance);
 
-            Vector3 toAim = _aimPoint - transform.position;
-            toAim.y = 0f;
-            if (toAim.sqrMagnitude > 0.04f)
+            // Durante el giro con Q manda la dirección del roll, que ya apunta
+            // al cursor; el apuntado normal se reanuda al terminar.
+            if (!_controller.IsRolling)
             {
-                Quaternion target = Quaternion.LookRotation(toAim.normalized, Vector3.up);
-                float blend = 1f - Mathf.Exp(-18f * Time.deltaTime);
-                transform.rotation = Quaternion.Slerp(transform.rotation, target, blend);
+                Vector3 toAim = _aimPoint - transform.position;
+                toAim.y = 0f;
+                if (toAim.sqrMagnitude > 0.04f)
+                {
+                    Quaternion target = Quaternion.LookRotation(toAim.normalized, Vector3.up);
+                    float blend = 1f - Mathf.Exp(-18f * Time.deltaTime);
+                    transform.rotation = Quaternion.Slerp(transform.rotation, target, blend);
+                }
             }
 
             if (Mouse.current != null && Mouse.current.leftButton.isPressed)

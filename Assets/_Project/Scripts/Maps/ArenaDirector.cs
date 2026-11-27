@@ -210,6 +210,7 @@ namespace Caos.Maps
 
         void Start()
         {
+            CharacterCustomization.Instance?.SetPistolVisible(true);
             for (int i = 0; i < initialMonsters; i++) SpawnMonster();
         }
 
@@ -224,6 +225,7 @@ namespace Caos.Maps
             _element = element;
             _hasWeapon = true;
             _nextFire = Time.time + 0.15f;
+            CharacterCustomization.Instance?.SetPistolVisible(true);
             ShowBanner($"ARMA: {WeaponLabel()} · {ArenaElementInfo.Label(element)} — {ArenaElementInfo.Effect(element)}", 2.6f);
             ArenaAudio.Play(ArenaAudio.Sound.Upgrade, pickup.transform.position, 0.55f);
             ArenaJuice.Current.Pickup(pickup.transform.position);

@@ -104,6 +104,9 @@ namespace Caos.Player
         readonly Transform[] _shoulders = new Transform[2];
         readonly Transform[] _elbows = new Transform[2];
         readonly Transform[] _hands = new Transform[2];
+        Transform _gunRoot;
+        bool _pistolVisible;
+        bool _pistolLogged;
         float _gaitPhase;
         float _walkBlend;
         float _airBlend;
@@ -139,8 +142,24 @@ namespace Caos.Player
             _fireHold = 0.34f;
             if (!_firePoseLogged)
             {
-                Debug.Log("[Caos] Pose de disparo: brazos flexionados con contrarresto");
+                Debug.Log("[Caos] Pose de disparo: pistola empuñada con dos manos");
                 _firePoseLogged = true;
+            }
+        }
+
+        /// <summary>
+        /// Muestra u oculta la pistola procedural anclada a la mano derecha.
+        /// Los directores de combate la encienden cuando el jugador tiene arma;
+        /// el avatar de menú y la misión del martillo la dejan apagada.
+        /// </summary>
+        public void SetPistolVisible(bool visible)
+        {
+            _pistolVisible = visible;
+            if (_gunRoot != null) _gunRoot.gameObject.SetActive(visible);
+            if (visible && !_pistolLogged)
+            {
+                Debug.Log("[Caos] Pistola en mano: empuñadura con dos manos");
+                _pistolLogged = true;
             }
         }
 
@@ -283,6 +302,9 @@ namespace Caos.Player
             float walk = _walkBlend * (1f - rollTuck);
             float air = _airBlend * (1f - rollTuck);
             float fire = Mathf.Clamp01(_fireHold * 1.8f + _fireRecoil * 0.55f);
+            // Con pistola equipada los dos brazos sostienen el arma incluso en
+            // reposo; el disparo solo añade el contrarresto.
+            float hold = Mathf.Clamp01(Mathf.Max(fire, _pistolVisible ? 0.62f : 0f));
 
             float ascend = Mathf.Clamp01(verticalSpeed / 5f);
             float descend = Mathf.Clamp01(-verticalSpeed / 7f);
@@ -322,24 +344,28 @@ namespace Caos.Player
                 float armAir = -20f - 62f * ascend - 28f * descend;
                 float armAngle = Mathf.Lerp(armSwing, armAir, air)
                     + Mathf.Sin(Time.time * 2.2f) * 3f * idle * (1f - air);
-                armAngle = Mathf.Lerp(armAngle, -58f - _fireRecoil * 14f, fire);
+                armAngle = Mathf.Lerp(armAngle, -58f - _fireRecoil * 14f, hold);
                 armAngle = Mathf.Lerp(armAngle, 70f, rollTuck);
                 float armRoll = side * (4f + 6f * Mathf.Abs(Mathf.Sin(phase))
-                    * walk * (1f - air)) * (1f - fire);
+                    * walk * (1f - air)) * (1f - hold);
+                // La mano izquierda cruza hacia la empuñadura; la derecha la
+                // lleva al centro sin soltar el arma.
+                armRoll = Mathf.Lerp(armRoll, i == 0 ? 52f : -10f, hold);
 
                 shoulder.localRotation = Quaternion.Euler(armAngle, 0f, armRoll);
 
                 var elbow = _elbows[i];
                 if (elbow != null)
                 {
-                    float elbowAngle = Mathf.Lerp(12f, 68f, fire)
-                        - _fireRecoil * 16f + rollTuck * 85f;
+                    float elbowAngle = Mathf.Lerp(12f, -32f, hold)
+                        - _fireRecoil * 14f + rollTuck * 85f;
                     elbow.localRotation = Quaternion.Euler(elbowAngle, 0f, 0f);
                 }
                 var hand = _hands[i];
                 if (hand != null)
                     hand.localRotation = Quaternion.Euler(
-                        -swing * side * 0.4f * (1f - fire), 0f, 0f);
+                        -swing * side * 0.4f * (1f - hold), 0f,
+                        (i == 0 ? 6f : -6f) * hold);
             }
         }
 
@@ -1167,6 +1193,7 @@ namespace Caos.Player
                 _elbows[i] = null;
                 _hands[i] = null;
             }
+            _gunRoot = null;
             _bellyOffset = Vector3.zero;
             _bellyVelocity = Vector3.zero;
 
@@ -1263,6 +1290,25 @@ namespace Caos.Player
             var material = MakeMaterial(color, smoothness, metallic);
             if (flesh) _fleshMaterials.Add(material);
             piece.GetComponent<Renderer>().sharedMaterial = material;
+            return piece;
+        }
+
+        /// <summary>Pieza anclada directamente a un pivote (arma, mano de apoyo).</summary>
+        GameObject GripPiece(PrimitiveType type, string name, Transform parent,
+            Vector3 localPosition, Vector3 localScale, Color color,
+            Quaternion? rotation = null, float smoothness = 0.3f, float metallic = 0f)
+        {
+            var piece = GameObject.CreatePrimitive(type);
+            piece.name = name;
+            piece.transform.SetParent(parent, false);
+            piece.transform.localPosition = localPosition;
+            piece.transform.localScale = localScale;
+            if (rotation.HasValue) piece.transform.localRotation = rotation.Value;
+
+            var collider = piece.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+            piece.GetComponent<Renderer>().sharedMaterial =
+                MakeMaterial(color, smoothness, metallic);
             return piece;
         }
 
@@ -1641,6 +1687,52 @@ namespace Caos.Player
                 AttachToPivot(hand, elbow, elbowOffset);
                 _hands[i] = hand.transform;
             }
+
+            BuildPistol();
+        }
+
+        /// <summary>
+        /// Pistola sin assets externos, colgada de la mano derecha. El cañón
+        /// apunta por el eje -Y local: al elevar los brazos en la pose de tiro
+        /// queda mirando hacia delante. La mano de apoyo es hija del arma para
+        /// que acompañe siempre al empuñador.
+        /// </summary>
+        void BuildPistol()
+        {
+            if (_hands[1] == null) return;
+
+            var grip = MakePivot("GunGrip", new Vector3(0f, -0.04f, 0.02f), _hands[1]);
+            _gunRoot = grip;
+
+            Color steel = new Color32(58, 64, 74, 255);
+            Color dark = new Color32(24, 27, 33, 255);
+            Color sight = new Color32(255, 210, 92, 255);
+
+            GripPiece(PrimitiveType.Cube, "PistolGrip", grip,
+                new Vector3(0f, 0.01f, 0f), new Vector3(0.075f, 0.15f, 0.085f),
+                dark, null, 0.35f);
+            GripPiece(PrimitiveType.Cube, "PistolFrame", grip,
+                new Vector3(0f, -0.12f, 0f), new Vector3(0.09f, 0.14f, 0.075f),
+                steel, null, 0.55f, 0.35f);
+            GripPiece(PrimitiveType.Cube, "PistolSlide", grip,
+                new Vector3(0f, -0.26f, 0f), new Vector3(0.095f, 0.20f, 0.085f),
+                steel, null, 0.65f, 0.45f);
+            GripPiece(PrimitiveType.Cylinder, "PistolBarrel", grip,
+                new Vector3(0f, -0.39f, 0f), new Vector3(0.035f, 0.10f, 0.035f),
+                dark, null, 0.7f, 0.5f);
+            GripPiece(PrimitiveType.Cube, "PistolTrigger", grip,
+                new Vector3(0f, -0.02f, 0.075f), new Vector3(0.055f, 0.10f, 0.022f),
+                steel, null, 0.5f, 0.3f);
+            GripPiece(PrimitiveType.Cube, "PistolSight", grip,
+                new Vector3(0f, -0.31f, -0.05f), new Vector3(0.02f, 0.03f, 0.02f),
+                sight, null, 0.6f, 0.2f);
+
+            float radius = 0.10f * (0.85f + 0.15f * _bodyWidth);
+            GripPiece(PrimitiveType.Sphere, "SupportHand", grip,
+                new Vector3(-radius * 0.75f, -0.13f, 0.015f),
+                Vector3.one * radius * 1.15f, EffectiveBodyColor, null, 0.25f);
+
+            grip.gameObject.SetActive(_pistolVisible);
         }
 
         // ---------------------------------------------------------- camisas

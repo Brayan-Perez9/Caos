@@ -103,6 +103,11 @@ namespace Caos.Dungeon
             }
         }
 
+        void Start()
+        {
+            CharacterCustomization.Instance?.SetPistolVisible(true);
+        }
+
         public void Configure(DungeonDirector director, PlayerController player,
             ChaosHealth health, DungeonRunState state)
         {
@@ -117,6 +122,7 @@ namespace Caos.Dungeon
             weapon = kind;
             element = newElement;
             _nextFire = Time.time + 0.12f;
+            CharacterCustomization.Instance?.SetPistolVisible(true);
         }
 
         bool IArenaCombatDirector.Finished => _director != null && _director.Finished;

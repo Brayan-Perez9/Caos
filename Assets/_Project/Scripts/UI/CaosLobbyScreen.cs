@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Caos.Net;
+using Caos.Player;
 
 namespace Caos.UI
 {
@@ -19,6 +20,7 @@ namespace Caos.UI
         float _offsetY;
 
         Transform _preview;
+        CharacterCustomization _previewCustomization;
         Camera _portraitCamera;
         RenderTexture _portrait;
 
@@ -28,7 +30,11 @@ namespace Caos.UI
             Cursor.visible = true;
 
             var previewObject = GameObject.Find("PreviewCharacter");
-            if (previewObject != null) _preview = previewObject.transform;
+            if (previewObject != null)
+            {
+                _preview = previewObject.transform;
+                _previewCustomization = previewObject.GetComponent<CharacterCustomization>();
+            }
 
             var cameraObject = GameObject.Find("PortraitCamera");
             _portraitCamera = cameraObject != null
@@ -101,6 +107,16 @@ namespace Caos.UI
                 (gamepad != null && gamepad.buttonSouth.wasPressedThisFrame);
 
             if (confirm) Activate(_focus);
+
+            if (keyboard != null)
+            {
+                if (keyboard.digit1Key.wasPressedThisFrame)
+                    OutfitUI.BuyLobbySkin(0, _previewCustomization);
+                if (keyboard.digit2Key.wasPressedThisFrame)
+                    OutfitUI.BuyLobbySkin(1, _previewCustomization);
+                if (keyboard.digit3Key.wasPressedThisFrame)
+                    OutfitUI.BuyLobbySkin(2, _previewCustomization);
+            }
         }
 
         void Activate(int option)
@@ -190,11 +206,22 @@ namespace Caos.UI
                     "Compra skins con las monedas que ganes en la mazmorra.",
                     mouse, styles);
 
+                // Tienda exterior: visible en el lobby, sin entrar en la escena
+                // de personalización. Tres skins del catálogo con compra/equipo.
+                var shopPanel = new Rect(24f, 542f, 724f, 392f);
+                CaosShellUI.DrawRect(shopPanel, new Color(0.02f, 0.04f, 0.09f, 0.88f));
+                CaosShellUI.DrawOutline(shopPanel, CaosShellUI.Cyan, 3f);
+                OutfitUI.DrawLobbyShop(
+                    new Rect(shopPanel.x + 12f, shopPanel.y + 10f,
+                        shopPanel.width - 24f, shopPanel.height - 20f),
+                    _previewCustomization);
+
                 if (GUI.Button(new Rect(830f, 922f, 340f, 58f),
                         "SALA MULTIJUGADOR", styles.Button)) Activate(3);
 
                 GUI.Label(new Rect(832f, 996f, 940f, 30f),
-                    "Flechas/WASD + ENTER · Ratón: clic · Mando: cruceta + A", styles.Kicker);
+                    "Flechas/WASD + ENTER · 1/2/3 o clic: tienda · Ratón: clic · Mando: cruceta + A",
+                    styles.Kicker);
 
                 GUI.Label(new Rect(40f, 960f, 420f, 40f), "TU CAMPEÓN", styles.Kicker);
                 GUI.Label(new Rect(28f, 1032f, 320f, 34f), "omar hpta", styles.Credit);

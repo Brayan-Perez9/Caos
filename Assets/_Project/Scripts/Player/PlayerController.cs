@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Caos.Maps;
 
 namespace Caos.Player
@@ -140,18 +141,53 @@ namespace Caos.Player
             return wish;
         }
 
+        /// <summary>
+        /// Dirección hacia el cursor, en el plano del suelo. La usa el giro con Q
+        /// para que la volterada vaya a donde mira el jugador, no hacia donde
+        /// esté caminando. Input System: nunca UnityEngine.Input.
+        /// </summary>
+        Vector3 GetAimDirection(Vector3 fallback)
+        {
+            Camera cam = cameraReference != null
+                ? cameraReference.GetComponent<Camera>()
+                : Camera.main;
+
+            if (cam != null && Mouse.current != null)
+            {
+                Ray ray = cam.ScreenPointToRay(Mouse.current.position.ReadValue());
+                var plane = new Plane(Vector3.up, transform.position + Vector3.up * 0.95f);
+                if (plane.Raycast(ray, out float distance))
+                {
+                    Vector3 toCursor = ray.GetPoint(distance) - transform.position;
+                    toCursor.y = 0f;
+                    if (toCursor.sqrMagnitude > 0.04f) return toCursor.normalized;
+                }
+            }
+
+            // En la arena/dungeon el puntero ya calcula un punto de mira compartido.
+            ArenaAimController aim = FindFirstObjectByType<ArenaAimController>();
+            if (aim != null)
+            {
+                Vector3 toAim = aim.AimPoint - transform.position;
+                toAim.y = 0f;
+                if (toAim.sqrMagnitude > 0.04f) return toAim.normalized;
+            }
+
+            return fallback;
+        }
+
         void TryStartRoll()
         {
             if (_rollTime > 0f || _rollCooldown > 0f || !_controller.isGrounded) return;
 
             Vector3 wish = GetWishDirection();
             if (wish.sqrMagnitude < 0.001f) wish = transform.forward;
-            _rollDirection = wish.normalized;
+            _rollDirection = GetAimDirection(wish.normalized);
             _rollTime = rollDuration;
             _rollCooldown = rollCooldown;
 
             transform.rotation = Quaternion.LookRotation(_rollDirection, Vector3.up);
-            Debug.Log("[Caos] Giro hacia adelante con Q");
+            Debug.Log($"[Caos] Giro hacia el cursor con Q: dir=({_rollDirection.x:F2}, {_rollDirection.z:F2})");
         }
 
         void MoveHorizontally()
