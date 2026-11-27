@@ -173,7 +173,7 @@ namespace Caos.Dungeon
             _player.SetCamera(Camera.main.transform);
         }
 
-        void BeginRoom(int index)
+        void BeginRoom(int index, bool reposition = true)
         {
             if (_rooms == null || index < 0 || index >= _rooms.Length) return;
 
@@ -183,7 +183,9 @@ namespace Caos.Dungeon
             if (_player != null && _spawnPoint != null)
             {
                 _spawnPoint.position = room.EntryPoint + Vector3.up * 1.2f;
-                _player.Respawn(_spawnPoint.position);
+                // En el mapa continuo el jugador ya ha caminado hasta la
+                // puerta: solo reaparece al entrar o si el host cambia de sala.
+                if (reposition) _player.Respawn(_spawnPoint.position);
             }
 
             _bridge.SetWeapon(room.Definition.weapon, room.Definition.element);
@@ -253,7 +255,9 @@ namespace Caos.Dungeon
             int next = _pendingRoomIndex;
             _pendingRoomIndex = -1;
             _transition = false;
-            BeginRoom(next);
+            BeginRoom(next, false);
+            Debug.Log($"[Caos] Mapa único: acceso continuo a la sala {next + 1} " +
+                $"({DungeonWorld.ZoneLabel(next, _rooms.Length)})");
             if (_player != null && !InputBlockedByUi) _player.InputEnabled = true;
         }
 

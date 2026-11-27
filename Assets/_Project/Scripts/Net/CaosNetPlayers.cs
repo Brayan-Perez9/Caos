@@ -22,6 +22,8 @@ namespace Caos.Net
             public CharacterCustomization Avatar;
             public ChaosRemotePlayer Motion;
             public string Look;
+            /// <summary>Última vida recibida; ya viaja en NetworkPose, sin campo nuevo.</summary>
+            public float Health;
         }
 
         readonly Dictionary<string, RemoteState> _remotes =
@@ -43,6 +45,33 @@ namespace Caos.Net
 
         /// <summary>Cuantos avatares remotos hay activos (sin contar el local).</summary>
         public int RemoteCount => _remotes.Count;
+
+        /// <summary>Nombre que el HUD debe mostrar para el jugador local.</summary>
+        public string LocalDisplayName => LocalName;
+
+        /// <summary>
+        /// Vida del compañero para el HUD de mazmorra. No añade campos al
+        /// mensaje: reutiliza el último valor de NetworkPose.
+        /// </summary>
+        public bool GetRemoteHealth(int index, out string name, out float current, out float max)
+        {
+            name = "Invitado";
+            current = 0f;
+            max = _health != null ? Mathf.Max(1f, _health.Max) : 100f;
+            if (index < 0) return false;
+
+            int found = 0;
+            foreach (var pair in _remotes)
+            {
+                if (pair.Value == null) continue;
+                if (found++ != index) continue;
+
+                name = DisplayFrom(pair.Key);
+                current = Mathf.Clamp(pair.Value.Health, 0f, max);
+                return true;
+            }
+            return false;
+        }
 
         /// <summary>Nombre + token de proceso: dos jugadores pueden llamarse igual.</summary>
         string Identity => _identity ?? (_identity = LocalName + "@" +
@@ -214,6 +243,8 @@ namespace Caos.Net
             int face = ParseInt(parts[9]);
             int build = ParseInt(parts[10]);
             int costume = ParseInt(parts[11]);
+            float health = parts.Length > 12 && TryFloat(parts[12], out float parsedHealth)
+                ? parsedHealth : 100f;
 
             string look = string.Join("/", parts, 5, 7);
             if (!_remotes.TryGetValue(identity, out RemoteState state))
@@ -236,6 +267,7 @@ namespace Caos.Net
             }
 
             state.Look = look;
+            state.Health = health;
             state.Motion.SetPose(position, yaw);
             if (Time.time >= _nextPoseLog)
             {

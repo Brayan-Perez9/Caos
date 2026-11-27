@@ -1,5 +1,7 @@
 using UnityEngine;
 using Caos.Maps;
+using Caos.Net;
+using Caos.Player;
 
 namespace Caos.Dungeon
 {
@@ -7,6 +9,8 @@ namespace Caos.Dungeon
     public class DungeonHud : MonoBehaviour
     {
         DungeonDirector _director;
+        CaosNetPlayers _netPlayers;
+        bool _partyLogged;
         GUIStyle _titleStyle;
         GUIStyle _labelStyle;
         GUIStyle _smallStyle;
@@ -20,6 +24,11 @@ namespace Caos.Dungeon
 
         public void Configure(DungeonDirector director) => _director = director;
 
+        void Start()
+        {
+            _netPlayers = FindFirstObjectByType<CaosNetPlayers>();
+        }
+
         void OnGUI()
         {
             if (_director == null || _director.State == null || _director.Bridge == null) return;
@@ -29,6 +38,7 @@ namespace Caos.Dungeon
 
             DrawRoomPanel(scale);
             DrawStatusPanel(scale);
+            DrawPartyPanel(scale);
             DrawRoute(scale);
             DrawBanner(scale);
             DrawDamageFlash();
@@ -50,7 +60,9 @@ namespace Caos.Dungeon
             float y = panel.y + S(10f, scale);
 
             GUI.Label(new Rect(x, y, width, S(24f, scale)),
-                $"MAZMORRA · SALA {_director.CurrentRoomNumber}/{_director.TotalRooms} · SEMILLA {_director.Seed}", _smallStyle);
+                $"MAZMORRA · SALA {_director.CurrentRoomNumber}/{_director.TotalRooms} · " +
+                $"{DungeonWorld.ZoneLabel(_director.CurrentRoomNumber - 1, _director.TotalRooms)} · " +
+                $"SEMILLA {_director.Seed}", _smallStyle);
             y += S(26f, scale);
 
             GUI.Label(new Rect(x, y, width, S(34f, scale)), room.Title, _titleStyle);
@@ -94,6 +106,66 @@ namespace Caos.Dungeon
                 "RELIQUIAS  " + _director.State.RelicsText, _smallStyle);
         }
 
+        /// <summary>Vida abajo a la izquierda: jugador local y compañeros al lado.</summary>
+        void DrawPartyPanel(float scale)
+        {
+            ChaosHealth health = _director.Health;
+            if (health == null) return;
+
+            int friends = _netPlayers != null ? _netPlayers.RemoteCount : 0;
+            float rowHeight = S(46f, scale);
+            float panelHeight = S(34f, scale) + rowHeight * (1 + friends);
+            var panel = new Rect(S(20f, scale),
+                Screen.height - panelHeight - S(18f, scale),
+                S(470f, scale), panelHeight);
+            DrawPanel(panel, DungeonPalette.UiPanel);
+
+            float x = panel.x + S(14f, scale);
+            float width = panel.width - S(28f, scale);
+            float y = panel.y + S(8f, scale);
+
+            string localName = _netPlayers != null
+                ? _netPlayers.LocalDisplayName
+                : CharacterCustomization.Instance != null
+                    ? CharacterCustomization.Instance.PlayerName : "Jugador";
+
+            DrawHealthRow(new Rect(x, y, width, rowHeight),
+                "TÚ · " + localName, health.Current, Mathf.Max(1f, health.Max),
+                DungeonPalette.UiYellow, scale);
+            y += rowHeight;
+
+            if (_netPlayers != null)
+            {
+                for (int i = 0; i < friends; i++)
+                {
+                    if (_netPlayers.GetRemoteHealth(i, out string name,
+                            out float current, out float max))
+                    {
+                        DrawHealthRow(new Rect(x, y, width, rowHeight),
+                            "AMIGO · " + name, current, max, DungeonPalette.UiCyan, scale);
+                    }
+                    y += rowHeight;
+                }
+            }
+
+            if (!_partyLogged)
+            {
+                Debug.Log($"[Caos] HUD vida mazmorra: {localName} " +
+                    $"{health.Current:0}/{health.Max:0} · amigos={friends}");
+                _partyLogged = true;
+            }
+        }
+
+        void DrawHealthRow(Rect rect, string label, float current, float max,
+            Color color, float scale)
+        {
+            GUI.Label(new Rect(rect.x, rect.y, rect.width, S(20f, scale)),
+                $"{label}   {Mathf.CeilToInt(current)}/{Mathf.CeilToInt(max)}",
+                _smallStyle);
+            DrawBar(new Rect(rect.x, rect.y + S(22f, scale), rect.width, S(14f, scale)),
+                Mathf.Clamp01(current / Mathf.Max(1f, max)), color);
+        }
+
         void DrawRoute(float scale)
         {
             int count = _director.TotalRooms;
@@ -115,7 +187,10 @@ namespace Caos.Dungeon
 
                 var rect = new Rect(x + i * (cell + gap), y, cell, cell);
                 DrawPanel(rect, color);
-                GUI.Label(rect, (i + 1).ToString(), _smallStyle);
+
+                string mark = DungeonWorld.ZoneMark(i, count);
+                if (DungeonWorld.HasShortcut(i)) mark += "↔";
+                GUI.Label(rect, (i + 1).ToString() + mark, _smallStyle);
             }
         }
 

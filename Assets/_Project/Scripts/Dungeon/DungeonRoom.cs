@@ -19,6 +19,15 @@ namespace Caos.Dungeon
         BoxCollider _exitGate;
         Vector3 _exitBaseScale = Vector3.one;
 
+        sealed class ActivationGate
+        {
+            public Renderer Renderer;
+            public Collider Collider;
+        }
+
+        /// <summary>Atajos que se abren cuando se completa la sala.</summary>
+        readonly List<ActivationGate> _activationGates = new List<ActivationGate>();
+
         public int Index { get; private set; }
         public Vector3 Center { get; private set; }
         public float Radius { get; private set; }
@@ -130,6 +139,14 @@ namespace Caos.Dungeon
             if (go != null && !_tracked.Contains(go)) _tracked.Add(go);
         }
 
+        /// <summary>Registra la compuerta de un camino lateral del mapa único.</summary>
+        public void RegisterActivation(Renderer renderer, Collider collider)
+        {
+            if (renderer == null && collider == null) return;
+            _activationGates.Add(new ActivationGate { Renderer = renderer, Collider = collider });
+            SetExitOpen(false);
+        }
+
         /// <summary>Mantiene cualquier punto dentro del suelo de esta sala.</summary>
         public Vector3 Clamp(Vector3 point)
         {
@@ -182,6 +199,13 @@ namespace Caos.Dungeon
             Material material = open ? DungeonPalette.ExitOpen : DungeonPalette.ExitClosed;
             Renderer[] renderers = _exit.GetComponentsInChildren<Renderer>();
             for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = material;
+
+            for (int i = 0; i < _activationGates.Count; i++)
+            {
+                ActivationGate gate = _activationGates[i];
+                if (gate.Collider != null) gate.Collider.enabled = !open;
+                if (gate.Renderer != null) gate.Renderer.sharedMaterial = material;
+            }
         }
 
         void LateUpdate()

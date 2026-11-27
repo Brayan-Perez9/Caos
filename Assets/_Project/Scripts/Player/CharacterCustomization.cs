@@ -70,6 +70,7 @@ namespace Caos.Player
         Transform _outfitRoot;
         readonly List<Material> _outfitMaterials = new List<Material>();
         readonly List<Material> _fleshMaterials = new List<Material>();
+        readonly List<Material> _accentMaterials = new List<Material>();
         readonly List<Mesh> _outfitMeshes = new List<Mesh>();
         int _hatIndex;
         int _shirtIndex;
@@ -163,16 +164,14 @@ namespace Caos.Player
             }
         }
 
-        /// <summary>El atuendo completo sustituye el color y la complexión elegidos.</summary>
-        Color EffectiveBodyColor
-        {
-            get
-            {
-                if (_costumeIndex == 1) return MonkeyFur;
-                if (_costumeIndex == 2) return PororoBlue;
-                return playerColor;
-            }
-        }
+        /// <summary>
+        /// Cuerpo estándar: pelaje blanco de panda. Los trajes y atuendos se
+        /// montan encima de este cuerpo; ninguno cambia la especie base.
+        /// </summary>
+        Color EffectiveBodyColor => White;
+
+        /// <summary>Orejas, extremidades y almohadillas: negro de panda.</summary>
+        Color EffectiveLimbColor => Dark;
 
         int EffectiveBuild => _costumeIndex == 0 ? _buildIndex : 0;
 
@@ -741,15 +740,17 @@ namespace Caos.Player
 
         void ApplyColor()
         {
-            ApplyColorTo(_bodyMaterials);
-            ApplyColorTo(_fleshMaterials);
+            // El blanco y el negro son fijos: el color elegido por el jugador
+            // queda en los interiores de las orejas (accent).
+            ApplyColorTo(_bodyMaterials, EffectiveBodyColor);
+            ApplyColorTo(_fleshMaterials, Dark);
+            ApplyColorTo(_accentMaterials, playerColor);
         }
 
-        void ApplyColorTo(IEnumerable<Material> materials)
+        void ApplyColorTo(IEnumerable<Material> materials, Color color)
         {
             if (materials == null) return;
 
-            Color color = EffectiveBodyColor;
             foreach (var material in materials)
             {
                 if (material == null) continue;
@@ -789,41 +790,43 @@ namespace Caos.Player
         /// </summary>
         void ApplyBodyShape()
         {
+            // Todas las complexiones son variaciones del mismo panda redondo:
+            // incluso "Flaco" conserva el hocico, las orejas y la panza.
             switch (EffectiveBuild)
             {
                 case 1: // Flaco
-                    _bodyWidth = 0.70f;
-                    _headScale = 0.92f;
-                    _bellyBulge = 0f;
+                    _bodyWidth = 1.02f;
+                    _headScale = 1.02f;
+                    _bellyBulge = 0.18f;
                     break;
                 case 2: // Gordo
-                    _bodyWidth = 1.22f;
+                    _bodyWidth = 1.34f;
                     _headScale = 1.16f;
-                    _bellyBulge = 0.55f;
+                    _bellyBulge = 0.70f;
                     break;
                 case 3: // Gordísimo
-                    _bodyWidth = 1.45f;
-                    _headScale = 1.34f;
+                    _bodyWidth = 1.52f;
+                    _headScale = 1.26f;
                     _bellyBulge = 1f;
                     break;
-                default:
-                    _bodyWidth = 1f;
-                    _headScale = 1f;
-                    _bellyBulge = 0f;
+                default: // Panda estándar
+                    _bodyWidth = 1.22f;
+                    _headScale = 1.08f;
+                    _bellyBulge = 0.50f;
                     break;
             }
 
-            if (_costumeIndex == 1) // Mono: cabeza redonda y cuerpo compacto.
+            if (_costumeIndex == 1) // Mono: mismo cuerpo panda, algo más compacto.
             {
-                _bodyWidth = 0.95f;
+                _bodyWidth = 1.12f;
                 _headScale = 1.08f;
-                _bellyBulge = 0f;
+                _bellyBulge = 0.30f;
             }
-            else if (_costumeIndex == 2) // Pororo: pingüino pequeño y redondo.
+            else if (_costumeIndex == 2) // Pororo: panda redondo con atuendo de pingüino.
             {
-                _bodyWidth = 0.92f;
-                _headScale = 1.12f;
-                _bellyBulge = 0f;
+                _bodyWidth = 1.10f;
+                _headScale = 1.08f;
+                _bellyBulge = 0.28f;
             }
 
             // Las piernas no crecen tanto como la panza: así se siguen viendo
@@ -1024,6 +1027,76 @@ namespace Caos.Player
             return centerZ + rz * Mathf.Sqrt(1f - nx * nx) + 0.045f;
         }
 
+        /// <summary>Posición de un ojo base ya escalada (o la posición estándar).</summary>
+        Vector3 EyePosition(int side)
+        {
+            for (int i = 0; i < _eyeBasePositions.Count; i++)
+            {
+                Vector3 basePos = _eyeBasePositions[i];
+                if (Mathf.Sign(basePos.x) != side) continue;
+                return new Vector3(basePos.x * _headScale, basePos.y,
+                    basePos.z + (_headScale - 1f) * 0.30f);
+            }
+            return new Vector3(side * 0.12f * _headScale, 1.95f,
+                0.24f + (_headScale - 1f) * 0.30f);
+        }
+
+        /// <summary>
+        /// Cuerpo canónico del panda: orejas redondas, parches oscuros alrededor
+        /// de los ojos y hocico claro. Se crea antes que cualquier atuendo para
+        /// que todos los trajes (y los avatares remotos) compartan la base.
+        /// </summary>
+        void BuildPandaBase(bool pandaFace)
+        {
+            float s = _headScale;
+
+            for (int side = -1; side <= 1; side += 2)
+            {
+                Vector3 ear = new Vector3(side * 0.38f * s, 1.9f + 0.44f * s, -0.02f);
+                Quaternion earTilt = Quaternion.Euler(0f, 0f, side * -12f);
+
+                Piece(PrimitiveType.Sphere, "PandaEar", ear,
+                    new Vector3(0.19f, 0.22f, 0.11f) * s, Dark,
+                    earTilt, false, 0.35f);
+
+                // El color del jugador vive dentro de las orejas: así el picker
+                // sigue siendo visible sin teñir el pelaje blanco/negro.
+                var inner = Piece(PrimitiveType.Sphere, "PandaEarInner",
+                    ear + new Vector3(0f, 0f, 0.075f * s),
+                    new Vector3(0.10f, 0.13f, 0.035f) * s,
+                    playerColor, earTilt, false, 0.3f);
+                _accentMaterials.Add(inner.GetComponent<Renderer>().sharedMaterial);
+
+                if (!pandaFace) continue;
+
+                Vector3 eye = EyePosition(side);
+                Piece(PrimitiveType.Sphere, "PandaEyePatch",
+                    new Vector3(eye.x, eye.y, eye.z - 0.035f * s),
+                    new Vector3(0.23f, 0.25f, 0.075f) * s, Dark,
+                    Quaternion.Euler(0f, 0f, side * -18f), false, 0.3f);
+            }
+
+            if (!pandaFace) return;
+
+            float front = 0.30f + (s - 1f) * 0.26f;
+            Piece(PrimitiveType.Sphere, "PandaMuzzle",
+                new Vector3(0f, 1.72f, front),
+                new Vector3(0.30f, 0.20f, 0.15f) * s, White, null, false, 0.4f);
+            Piece(PrimitiveType.Sphere, "PandaNose",
+                new Vector3(0f, 1.79f, front + 0.13f * s),
+                Vector3.one * 0.075f * s, Dark, null, false, 0.5f);
+
+            for (int i = 0; i < 5; i++)
+            {
+                int offset = i - 2;
+                Piece(PrimitiveType.Sphere, "PandaSmile",
+                    new Vector3(offset * 0.055f * s,
+                        1.66f + offset * offset * 0.012f * s,
+                        front + 0.10f * s),
+                    Vector3.one * 0.020f * s, Dark, null, false, 0.3f);
+            }
+        }
+
         // ---------------------------------------------------------- piernas
 
         /// <summary>
@@ -1137,7 +1210,7 @@ namespace Caos.Player
         {
             for (int side = -1; side <= 1; side += 2)
             {
-                var material = MakeMaterial(EffectiveBodyColor, 0.25f);
+                var material = MakeMaterial(EffectiveLimbColor, 0.25f);
                 _fleshMaterials.Add(material);
 
                 LegSegmentObject("LegUpper", side, KneeY, 0.80f, 0f, material, LegPart.Upper);
@@ -1183,6 +1256,7 @@ namespace Caos.Player
 
             _outfitMaterials.Clear();
             _fleshMaterials.Clear();
+            _accentMaterials.Clear();
             _outfitMeshes.Clear();
             _jiggleParts.Clear();
             _deformMeshes.Clear();
@@ -1228,6 +1302,9 @@ namespace Caos.Player
             _outfitRoot.SetParent(transform, false);
 
             BuildBodyExtras(); // pies y, si aplica, barriga / papada / mofletes
+            // Orejas siempre; hocico/parches salvo en Pororo, cuya cara de
+            // pingüino tapa la del panda sin cambiar el cuerpo base.
+            BuildPandaBase(_costumeIndex != 2);
 
             if (_costumeIndex == 0)
             {
@@ -1247,7 +1324,7 @@ namespace Caos.Player
             Debug.Log("[Caos] Outfit ready: pieces=" + _outfitRoot.childCount +
                 " deform=" + _deformMeshes.Count + " jiggle=" + _jiggleParts.Count +
                 " build=" + _buildIndex + " costume=" + _costumeIndex +
-                " bulge=" + _bellyBulge);
+                " bulge=" + _bellyBulge + " panda=1");
         }
 
         static Shader _litShader;
@@ -1669,7 +1746,7 @@ namespace Caos.Player
 
                 var upper = Piece(PrimitiveType.Capsule, "ArmUpper",
                     new Vector3(x, ShoulderY - upperLength, 0f),
-                    new Vector3(radius, upperLength, radius), EffectiveBodyColor,
+                    new Vector3(radius, upperLength, radius), EffectiveLimbColor,
                     tilt, true, 0.25f);
                 AttachToPivot(upper, shoulder, shoulder.localPosition);
                 RegisterJiggle(upper, 0.30f);
@@ -1677,12 +1754,12 @@ namespace Caos.Player
                 var forearm = Piece(PrimitiveType.Capsule, "ArmLower",
                     new Vector3(x, ShoulderY - elbowDrop - lowerLength, 0f),
                     new Vector3(radius * 0.92f, lowerLength, radius * 0.92f),
-                    EffectiveBodyColor, tilt, true, 0.25f);
+                    EffectiveLimbColor, tilt, true, 0.25f);
                 AttachToPivot(forearm, elbow, elbowOffset);
 
                 var hand = Piece(PrimitiveType.Sphere, "Hand",
                     new Vector3(x, ShoulderY - elbowDrop - lowerLength * 2.55f, 0f),
-                    Vector3.one * radius * 1.15f, EffectiveBodyColor,
+                    Vector3.one * radius * 1.15f, EffectiveLimbColor,
                     null, true, 0.25f);
                 AttachToPivot(hand, elbow, elbowOffset);
                 _hands[i] = hand.transform;
@@ -1730,7 +1807,7 @@ namespace Caos.Player
             float radius = 0.10f * (0.85f + 0.15f * _bodyWidth);
             GripPiece(PrimitiveType.Sphere, "SupportHand", grip,
                 new Vector3(-radius * 0.75f, -0.13f, 0.015f),
-                Vector3.one * radius * 1.15f, EffectiveBodyColor, null, 0.25f);
+                Vector3.one * radius * 1.15f, EffectiveLimbColor, null, 0.25f);
 
             grip.gameObject.SetActive(_pistolVisible);
         }
@@ -1905,38 +1982,10 @@ namespace Caos.Player
 
         void BuildHumanFace()
         {
-            float s = _headScale;
-
-            // Pelo: casquete que tapa la coronilla sin invadir los ojos.
-            Piece(PrimitiveType.Sphere, "Hair",
-                new Vector3(0f, 1.90f + 0.16f * s, -0.02f),
-                new Vector3(0.57f, 0.34f, 0.57f) * s, Hair, null, false, 0.12f);
-
-            // Orejas: carne, siguen el color del jugador.
-            for (int side = -1; side <= 1; side += 2)
-            {
-                Piece(PrimitiveType.Sphere, "Ear",
-                    new Vector3(side * 0.29f * s, 1.86f, 0f),
-                    new Vector3(0.11f, 0.15f, 0.08f) * s, EffectiveBodyColor,
-                    null, true, 0.25f);
-            }
-
+            // Ya no hay cara humana: BuildPandaBase aporta orejas, parches y
+            // hocico. Solo quedan ojos y cejas, sobre los que se montan gafas,
+            // bigote o parche sin cambiar el cuerpo base.
             BuildEyes(true);
-
-            // Nariz y sonrisa (arco de cinco puntos).
-            float front = 0.28f + (s - 1f) * 0.28f;
-            Piece(PrimitiveType.Sphere, "Nose", new Vector3(0f, 1.84f, front),
-                Vector3.one * 0.09f * s, EffectiveBodyColor, null, true, 0.25f);
-
-            for (int i = 0; i < 5; i++)
-            {
-                int offset = i - 2;
-                Piece(PrimitiveType.Sphere, "Smile",
-                    new Vector3(offset * 0.055f * s,
-                        1.70f + offset * offset * 0.012f * s,
-                        front + 0.01f),
-                    Vector3.one * 0.022f * s, Dark, null, false, 0.2f);
-            }
         }
 
         /// <summary>Ojos blancos con pupila; se comparten con los atuendos.</summary>
@@ -1971,22 +2020,11 @@ namespace Caos.Player
         {
             float s = _headScale;
 
-            // Orejas redondas y hocico claro: la silueta reconoce al mono.
-            for (int side = -1; side <= 1; side += 2)
-            {
-                Piece(PrimitiveType.Sphere, "MonkeyEar",
-                    new Vector3(side * 0.34f * s, 1.86f, 0f),
-                    new Vector3(0.15f, 0.17f, 0.07f) * s, MonkeyFur);
-                Piece(PrimitiveType.Sphere, "MonkeyEarInner",
-                    new Vector3(side * 0.37f * s, 1.86f, 0.05f),
-                    new Vector3(0.09f, 0.11f, 0.03f) * s, MonkeyMuzzle);
-            }
-
+            // Orejas y nariz las aporta BuildPandaBase: el mono es un panda
+            // con atuendo de mono, no una especie distinta.
             Piece(PrimitiveType.Sphere, "MonkeyMuzzle",
                 new Vector3(0f, 1.71f, 0.33f),
                 new Vector3(0.31f, 0.21f, 0.15f) * s, MonkeyMuzzle);
-            Piece(PrimitiveType.Sphere, "MonkeyNose",
-                new Vector3(0f, 1.80f, 0.46f), Vector3.one * 0.065f * s, Dark);
 
             for (int i = 0; i < 5; i++)
             {
