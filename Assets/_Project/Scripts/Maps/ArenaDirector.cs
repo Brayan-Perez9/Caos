@@ -22,6 +22,7 @@ namespace Caos.Maps
         const int UpgradeSpeed = 3;
         const int UpgradeArmor = 4;
         const int TotalBosses = 3;
+        const float ReloadSeconds = 0.72f;
 
         [Header("Oleadas")]
         [SerializeField] float firstSpawnDelay = 1f;
@@ -56,6 +57,11 @@ namespace Caos.Maps
         int _kills;
         int _tier = 1;
         float _nextFire;
+        int _ammo;
+        bool _reloading;
+        bool _reloadLogged;
+        bool _bulletLogged;
+        float _reloadUntil;
         float _fireRateBoost = 1f;
         float _damageBoost = 1f;
         float _damageTakenMultiplier = 1f;
@@ -92,6 +98,11 @@ namespace Caos.Maps
         public float WeaponInterval => FireInterval();
         public float WeaponDamage => FireDamage();
         public int WeaponPellets => PelletCount();
+        public int Ammo => _ammo;
+        public int MagazineSize => Magazine();
+        public bool Reloading => _reloading;
+        public float ReloadProgress => _reloading
+            ? Mathf.Clamp01(1f - (_reloadUntil - Time.time) / ReloadSeconds) : 0f;
         public string Banner => _bannerTimer > 0f ? _banner : "";
         public Vector2[] BloodSpots => _bloodSpots;
         public float BloodAlpha => _bloodTimer;
@@ -143,20 +154,28 @@ namespace Caos.Maps
 
             _nextSpawn = firstSpawnDelay;
 
-            // Pistola normal inicial para que siempre se pueda disparar.
+            // Arma inicial elegida en el lobby: espada o pistola.
             _hasWeapon = true;
-            _weapon = ArenaWeaponKind.Pistola;
-            _element = ArenaElement.Normal;
+            _weapon = CaosLoadout.StartingWeapon;
+            _element = CaosLoadout.StartingElement;
+            _ammo = Magazine();
 
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-            ShowBanner("Pistola lista. Recoge un arma de color para cambiar de elemento.", 3.5f);
+            string how = UsesMelee ? "CLIC golpea" : "CLIC dispara · R recarga";
+            ShowBanner($"{_weapon} inicial — {how}. Recoge armas para cambiar.", 3.5f);
         }
 
         void Update()
         {
             if (_bannerTimer > 0f) _bannerTimer -= Time.unscaledDeltaTime;
             if (_bloodTimer > 0f) _bloodTimer -= Time.unscaledDeltaTime;
+
+            if (_reloading && Time.time >= _reloadUntil)
+            {
+                _reloading = false;
+                _ammo = Magazine();
+            }
 
             if (Keyboard.current != null)
             {
@@ -168,10 +187,14 @@ namespace Caos.Maps
                     return;
                 }
 
-                if (_finished && Keyboard.current.rKey.wasPressedThisFrame)
+                if (Keyboard.current.rKey.wasPressedThisFrame)
                 {
-                    Restart();
-                    return;
+                    if (!_finished) Reload();
+                    else
+                    {
+                        Restart();
+                        return;
+                    }
                 }
             }
 
@@ -211,13 +234,22 @@ namespace Caos.Maps
         void Start()
         {
             // Atajo de verificación, igual que -dungeon en el lobby.
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-sword") >= 0)
+            string[] args = System.Environment.GetCommandLineArgs();
+            if (System.Array.IndexOf(args, "-sword") >= 0)
             {
                 _weapon = ArenaWeaponKind.Espada;
                 _element = ArenaElement.Rayo;
                 _hasWeapon = true;
                 Debug.Log("[Caos] Espada eléctrica equipada (-sword)");
             }
+            else if (System.Array.IndexOf(args, "-pistol") >= 0)
+            {
+                _weapon = ArenaWeaponKind.Pistola;
+                _element = ArenaElement.Normal;
+                _hasWeapon = true;
+            }
+            _ammo = Magazine();
+            _reloading = false;
             CharacterCustomization.Instance?.SetWeaponVisible(_weapon, _element);
             for (int i = 0; i < initialMonsters; i++) SpawnMonster();
         }
@@ -233,6 +265,8 @@ namespace Caos.Maps
             _element = element;
             _hasWeapon = true;
             _nextFire = Time.time + 0.15f;
+            _ammo = Magazine();
+            _reloading = false;
             CharacterCustomization.Instance?.SetWeaponVisible(kind, element);
             string how = kind == ArenaWeaponKind.Espada
                 ? "CLIC para golpear" : "CLIC para disparar";
@@ -255,6 +289,13 @@ namespace Caos.Maps
             }
 
             if (Time.time < _nextFire) return;
+            if (_reloading) return;
+            if (_ammo <= 0)
+            {
+                Reload();
+                return;
+            }
+            _ammo--;
 
             float interval = FireInterval();
             if (_element == ArenaElement.Aire) interval *= 0.82f;
@@ -291,6 +332,33 @@ namespace Caos.Maps
             CharacterCustomization.Instance?.NotifyShot();
             // Tier pequeño: apenas un toque, para no castigar disparos rápidos.
             ArenaJuice.Current.AddTrauma(_weapon == ArenaWeaponKind.Escopeta ? 0.09f : 0.045f);
+        }
+
+        /// <summary>
+        /// Recarga con balas contadas y efecto visual/sonoro en el arma. La
+        /// espada no recarga: su clic es un golpe y no consume munición.
+        /// </summary>
+        void Reload()
+        {
+            if (!_hasWeapon || UsesMelee || _reloading || _ammo >= Magazine()) return;
+
+            _reloading = true;
+            _reloadUntil = Time.time + ReloadSeconds;
+            Vector3 at = _player != null
+                ? _player.transform.position + Vector3.up * 1.2f
+                : transform.position;
+
+            CharacterCustomization.Instance?.NotifyReload();
+            ArenaAudio.Play(ArenaAudio.Sound.Upgrade, at, 0.35f);
+            ChaosFx.Burst(at, ElementColor, 8);
+            ArenaJuice.Current.Pickup(at);
+
+            if (!_reloadLogged)
+            {
+                Debug.Log($"[Caos] Recarga de {_weapon}: {_ammo}/{Magazine()} balas, " +
+                          "manos flexionadas sobre el cargador");
+                _reloadLogged = true;
+            }
         }
 
         /// <summary>
@@ -367,6 +435,12 @@ namespace Caos.Maps
             var projectile = shot.AddComponent<ArenaProjectile>();
             projectile.Configure(this, direction, speed, damage, _element);
             NetPlayers?.NotifyShot(origin, direction, speed, damage, _element);
+            if (!_bulletLogged)
+            {
+                Debug.Log($"[Caos] Bala visible: {shot.name} · {_weapon} · {_element} · " +
+                          $"cargador {_ammo}/{Magazine()}");
+                _bulletLogged = true;
+            }
             Destroy(shot, 3.2f);
         }
 
@@ -455,6 +529,15 @@ namespace Caos.Maps
         {
             if (_weapon != ArenaWeaponKind.Escopeta) return 1;
             return 4 + Mathf.Max(0, _tier - 2);
+        }
+
+        /// <summary>Cargador por arma. La espada no tiene balas.</summary>
+        int Magazine()
+        {
+            if (_weapon == ArenaWeaponKind.Escopeta) return 6;
+            if (_weapon == ArenaWeaponKind.Rifle) return 30;
+            if (_weapon == ArenaWeaponKind.Espada) return 0;
+            return 12;
         }
 
         public string WeaponLabel() => _weapon.ToString().ToUpperInvariant();

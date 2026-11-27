@@ -84,7 +84,7 @@ namespace Caos.Dungeon
         void DrawStatusPanel(float scale)
         {
             var panel = new Rect(Screen.width - S(330f, scale), S(18f, scale),
-                S(310f, scale), S(116f, scale));
+                S(310f, scale), S(140f, scale));
             DrawPanel(panel, DungeonPalette.UiPanel);
 
             float x = panel.x + S(16f, scale);
@@ -104,6 +104,15 @@ namespace Caos.Dungeon
                     (sword ? " — CLIC GOLPEA" : " — CLIC DISPARA");
             }
             GUI.Label(new Rect(x, y, width, S(22f, scale)), "ARMA  " + weapon, _smallStyle);
+            y += S(22f, scale);
+
+            var bridge = _director.Bridge;
+            string ammo = bridge != null && bridge.Weapon == ArenaWeaponKind.Espada
+                ? "BALAS  —  GOLPE CUERPO A CUERPO"
+                : bridge == null ? "BALAS  —"
+                : bridge.Reloading ? $"RECARGANDO... {bridge.ReloadProgress:0%}"
+                : $"BALAS {bridge.Ammo}/{bridge.MagazineSize} · R RECARGA";
+            GUI.Label(new Rect(x, y, width, S(22f, scale)), ammo, _smallStyle);
             y += S(24f, scale);
 
             GUI.Label(new Rect(x, y, width, S(34f, scale)),

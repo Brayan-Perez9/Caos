@@ -63,7 +63,7 @@ namespace Caos.Maps
         {
             float margin = S(18f, scale);
             float width = Mathf.Min(S(430f, scale), Screen.width - margin * 2f);
-            float height = S(146f, scale);
+            float height = S(172f, scale);
             var panel = new Rect(margin, margin, width, height);
             DrawPanel(panel, scale, PanelColor);
 
@@ -90,6 +90,15 @@ namespace Caos.Maps
                             $"<color=#FFD166>Nv{_director.WeaponTier}</color> — " +
                             (_director.UsesMelee ? "CLIC GOLPEA" : _director.ElementEffect);
             GUI.Label(new Rect(x, y, textWidth, S(20f, scale)), weapon, _smallStyle);
+
+            y += S(20f, scale);
+            string ammo = _director.UsesMelee
+                ? "BALAS  —  GOLPE CUERPO A CUERPO"
+                : _director.Reloading
+                    ? $"RECARGANDO... {_director.ReloadProgress:0%}"
+                    : $"BALAS {_director.Ammo}/{_director.MagazineSize} · R RECARGA";
+            DrawTintedLabel(new Rect(x, y, textWidth, S(20f, scale)), ammo, _smallStyle,
+                _director.Reloading ? Cyan : TextColor);
 
             y += S(24f, scale);
             string state = _director.BossActive

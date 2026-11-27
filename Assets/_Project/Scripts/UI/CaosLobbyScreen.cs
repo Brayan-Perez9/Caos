@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Caos.Maps;
 using Caos.Net;
 using Caos.Player;
 
@@ -35,6 +36,7 @@ namespace Caos.UI
                 _preview = previewObject.transform;
                 _previewCustomization = previewObject.GetComponent<CharacterCustomization>();
             }
+            ApplyPreviewWeapon();
 
             var cameraObject = GameObject.Find("PortraitCamera");
             _portraitCamera = cameraObject != null
@@ -116,7 +118,33 @@ namespace Caos.UI
                     OutfitUI.BuyLobbySkin(1, _previewCustomization);
                 if (keyboard.digit3Key.wasPressedThisFrame)
                     OutfitUI.BuyLobbySkin(2, _previewCustomization);
+                if (keyboard.zKey.wasPressedThisFrame)
+                    SelectWeapon(ArenaWeaponKind.Espada);
+                if (keyboard.xKey.wasPressedThisFrame)
+                    SelectWeapon(ArenaWeaponKind.Pistola);
             }
+
+            if (gamepad != null)
+            {
+                if (gamepad.leftShoulder.wasPressedThisFrame)
+                    SelectWeapon(ArenaWeaponKind.Espada);
+                if (gamepad.rightShoulder.wasPressedThisFrame)
+                    SelectWeapon(ArenaWeaponKind.Pistola);
+            }
+        }
+
+        void SelectWeapon(ArenaWeaponKind kind)
+        {
+            if (CaosLoadout.StartingWeapon == kind) return;
+            CaosLoadout.StartingWeapon = kind;
+            ApplyPreviewWeapon();
+        }
+
+        void ApplyPreviewWeapon()
+        {
+            if (_previewCustomization == null) return;
+            _previewCustomization.SetWeaponVisible(
+                CaosLoadout.StartingWeapon, CaosLoadout.StartingElement);
         }
 
         void Activate(int option)
@@ -210,6 +238,23 @@ namespace Caos.UI
                     new Rect(shopPanel.x + 12f, shopPanel.y + 8f,
                         shopPanel.width - 24f, shopPanel.height - 16f),
                     _previewCustomization);
+
+                // Arma inicial: se elige aquí y se ve en la mano del retrato.
+                var weaponPanel = new Rect(28f, 838f, 500f, 122f);
+                CaosShellUI.DrawRect(weaponPanel, new Color(0.02f, 0.04f, 0.09f, 0.9f));
+                CaosShellUI.DrawOutline(weaponPanel, CaosShellUI.Cyan, 3f);
+                GUI.Label(new Rect(weaponPanel.x + 14f, weaponPanel.y + 8f, 470f, 26f),
+                    "ARMA INICIAL", styles.Kicker);
+                var swordRect = new Rect(weaponPanel.x + 14f, weaponPanel.y + 40f, 228f, 52f);
+                var pistolRect = new Rect(weaponPanel.x + 258f, weaponPanel.y + 40f, 228f, 52f);
+                bool sword = CaosLoadout.StartingWeapon == ArenaWeaponKind.Espada;
+                if (GUI.Button(swordRect, "ESPADA RAYO", styles.Button))
+                    SelectWeapon(ArenaWeaponKind.Espada);
+                if (GUI.Button(pistolRect, "PISTOLA", styles.Button))
+                    SelectWeapon(ArenaWeaponKind.Pistola);
+                CaosShellUI.DrawOutline(sword ? swordRect : pistolRect, CaosShellUI.Coral, 4f);
+                GUI.Label(new Rect(weaponPanel.x + 14f, weaponPanel.y + 96f, 470f, 22f),
+                    "Z / X o clic · se mantiene al entrar", styles.Hint);
 
                 DrawCard(2, new Rect(980f, 678f, 880f, 150f),
                     CaosFrontendArt.Get(CaosFrontendArt.Slot.Customization), CaosShellUI.Cyan,

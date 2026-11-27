@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
+using Caos.Maps;
 using Caos.Net;
+using Caos.Player;
 
 namespace Caos.UI
 {
@@ -63,6 +66,30 @@ namespace Caos.UI
         void OnDestroy()
         {
             if (_peer != null) _peer.MessageReceived -= OnMessage;
+        }
+
+        void Update()
+        {
+            var keyboard = Keyboard.current;
+            if (keyboard != null)
+            {
+                if (keyboard.zKey.wasPressedThisFrame) SelectWeapon(ArenaWeaponKind.Espada);
+                if (keyboard.xKey.wasPressedThisFrame) SelectWeapon(ArenaWeaponKind.Pistola);
+            }
+
+            var gamepad = Gamepad.current;
+            if (gamepad != null)
+            {
+                if (gamepad.leftShoulder.wasPressedThisFrame) SelectWeapon(ArenaWeaponKind.Espada);
+                if (gamepad.rightShoulder.wasPressedThisFrame) SelectWeapon(ArenaWeaponKind.Pistola);
+            }
+        }
+
+        void SelectWeapon(ArenaWeaponKind kind)
+        {
+            if (CaosLoadout.StartingWeapon == kind) return;
+            CaosLoadout.StartingWeapon = kind;
+            Debug.Log($"[Caos] Arma inicial elegida en la sala: {kind}");
         }
 
         void OnMessage(CaosMessageKind kind, string payload, string from)
@@ -204,6 +231,19 @@ namespace Caos.UI
             string role = _peer.IsHost ? "ANFITRIÓN" : (_peer.IsClient ? "INVITADO" : "SIN SALA");
             GUI.Label(new Rect(x + 370f, y, width - 370f, 32f), $"ESTADO: {role}", _labelStyle);
             y += 44f;
+
+            // Esta sala es la que usan -host y -code, así que la elección también
+            // vive aquí y no solo en el lobby visual del menú principal.
+            bool sword = CaosLoadout.StartingWeapon == ArenaWeaponKind.Espada;
+            GUI.Label(new Rect(x, y, 120f, 32f), "ARMA INICIAL", _labelStyle);
+            if (GUI.Button(new Rect(x + 120f, y, 160f, 32f),
+                    sword ? "▶ ESPADA RAYO" : "ESPADA RAYO", _buttonStyle))
+                SelectWeapon(ArenaWeaponKind.Espada);
+            if (GUI.Button(new Rect(x + 288f, y, 160f, 32f),
+                    sword ? "PISTOLA" : "▶ PISTOLA", _buttonStyle))
+                SelectWeapon(ArenaWeaponKind.Pistola);
+            GUI.Label(new Rect(x + 456f, y, width - 456f, 32f), "Z / X", _smallStyle);
+            y += 40f;
 
             if (GUI.Button(new Rect(x, y, 200f, 42f), "CREAR SALA", _buttonStyle)) CreateRoom();
 

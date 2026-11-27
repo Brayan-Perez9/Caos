@@ -105,7 +105,14 @@ namespace Caos.Player
         readonly LegRig[] _legRigs = new LegRig[2];
         readonly Transform[] _shoulders = new Transform[2];
         readonly Transform[] _elbows = new Transform[2];
+        // _hands apunta a la muñeca: los dedos cuelgan de ella y el arma también.
         readonly Transform[] _hands = new Transform[2];
+        readonly Transform[][] _fingerKnuckles = new Transform[2][];
+        readonly Transform[][] _fingerTips = new Transform[2][];
+        readonly Transform[] _thumbs = new Transform[2];
+        readonly Transform[] _toes = new Transform[2];
+        readonly float[] _handCurl = new float[2];
+        readonly float[] _toeCurl = new float[2];
         Transform _gunRoot;
         readonly Transform[] _weaponVariants = new Transform[4];
         ArenaWeaponKind _weaponKind = ArenaWeaponKind.Pistola;
@@ -123,6 +130,9 @@ namespace Caos.Player
         float _fireHold;
         float _fireRecoil;
         bool _firePoseLogged;
+        float _reloadBlend;
+        bool _reloadLogged;
+        bool _flexLogged;
         bool _wasGrounded = true;
 
         PlayerController _controller;
@@ -226,6 +236,22 @@ namespace Caos.Player
         }
 
         /// <summary>
+        /// Recarga: el arma baja un instante, los dedos manipulan el cargador y
+        /// el antebrazo vuelve a la pose de tiro. Es solo visual; la munición la
+        /// lleva el director de combate para no tocar el payload de red.
+        /// </summary>
+        public void NotifyReload()
+        {
+            if (netRemote || _weaponKind == ArenaWeaponKind.Espada) return;
+            _reloadBlend = 1f;
+            if (!_reloadLogged)
+            {
+                Debug.Log("[Caos] Recarga: manos flexionadas sobre el cargador");
+                _reloadLogged = true;
+            }
+        }
+
+        /// <summary>
         /// Cuerpo estándar: pelaje blanco de panda. Los trajes y atuendos se
         /// montan encima de este cuerpo; ninguno cambia la especie base.
         /// </summary>
@@ -250,6 +276,15 @@ namespace Caos.Player
             LoadEquippedSkin();
             CreateOutfitRoot();
             RebuildOutfit();
+
+            // El director de arena puede despertar antes que el avatar local.
+            // Aquí se garantiza que el arma inicial elegida llegue a la mano.
+            if (!netRemote)
+            {
+                var arena = FindFirstObjectByType<ArenaDirector>();
+                if (arena != null && arena.HasWeapon)
+                    SetWeaponVisible(arena.Weapon, arena.Element);
+            }
         }
 
         void OnDestroy()
@@ -289,6 +324,7 @@ namespace Caos.Player
             _fireHold = Mathf.MoveTowards(_fireHold, 0f, dt * 1.6f);
             _fireRecoil = Mathf.MoveTowards(_fireRecoil, 0f, dt * 6f);
             _meleeSwing = Mathf.MoveTowards(_meleeSwing, 0f, dt * 2.6f);
+            _reloadBlend = Mathf.MoveTowards(_reloadBlend, 0f, dt * 1.35f);
 
             AnimateLimbs(dt, speed, verticalSpeed, grounded);
             AnimateSoftParts(dt, acceleration, speed);
@@ -369,6 +405,9 @@ namespace Caos.Player
             // espada se empuña con una mano y traza un arco al golpear.
             float hold = Mathf.Clamp01(Mathf.Max(fire,
                 _weaponVisible ? (sword ? 0.45f : 0.62f) : 0f));
+            float reload = _reloadBlend;
+            // Un único arco durante la recarga: baja el arma y vuelve a subir.
+            float reloadArc = Mathf.Sin((1f - reload) * Mathf.PI) * reload;
 
             float ascend = Mathf.Clamp01(verticalSpeed / 5f);
             float descend = Mathf.Clamp01(-verticalSpeed / 7f);
@@ -401,6 +440,18 @@ namespace Caos.Player
                 rig.knee.localRotation = Quaternion.Euler(kneeAngle, 0f, 0f);
                 rig.ankle.localRotation = Quaternion.Euler(footAngle, 0f, 0f);
 
+                // Punta del pie con articulación propia: se dobla al despegar
+                // y se estira al aterrizar, en vez de oscilar como un bloque.
+                var toe = _toes[i];
+                if (toe != null)
+                {
+                    float toeTarget = Mathf.Max(0f, Mathf.Sin(phase + 0.9f)) * 30f * walk
+                        + _landImpulse * 16f;
+                    _toeCurl[i] = Mathf.MoveTowards(_toeCurl[i], toeTarget, dt * 11f);
+                    float toeAngle = -footAngle * 0.28f - _toeCurl[i] + rollTuck * 40f;
+                    toe.localRotation = Quaternion.Euler(toeAngle, 0f, 0f);
+                }
+
                 var shoulder = _shoulders[i];
                 if (shoulder == null) continue;
 
@@ -412,6 +463,11 @@ namespace Caos.Player
                     ? Mathf.Sin((1f - _meleeSwing) * Mathf.PI) * 62f * _meleeSwing
                     : 0f;
                 armAngle = Mathf.Lerp(armAngle, -58f - _fireRecoil * 14f + swingArc, hold);
+                // La mano izquierda baja al cargador mientras recarga.
+                if (i == 0 && reload > 0f)
+                    armAngle = Mathf.Lerp(armAngle,
+                        -18f + Mathf.Sin((1f - reload) * Mathf.PI * 6f) * 9f,
+                        reload * 0.85f);
                 armAngle = Mathf.Lerp(armAngle, 70f, rollTuck);
                 float armRoll = side * (4f + 6f * Mathf.Abs(Mathf.Sin(phase))
                     * walk * (1f - air)) * (1f - hold);
@@ -427,14 +483,58 @@ namespace Caos.Player
                 {
                     float elbowAngle = Mathf.Lerp(12f, -32f, hold)
                         - _fireRecoil * 14f + rollTuck * 85f;
+                    if (i == 0 && reload > 0f)
+                        elbowAngle = Mathf.Lerp(elbowAngle, -52f, reload * 0.7f);
                     elbow.localRotation = Quaternion.Euler(elbowAngle, 0f, 0f);
                 }
+
                 var hand = _hands[i];
                 if (hand != null)
-                    hand.localRotation = Quaternion.Euler(
-                        -swing * side * 0.4f * (1f - hold), 0f,
-                        (i == 0 ? 6f : -6f) * hold);
+                {
+                    // Muñeca: acompaña la marcha con un giro corto. El flex real
+                    // lo hacen las falanges de abajo, no esta rotación.
+                    float wristPitch = Mathf.Sin(phase) * 9f * walk * (1f - hold)
+                        + Mathf.Sin(Time.time * 1.7f + i) * 2f * idle;
+                    float wristRoll = (i == 0 ? 6f : -6f) * hold;
+                    hand.localRotation = Quaternion.Euler(wristPitch, 0f, wristRoll);
+                }
+
+                // Dedos con nudillo y punta: se cierran al caminar, aprietan la
+                // empuñadura con arma y tusonean el cargador al recargar.
+                float curl = 0.16f + 0.62f * Mathf.Abs(Mathf.Sin(phase)) * walk
+                    + 0.22f * walk;
+                if (hold > 0f) curl = Mathf.Max(curl, 0.5f + 0.3f * hold);
+                if (i == 0 && reload > 0f)
+                    curl += Mathf.Sin((1f - reload) * Mathf.PI * 5f) * 0.32f * reload;
+                _handCurl[i] = Mathf.MoveTowards(_handCurl[i], Mathf.Clamp01(curl), dt * 9f);
+
+                var knuckles = _fingerKnuckles[i];
+                var tips = _fingerTips[i];
+                if (knuckles != null && tips != null)
+                {
+                    float knuckleAngle = 8f + _handCurl[i] * 52f;
+                    for (int f = 0; f < knuckles.Length; f++)
+                    {
+                        if (knuckles[f] == null || tips[f] == null) continue;
+                        knuckles[f].localRotation = Quaternion.Euler(knuckleAngle, 0f,
+                            side * (f - 1.5f) * 3f);
+                        tips[f].localRotation = Quaternion.Euler(knuckleAngle * 0.8f, 0f, 0f);
+                    }
+                }
+                if (_thumbs[i] != null)
+                    _thumbs[i].localRotation = Quaternion.Euler(
+                        -18f - _handCurl[i] * 22f, 0f, -side * 12f);
             }
+
+            if (!_flexLogged && walk > 0.35f)
+            {
+                Debug.Log($"[Caos] Marcha articulada: dedos curva={_handCurl[1]:0.00} " +
+                          $"punta de pie={_toeCurl[1]:0.0}°");
+                _flexLogged = true;
+            }
+
+            if (_gunRoot != null)
+                _gunRoot.localRotation = Quaternion.Euler(reloadArc * 26f, 0f, 0f);
         }
 
         /// <summary>
@@ -1335,10 +1435,17 @@ namespace Caos.Player
                 _shoulders[i] = null;
                 _elbows[i] = null;
                 _hands[i] = null;
+                _fingerKnuckles[i] = null;
+                _fingerTips[i] = null;
+                _thumbs[i] = null;
+                _toes[i] = null;
+                _handCurl[i] = 0f;
+                _toeCurl[i] = 0f;
             }
             _gunRoot = null;
             for (int i = 0; i < _weaponVariants.Length; i++) _weaponVariants[i] = null;
             _meleeSwing = 0f;
+            _reloadBlend = 0f;
             _bellyOffset = Vector3.zero;
             _bellyVelocity = Vector3.zero;
 
@@ -1395,7 +1502,7 @@ namespace Caos.Player
             Debug.Log("[Caos] Outfit ready: pieces=" + _outfitRoot.childCount +
                 " deform=" + _deformMeshes.Count + " jiggle=" + _jiggleParts.Count +
                 " build=" + _buildIndex + " costume=" + _costumeIndex +
-                " bulge=" + _bellyBulge + " panda=1");
+                " bulge=" + _bellyBulge + " panda=1 manos=4dedos puntas=2");
         }
 
         static Shader _litShader;
@@ -1457,6 +1564,31 @@ namespace Caos.Player
             if (collider != null) Destroy(collider);
             piece.GetComponent<Renderer>().sharedMaterial =
                 MakeMaterial(color, smoothness, metallic);
+            return piece;
+        }
+
+        /// <summary>
+        /// Pieza construida en coordenadas locales de un pivote. Registra el
+        /// material para que el cambio de atuendo no deje materiales huérfanos.
+        /// </summary>
+        GameObject PivotPiece(PrimitiveType type, string name, Transform parent,
+            Vector3 localPosition, Vector3 localScale, Color color, bool flesh = false,
+            Quaternion? rotation = null, float smoothness = 0.3f)
+        {
+            var piece = GameObject.CreatePrimitive(type);
+            piece.name = name;
+            piece.transform.SetParent(parent, false);
+            piece.transform.localPosition = localPosition;
+            piece.transform.localScale = localScale;
+            if (rotation.HasValue) piece.transform.localRotation = rotation.Value;
+
+            var collider = piece.GetComponent<Collider>();
+            if (collider != null) Destroy(collider);
+
+            var material = MakeMaterial(color, smoothness);
+            _outfitMaterials.Add(material);
+            if (flesh) _fleshMaterials.Add(material);
+            piece.GetComponent<Renderer>().sharedMaterial = material;
             return piece;
         }
 
@@ -1773,17 +1905,30 @@ namespace Caos.Player
 
             for (int side = -1; side <= 1; side += 2)
             {
-                var ankle = _legRigs[side < 0 ? 0 : 1].ankle;
+                int i = side < 0 ? 0 : 1;
+                var ankle = _legRigs[i].ankle;
 
+                // Zapato partido en talón y punta: la punta cuelga de su propio
+                // pivote para flexionar al caminar en lugar de girar en bloque.
                 var shoe = Piece(PrimitiveType.Cube, "Shoe",
-                    new Vector3(side * spread, 0.10f, 0.13f),
-                    new Vector3(shoeWidth, 0.14f, 0.36f), shoeColor);
+                    new Vector3(side * spread, 0.10f, 0.08f),
+                    new Vector3(shoeWidth, 0.14f, 0.28f), shoeColor);
                 AttachToPivot(shoe, ankle, ankleOffset);
 
                 var sole = Piece(PrimitiveType.Cube, "Sole",
-                    new Vector3(side * spread, 0.025f, 0.13f),
-                    new Vector3(shoeWidth * 1.05f, 0.03f, 0.38f), soleColor);
+                    new Vector3(side * spread, 0.025f, 0.08f),
+                    new Vector3(shoeWidth * 1.05f, 0.03f, 0.28f), soleColor);
                 AttachToPivot(sole, ankle, ankleOffset);
+
+                var toe = MakePivot("Toe",
+                    new Vector3(side * spread, 0.10f - AnkleY, 0.22f), ankle);
+                _toes[i] = toe;
+                PivotPiece(PrimitiveType.Cube, "ToeCap", toe,
+                    new Vector3(0f, 0f, 0.055f),
+                    new Vector3(shoeWidth, 0.14f, 0.20f), shoeColor);
+                PivotPiece(PrimitiveType.Cube, "ToeSole", toe,
+                    new Vector3(0f, -0.075f, 0.055f),
+                    new Vector3(shoeWidth * 1.05f, 0.03f, 0.20f), soleColor);
             }
 
             BuildArms();
@@ -1828,12 +1973,46 @@ namespace Caos.Player
                     EffectiveLimbColor, tilt, true, 0.25f);
                 AttachToPivot(forearm, elbow, elbowOffset);
 
-                var hand = Piece(PrimitiveType.Sphere, "Hand",
-                    new Vector3(x, ShoulderY - elbowDrop - lowerLength * 2.55f, 0f),
-                    Vector3.one * radius * 1.15f, EffectiveLimbColor,
-                    null, true, 0.25f);
-                AttachToPivot(hand, elbow, elbowOffset);
-                _hands[i] = hand.transform;
+                // La mano deja de ser una esfera rígida: muñeca, palma, cuatro
+                // dedos con dos falanges y pulgar, todos procedurales.
+                var hand = MakePivot("Wrist",
+                    new Vector3(0f, -lowerLength * 2.55f, 0f), elbow);
+                _hands[i] = hand;
+                PivotPiece(PrimitiveType.Sphere, "Palm", hand, Vector3.zero,
+                    new Vector3(radius * 1.15f, radius * 0.95f, radius * 0.9f),
+                    EffectiveLimbColor, true, null, 0.25f);
+
+                float fingerRadius = radius * 0.23f;
+                var knuckles = new Transform[4];
+                var tips = new Transform[4];
+                for (int f = 0; f < 4; f++)
+                {
+                    float fx = (f - 1.5f) * radius * 0.58f;
+                    var knuckle = MakePivot("FingerKnuckle",
+                        new Vector3(fx, -radius * 0.12f, radius * 0.38f), hand);
+                    knuckles[f] = knuckle;
+                    PivotPiece(PrimitiveType.Capsule, "FingerBase", knuckle,
+                        new Vector3(0f, -0.024f, 0f),
+                        new Vector3(fingerRadius, 0.024f, fingerRadius),
+                        EffectiveLimbColor, true, null, 0.28f);
+
+                    var tip = MakePivot("FingerTip", new Vector3(0f, -0.05f, 0f), knuckle);
+                    tips[f] = tip;
+                    PivotPiece(PrimitiveType.Sphere, "FingerEnd", tip,
+                        new Vector3(0f, -0.012f, 0f),
+                        Vector3.one * fingerRadius * 1.15f,
+                        EffectiveLimbColor, true, null, 0.28f);
+                }
+                _fingerKnuckles[i] = knuckles;
+                _fingerTips[i] = tips;
+
+                var thumb = MakePivot("Thumb",
+                    new Vector3(-side * radius * 0.58f, radius * 0.1f, radius * 0.3f), hand);
+                _thumbs[i] = thumb;
+                PivotPiece(PrimitiveType.Capsule, "ThumbBase", thumb,
+                    new Vector3(0f, -0.022f, 0f),
+                    new Vector3(fingerRadius * 1.1f, 0.022f, fingerRadius * 1.1f),
+                    EffectiveLimbColor, true, Quaternion.Euler(0f, 0f, -side * 28f), 0.25f);
             }
 
             BuildPistol();

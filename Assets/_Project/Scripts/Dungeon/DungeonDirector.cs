@@ -188,7 +188,7 @@ namespace Caos.Dungeon
                 if (reposition) _player.Respawn(_spawnPoint.position);
             }
 
-            _bridge.SetWeapon(room.Definition.weapon, room.Definition.element);
+            _bridge.SetWeapon(room.Definition.weapon, room.Definition.element, index == 0);
             room.Begin();
             Debug.Log($"[Caos] SALA {index + 1}/{_rooms.Length}: {room.Title}");
             ShowBanner($"SALA {index + 1}/{_rooms.Length} — {room.Title}", 2.8f);

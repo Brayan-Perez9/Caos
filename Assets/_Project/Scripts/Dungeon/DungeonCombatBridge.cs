@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Caos.Maps;
 using Caos.Net;
 using Caos.Player;
@@ -14,6 +15,7 @@ namespace Caos.Dungeon
     public class DungeonCombatBridge : MonoBehaviour, IArenaCombatDirector
     {
         static readonly Color BloodColor = new Color(0.58f, 0.02f, 0.03f);
+        const float ReloadSeconds = 0.72f;
         static readonly Dictionary<ArenaElement, Material> BulletMaterials =
             new Dictionary<ArenaElement, Material>();
         static readonly Dictionary<Color, Material> EnemyBulletMaterials =
@@ -40,6 +42,11 @@ namespace Caos.Dungeon
 
         float _nextFire;
         float _nextTrapHit;
+        int _ammo;
+        bool _reloading;
+        bool _reloadLogged;
+        bool _bulletLogged;
+        float _reloadUntil;
 
         public bool CanFire => _director != null && !_director.Finished &&
             !_director.TransitionActive && _player != null && _player.InputEnabled;
@@ -105,13 +112,38 @@ namespace Caos.Dungeon
 
         void Start()
         {
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-sword") >= 0)
+            string[] args = System.Environment.GetCommandLineArgs();
+            if (System.Array.IndexOf(args, "-sword") >= 0)
             {
                 weapon = ArenaWeaponKind.Espada;
                 element = ArenaElement.Rayo;
                 Debug.Log("[Caos] Espada eléctrica en mazmorra (-sword)");
             }
+            else if (System.Array.IndexOf(args, "-pistol") >= 0)
+            {
+                weapon = ArenaWeaponKind.Pistola;
+                element = ArenaElement.Normal;
+            }
+            else
+            {
+                weapon = CaosLoadout.StartingWeapon;
+                element = CaosLoadout.StartingElement;
+            }
+            _ammo = Magazine();
+            _reloading = false;
             CharacterCustomization.Instance?.SetWeaponVisible(weapon, element);
+        }
+
+        void Update()
+        {
+            if (_reloading && Time.time >= _reloadUntil)
+            {
+                _reloading = false;
+                _ammo = Magazine();
+            }
+
+            if (Keyboard.current != null && Keyboard.current.rKey.wasPressedThisFrame && CanFire)
+                Reload();
         }
 
         public void Configure(DungeonDirector director, PlayerController player,
@@ -123,21 +155,46 @@ namespace Caos.Dungeon
             _state = state;
         }
 
-        public void SetWeapon(ArenaWeaponKind kind, ArenaElement newElement)
+        /// <summary>
+        /// Cambia de arma al entrar en una sala. La primera respeta la elección
+        /// del lobby; las demás siguen equipando la arma propia de cada reto.
+        /// </summary>
+        public void SetWeapon(ArenaWeaponKind kind, ArenaElement newElement,
+            bool useStartLoadout = false)
         {
-            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-sword") >= 0)
+            string[] args = System.Environment.GetCommandLineArgs();
+            if (System.Array.IndexOf(args, "-sword") >= 0)
             {
                 kind = ArenaWeaponKind.Espada;
                 newElement = ArenaElement.Rayo;
             }
+            else if (System.Array.IndexOf(args, "-pistol") >= 0)
+            {
+                kind = ArenaWeaponKind.Pistola;
+                newElement = ArenaElement.Normal;
+            }
+            else if (useStartLoadout)
+            {
+                kind = CaosLoadout.StartingWeapon;
+                newElement = CaosLoadout.StartingElement;
+            }
+
             weapon = kind;
             element = newElement;
             _nextFire = Time.time + 0.12f;
+            _ammo = Magazine();
+            _reloading = false;
             CharacterCustomization.Instance?.SetWeaponVisible(kind, newElement);
         }
 
         /// <summary>Arma realmente equipada, para que el HUD no muestre la de la sala.</summary>
         public ArenaWeaponKind Weapon => weapon;
+
+        public int Ammo => _ammo;
+        public int MagazineSize => Magazine();
+        public bool Reloading => _reloading;
+        public float ReloadProgress => _reloading
+            ? Mathf.Clamp01(1f - (_reloadUntil - Time.time) / ReloadSeconds) : 0f;
 
         bool IArenaCombatDirector.Finished => _director != null && _director.Finished;
 
@@ -155,6 +212,13 @@ namespace Caos.Dungeon
             }
 
             if (Time.time < _nextFire) return;
+            if (_reloading) return;
+            if (_ammo <= 0)
+            {
+                Reload();
+                return;
+            }
+            _ammo--;
 
             float interval = fireInterval;
             if (element == ArenaElement.Aire) interval *= 0.82f;
@@ -188,6 +252,39 @@ namespace Caos.Dungeon
             ArenaAudio.Play(ArenaAudio.Sound.Shoot, origin, weapon == ArenaWeaponKind.Escopeta ? 0.6f : 0.4f);
             CharacterCustomization.Instance?.NotifyShot();
             ArenaJuice.Current.AddTrauma(weapon == ArenaWeaponKind.Escopeta ? 0.08f : 0.04f);
+        }
+
+        /// <summary>Recarga de la mazmorra: balas contadas y manos en el cargador.</summary>
+        void Reload()
+        {
+            if (weapon == ArenaWeaponKind.Espada || _reloading || _ammo >= Magazine()) return;
+
+            _reloading = true;
+            _reloadUntil = Time.time + ReloadSeconds;
+            Vector3 at = _player != null
+                ? _player.transform.position + Vector3.up * 1.2f
+                : transform.position;
+
+            CharacterCustomization.Instance?.NotifyReload();
+            ArenaAudio.Play(ArenaAudio.Sound.Upgrade, at, 0.35f);
+            ChaosFx.Burst(at, ElementColor, 8);
+            ArenaJuice.Current.Pickup(at);
+
+            if (!_reloadLogged)
+            {
+                Debug.Log($"[Caos] Recarga en mazmorra de {weapon}: {_ammo}/{Magazine()} balas, " +
+                          "dedos flexionados sobre el cargador");
+                _reloadLogged = true;
+            }
+        }
+
+        /// <summary>Cargador de cada arma; la espada no consume balas.</summary>
+        int Magazine()
+        {
+            if (weapon == ArenaWeaponKind.Escopeta) return 6;
+            if (weapon == ArenaWeaponKind.Rifle) return 30;
+            if (weapon == ArenaWeaponKind.Espada) return 0;
+            return 12;
         }
 
         /// <summary>Golpe eléctrico cuerpo a cuerpo de la espada, sin balas.</summary>
@@ -262,6 +359,12 @@ namespace Caos.Dungeon
             var projectile = shot.AddComponent<ArenaProjectile>();
             projectile.Configure((IArenaCombatDirector)this, direction, speed, damage, bulletElement);
             NetPlayers?.NotifyShot(origin, direction, speed, damage, bulletElement);
+            if (!_bulletLogged)
+            {
+                Debug.Log($"[Caos] Bala visible (mazmorra): {shot.name} · {weapon} · " +
+                          $"{bulletElement} · cargador {_ammo}/{Magazine()}");
+                _bulletLogged = true;
+            }
             Track(shot, 3.2f);
         }
 
