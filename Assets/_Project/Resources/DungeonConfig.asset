@@ -20,7 +20,7 @@ MonoBehaviour:
   eliteWaveCount: 1
   bossAdds: 3
   bossAddInterval: 5.5
-  superBossHealth: 1500
+  superBossHealth: 2100
   superBossSpeed: 3.2
   superBossDamage: 34
   rooms:
@@ -34,7 +34,7 @@ MonoBehaviour:
     weapon: 0
     element: 0
     bossKind: 0
-    bossHealth: 900
+    bossHealth: 1250
     bossSpeed: 2.8
     bossDamage: 26
   - kind: 1
@@ -47,7 +47,7 @@ MonoBehaviour:
     weapon: 0
     element: 0
     bossKind: 0
-    bossHealth: 900
+    bossHealth: 1250
     bossSpeed: 2.8
     bossDamage: 26
   - kind: 2
@@ -60,7 +60,7 @@ MonoBehaviour:
     weapon: 1
     element: 1
     bossKind: 0
-    bossHealth: 900
+    bossHealth: 1250
     bossSpeed: 2.8
     bossDamage: 26
   - kind: 3
@@ -73,7 +73,7 @@ MonoBehaviour:
     weapon: 2
     element: 2
     bossKind: 0
-    bossHealth: 900
+    bossHealth: 1250
     bossSpeed: 2.8
     bossDamage: 26
   - kind: 4
@@ -86,7 +86,7 @@ MonoBehaviour:
     weapon: 1
     element: 4
     bossKind: 0
-    bossHealth: 900
+    bossHealth: 1250
     bossSpeed: 2.8
     bossDamage: 26
   - kind: 5
@@ -99,7 +99,7 @@ MonoBehaviour:
     weapon: 0
     element: 0
     bossKind: 0
-    bossHealth: 900
+    bossHealth: 1250
     bossSpeed: 2.8
     bossDamage: 26
   - kind: 6
@@ -112,7 +112,7 @@ MonoBehaviour:
     weapon: 2
     element: 1
     bossKind: 2
-    bossHealth: 900
+    bossHealth: 1250
     bossSpeed: 2.8
     bossDamage: 26
   relics:

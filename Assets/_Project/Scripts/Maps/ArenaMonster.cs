@@ -20,6 +20,8 @@ namespace Caos.Maps
         static readonly Color LegColor = new Color(0.28f, 0.05f, 0.08f);
         static readonly Color EyeColor = new Color(1f, 0.86f, 0.25f);
 
+        const float SpineY = 0.22f;
+
         [SerializeField] float moveSpeed = 4.8f;
         [SerializeField] float hitDamage = 14f;
         [SerializeField] float attackCooldown = 0.85f;
@@ -33,6 +35,10 @@ namespace Caos.Maps
 
         Transform _head;
         Transform _torso;
+        Transform _spine;
+        float _headLocalY;
+        int _shape;
+        Color _accent = new Color(0.84f, 0.16f, 0.20f);
         Transform[] _legs;
         Transform[] _arms;
         Transform[] _feet;
@@ -78,6 +84,34 @@ namespace Caos.Maps
             _director = director;
         }
 
+        /// <summary>Sobrecarga visual con la firma antigua intacta.</summary>
+        public void Configure(float speed, float damage, IArenaCombatDirector director,
+            int shape, Color accent)
+        {
+            Configure(speed, damage, director);
+            SetVisualShape(shape, accent);
+        }
+
+        /// <summary>Sobrecarga visual para la arena.</summary>
+        public void Configure(float speed, float damage, ArenaDirector director,
+            int shape, Color accent)
+        {
+            Configure(speed, damage, director);
+            SetVisualShape(shape, accent);
+        }
+
+        /// <summary>
+        /// Perfil visual opcional: 0 clásico, 1 tanque, 2 lanzador alto y
+        /// 3 bestia. Solo cambia mallas y colores; el CharacterController,
+        /// el combate y la red quedan intactos. Se llama antes de Start.
+        /// </summary>
+        public void SetVisualShape(int shape, Color accent)
+        {
+            _shape = Mathf.Clamp(shape, 0, 3);
+            _accent = accent;
+            if (_built) return; // la forma ya se aplicó al construirse
+        }
+
         void Awake()
         {
             _health = GetComponent<ChaosHealth>();
@@ -115,40 +149,93 @@ namespace Caos.Maps
             if (rootRenderer != null) rootRenderer.enabled = false;
 
             int seed = Mathf.Abs(transform.GetInstanceID()) % 5;
-            Color shadow = Color.Lerp(BodyColor, new Color(0.07f, 0.11f, 0.19f), 0.55f);
-            Color rim = new Color(0.58f, 0.92f, 1f, 1f);
+            float accentMix = _shape == 0 ? 0f : 0.3f;
+            Color bodyColor = Color.Lerp(BodyColor, _accent, accentMix);
+            Color headColor = Color.Lerp(HeadColor, _accent, accentMix * 0.8f);
+            Color limbColor = Color.Lerp(LegColor, _accent, accentMix * 0.55f);
+            Color armColor = Color.Lerp(ArmColor, _accent, accentMix * 0.7f);
+            Color bellyColor = Color.Lerp(HeadColor, Color.white, 0.28f);
+            Color shadow = Color.Lerp(bodyColor, new Color(0.07f, 0.11f, 0.19f), 0.55f);
+            Color rim = Color.Lerp(_accent, new Color(0.58f, 0.92f, 1f), 0.45f);
 
-            Material bodyMat = ArenaCreatureKit.Toon(BodyColor, shadow, rim, 0.18f, 0.22f);
-            Material headMat = ArenaCreatureKit.Toon(HeadColor,
-                Color.Lerp(HeadColor, shadow, 0.45f), rim, 0.24f, 0.26f);
-            Material limbMat = ArenaCreatureKit.Toon(LegColor,
-                Color.Lerp(LegColor, shadow, 0.4f), rim, 0.16f, 0.2f);
-            Material armMat = ArenaCreatureKit.Toon(ArmColor,
-                Color.Lerp(ArmColor, shadow, 0.4f), rim, 0.16f, 0.2f);
-            Material bellyMat = ArenaCreatureKit.Toon(Color.Lerp(HeadColor, Color.white, 0.28f),
-                Color.Lerp(HeadColor, shadow, 0.35f), rim, 0.2f, 0.24f);
+            Material bodyMat = ArenaCreatureKit.Toon(bodyColor, shadow, rim, 0.18f, 0.22f);
+            Material headMat = ArenaCreatureKit.Toon(headColor,
+                Color.Lerp(headColor, shadow, 0.45f), rim, 0.24f, 0.26f);
+            Material limbMat = ArenaCreatureKit.Toon(limbColor,
+                Color.Lerp(limbColor, shadow, 0.4f), rim, 0.16f, 0.2f);
+            Material armMat = ArenaCreatureKit.Toon(armColor,
+                Color.Lerp(armColor, shadow, 0.4f), rim, 0.16f, 0.2f);
+            Material bellyMat = ArenaCreatureKit.Toon(bellyColor,
+                Color.Lerp(headColor, shadow, 0.35f), rim, 0.2f, 0.24f);
             Material eyeMat = ArenaCreatureKit.Toon(EyeColor,
                 Color.Lerp(EyeColor, Color.black, 0.35f), new Color(1f, 0.95f, 0.72f),
                 0.3f, 0.48f, 0.07f);
             Material darkMat = ArenaCreatureKit.Toon(new Color(0.10f, 0.07f, 0.14f),
                 new Color(0.04f, 0.03f, 0.07f), new Color(0.7f, 0.8f, 1f), 0.12f, 0.14f);
-            Material hornMat = ArenaCreatureKit.Toon(new Color(0.96f, 0.78f, 0.35f),
+            Material hornMat = ArenaCreatureKit.Toon(
+                Color.Lerp(new Color(0.96f, 0.78f, 0.35f), _accent, 0.35f),
                 new Color(0.42f, 0.28f, 0.12f), new Color(1f, 0.9f, 0.6f), 0.26f, 0.3f);
 
-            _torso = ArenaCreatureKit.Make(transform, "Torso",
+            // Pivote de columna: torso, panza, cabeza y brazos se balancean
+            // juntos con una flexión suave; las piernas siguen ancladas al suelo.
+            _spine = new GameObject("SpinePivot").transform;
+            _spine.SetParent(transform, false);
+            _spine.localPosition = new Vector3(0f, SpineY, 0f);
+
+            Vector3 torsoScale = Vector3.one * 1.12f;
+            Vector3 headScale = Vector3.one;
+            float headY = headHeight;
+            float hornLength = 0.3f;
+            float tailLength = 0.52f;
+            float armRadius = 0.085f;
+            float armLength = 0.5f;
+            if (_shape == 1)
+            {
+                torsoScale = new Vector3(1.55f, 0.86f, 1.3f);
+                headScale = new Vector3(1.16f, 0.9f, 1.08f);
+                headY = 0.92f;
+                hornLength = 0.42f;
+                tailLength = 0.32f;
+                armRadius = 0.12f;
+                armLength = 0.46f;
+            }
+            else if (_shape == 2)
+            {
+                torsoScale = new Vector3(0.82f, 1.5f, 0.82f);
+                headScale = new Vector3(0.84f, 1.22f, 0.84f);
+                headY = 1.2f;
+                hornLength = 0.5f;
+                tailLength = 0.7f;
+                armRadius = 0.072f;
+                armLength = 0.62f;
+            }
+            else if (_shape == 3)
+            {
+                torsoScale = new Vector3(1.4f, 1.04f, 1.4f);
+                headScale = new Vector3(1.22f, 0.9f, 1.25f);
+                headY = 0.9f;
+                hornLength = 0.24f;
+                tailLength = 0.4f;
+                armRadius = 0.1f;
+                armLength = 0.44f;
+            }
+            _headLocalY = headY - SpineY;
+
+            _torso = ArenaCreatureKit.Make(_spine, "Torso",
                 CaosVisualKit.OrganicCrown(0.66f, 10 + seed, 0.86f), bodyMat,
-                new Vector3(0f, 0.22f, 0f), Vector3.one * 1.12f, Quaternion.identity,
-                parts, colors, BodyColor);
+                new Vector3(0f, 0.22f - SpineY, 0f), torsoScale, Quaternion.identity,
+                parts, colors, bodyColor);
 
-            ArenaCreatureKit.Make(transform, "Belly",
+            ArenaCreatureKit.Make(_spine, "Belly",
                 CaosVisualKit.OrganicCrown(0.34f, 20 + seed, 0.9f), bellyMat,
-                new Vector3(0f, 0.16f, 0.66f), new Vector3(1.05f, 1f, 0.24f),
-                Quaternion.identity, parts, colors, Color.Lerp(HeadColor, Color.white, 0.28f));
+                new Vector3(0f, 0.16f - SpineY, 0.66f * torsoScale.z),
+                new Vector3(torsoScale.x * 0.94f, 1f, 0.24f),
+                Quaternion.identity, parts, colors, bellyColor);
 
-            _head = ArenaCreatureKit.Make(transform, "Head",
+            _head = ArenaCreatureKit.Make(_spine, "Head",
                 CaosVisualKit.OrganicCrown(0.42f, 30 + seed, 0.86f), headMat,
-                new Vector3(0f, headHeight, 0.08f), Vector3.one, Quaternion.identity,
-                parts, colors, HeadColor);
+                new Vector3(0f, _headLocalY, 0.08f), headScale, Quaternion.identity,
+                parts, colors, headColor);
 
             _eyes = new Transform[2];
             _brows = new Transform[2];
@@ -173,15 +260,38 @@ namespace Caos.Maps
                     Quaternion.Euler(0f, 0f, side * 14f), parts, colors,
                     new Color(0.10f, 0.07f, 0.14f));
 
+                Vector3 hornPosition = _shape == 2
+                    ? new Vector3(side * 0.14f, 0.4f, -0.04f)
+                    : new Vector3(side * 0.28f, 0.32f, -0.02f);
+                float hornLean = _shape == 3 ? -34f : -18f;
                 ArenaCreatureKit.Make(_head, "Horn_" + i,
-                    CaosVisualKit.TaperedTrunk(0.3f, 0.1f, 0.018f, 0.055f, 60 + seed + i),
-                    hornMat, new Vector3(side * 0.28f, 0.32f, -0.02f), Vector3.one,
-                    Quaternion.Euler(12f, 0f, side * -18f), parts, colors,
-                    new Color(0.96f, 0.78f, 0.35f));
+                    CaosVisualKit.TaperedTrunk(hornLength, 0.1f, 0.018f, 0.055f, 60 + seed + i),
+                    hornMat, hornPosition, Vector3.one,
+                    Quaternion.Euler(_shape == 2 ? -8f : 12f, 0f, side * hornLean),
+                    parts, colors, Color.Lerp(new Color(0.96f, 0.78f, 0.35f), _accent, 0.35f));
+
+                if (_shape == 1)
+                {
+                    // Hombreras anchas: el tanque se reconoce de lejos.
+                    ArenaCreatureKit.Make(_spine, "ShoulderPlate_" + i,
+                        CaosVisualKit.RoundedBox(new Vector3(0.3f, 0.12f, 0.34f), 0.055f, 3),
+                        armMat, new Vector3(side * 0.66f, 0.42f - SpineY, 0.02f), Vector3.one,
+                        Quaternion.Euler(0f, 0f, side * -12f), parts, colors, armColor);
+                }
+                else if (_shape == 2)
+                {
+                    // Cresta cristalina por encima de la cabeza del lanzador.
+                    ArenaCreatureKit.Make(_head, "Crest_" + i,
+                        CaosVisualKit.TaperedTrunk(0.34f, 0.07f, 0.012f, 0.04f, 66 + seed + i),
+                        hornMat, new Vector3(side * 0.09f, 0.3f, -0.12f), Vector3.one,
+                        Quaternion.Euler(-18f, 0f, side * 8f), parts, colors,
+                        Color.Lerp(new Color(0.96f, 0.78f, 0.35f), _accent, 0.35f));
+                }
             }
 
             _mouth = ArenaCreatureKit.Make(_head, "Mouth",
-                CaosVisualKit.RoundedBox(new Vector3(0.24f, 0.05f, 0.045f), 0.022f, 2),
+                CaosVisualKit.RoundedBox(new Vector3(_shape == 3 ? 0.34f : 0.24f, 0.05f, 0.045f),
+                    0.022f, 2),
                 darkMat, new Vector3(0f, -0.13f, 0.39f), Vector3.one, Quaternion.identity,
                 parts, colors, new Color(0.10f, 0.07f, 0.14f));
 
@@ -192,35 +302,39 @@ namespace Caos.Maps
             for (int i = 0; i < 2; i++)
             {
                 float side = i == 0 ? -1f : 1f;
+                float legX = side * (_shape == 1 ? 0.34f : _shape == 3 ? 0.4f : 0.22f);
                 _legs[i] = ArenaCreatureKit.MakeLimb(transform, "LegPivot_" + i,
-                    0.105f, 0.55f, limbMat, new Vector3(side * 0.22f, -0.35f, 0f),
-                    Quaternion.identity, LegColor, parts, colors);
+                    _shape == 1 ? 0.14f : 0.105f, 0.55f, limbMat,
+                    new Vector3(legX, -0.35f, 0f), Quaternion.identity, limbColor, parts, colors);
                 _feet[i] = ArenaCreatureKit.Make(_legs[i], "Foot",
                     CaosVisualKit.OrganicCrown(0.16f, 70 + seed + i, 0.5f), limbMat,
                     new Vector3(0f, -0.54f, 0.06f), new Vector3(1.15f, 0.7f, 1.35f),
-                    Quaternion.identity, parts, colors, LegColor);
+                    Quaternion.identity, parts, colors, limbColor);
 
-                _arms[i] = ArenaCreatureKit.MakeLimb(transform, "ArmPivot_" + i,
-                    0.085f, 0.5f, armMat, new Vector3(side * 0.57f, 0.42f, 0.05f),
-                    Quaternion.Euler(0f, 0f, side * 12f), ArmColor, parts, colors);
+                float armX = side * (_shape == 1 ? 0.76f : _shape == 3 ? 0.64f : 0.57f);
+                _arms[i] = ArenaCreatureKit.MakeLimb(_spine, "ArmPivot_" + i,
+                    armRadius, armLength, armMat,
+                    new Vector3(armX, 0.42f - SpineY, 0.05f),
+                    Quaternion.Euler(0f, 0f, side * 12f), armColor, parts, colors);
                 _hands[i] = ArenaCreatureKit.Make(_arms[i], "Hand",
                     CaosVisualKit.OrganicCrown(0.13f, 80 + seed + i, 0.92f), armMat,
-                    new Vector3(0f, -0.5f, 0f), Vector3.one, Quaternion.identity,
-                    parts, colors, ArmColor);
+                    new Vector3(0f, -armLength, 0f), Vector3.one, Quaternion.identity,
+                    parts, colors, armColor);
             }
 
             _tail = new GameObject("TailPivot").transform;
             _tail.SetParent(transform, false);
-            _tail.localPosition = new Vector3(0f, 0.06f, -0.52f);
+            _tail.localPosition = new Vector3(0f, 0.06f, -0.52f * torsoScale.z);
             _tail.localRotation = Quaternion.Euler(-90f, 0f, 0f);
             ArenaCreatureKit.Make(_tail, "Tail",
-                CaosVisualKit.TaperedTrunk(0.52f, 0.12f, 0.02f, 0.09f, 90 + seed),
+                CaosVisualKit.TaperedTrunk(tailLength, _shape == 3 ? 0.16f : 0.12f,
+                    0.02f, _shape == 3 ? 0.11f : 0.09f, 90 + seed),
                 bodyMat, Vector3.zero, Vector3.one, Quaternion.identity,
-                parts, colors, BodyColor);
+                parts, colors, bodyColor);
             ArenaCreatureKit.Make(_tail, "TailTip",
                 CaosVisualKit.OrganicCrown(0.11f, 95 + seed, 0.9f), hornMat,
-                new Vector3(0f, 0.52f, 0f), Vector3.one, Quaternion.identity,
-                parts, colors, new Color(0.96f, 0.78f, 0.35f));
+                new Vector3(0f, tailLength, 0f), Vector3.one, Quaternion.identity,
+                parts, colors, Color.Lerp(new Color(0.96f, 0.78f, 0.35f), _accent, 0.35f));
 
             _renderers = parts.ToArray();
             _baseColors = colors.ToArray();
@@ -322,10 +436,11 @@ namespace Caos.Maps
             _hurtTimer = Mathf.Max(0f, _hurtTimer - Time.unscaledDeltaTime);
 
             bool moving = distance > 0.1f;
+            float motionScale = ArenaJuice.ReduceMotion ? 0.35f : 1f;
             float gait = _visualTime * (moving ? 10.5f : 2.6f);
-            float swing = Mathf.Sin(gait) * (moving ? 28f : 6f);
-            float recoil = _hurtTimer > 0f
-                ? Mathf.Sin((1f - _hurtTimer / 0.18f) * Mathf.PI) : 0f;
+            float swing = Mathf.Sin(gait) * (moving ? 28f : 6f) * motionScale;
+            float recoil = (_hurtTimer > 0f
+                ? Mathf.Sin((1f - _hurtTimer / 0.18f) * Mathf.PI) : 0f) * motionScale;
 
             if (_legs != null)
             {
@@ -352,14 +467,29 @@ namespace Caos.Maps
             if (_head != null)
             {
                 Vector3 headPosition = _head.localPosition;
-                headPosition.y = headHeight + Mathf.Sin(gait * 2f) * 0.045f - recoil * 0.08f;
+                headPosition.y = _headLocalY + Mathf.Sin(gait * 2f) * 0.045f * motionScale
+                    - recoil * 0.08f;
                 _head.localPosition = headPosition;
                 _head.localRotation = Quaternion.Euler(
-                    recoil * 12f, Mathf.Sin(gait * 0.5f) * 10f, Mathf.Sin(gait) * 4f);
+                    recoil * 12f, Mathf.Sin(gait * 0.5f) * 10f * motionScale,
+                    Mathf.Sin(gait) * 4f * motionScale);
+            }
+
+            // La columna se dobla con el paso y se encoge al recibir impacto.
+            if (_spine != null)
+            {
+                float sway = Mathf.Sin(gait * 0.5f);
+                _spine.localRotation = Quaternion.Euler(
+                    -recoil * 8f + Mathf.Sin(gait) * 2.5f * motionScale,
+                    sway * 3f * motionScale,
+                    sway * 5f * motionScale);
+                _spine.localPosition = new Vector3(0f,
+                    SpineY - Mathf.Abs(Mathf.Sin(gait)) * 0.035f * motionScale, 0f);
             }
 
             if (_torso != null)
-                _torso.localRotation = Quaternion.Euler(-recoil * 10f, 0f, Mathf.Sin(gait * 0.5f) * 2.5f);
+                _torso.localRotation = Quaternion.Euler(-recoil * 6f, 0f,
+                    Mathf.Sin(gait * 0.5f) * 2.5f * motionScale);
 
             if (_eyes != null)
             {
@@ -378,7 +508,8 @@ namespace Caos.Maps
             if (_mouth != null)
                 _mouth.localScale = new Vector3(1f, 1f + Mathf.Sin(gait * 1.3f) * 0.22f + recoil * 0.5f, 1f);
             if (_tail != null)
-                _tail.localRotation = Quaternion.Euler(-90f, Mathf.Sin(_visualTime * 3.4f) * 22f, 0f);
+                _tail.localRotation = Quaternion.Euler(-90f,
+                    Mathf.Sin(_visualTime * 3.4f) * 22f * motionScale, 0f);
 
             float breathe = 1f + Mathf.Sin(gait * 0.7f) * (moving ? 0.035f : 0.055f);
             Vector3 juice = ArenaJuice.Active != null

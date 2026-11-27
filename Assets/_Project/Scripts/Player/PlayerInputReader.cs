@@ -28,6 +28,14 @@ namespace Caos.Player
         public bool SprintHeld => _sprint != null && _sprint.IsPressed();
         public bool AttackPressed => _attack != null && _attack.WasPressedThisFrame();
 
+        /// <summary>
+        /// Giro hacia delante. Se lee del teclado con Input System para no añadir
+        /// una acción nueva al asset compartido por todas las escenas (el botón
+        /// oeste del gamepad ya es salto).
+        /// </summary>
+        public bool RollPressed =>
+            Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame;
+
         public void SetActions(InputActionAsset asset)
         {
             if (actions == asset) return;

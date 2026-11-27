@@ -43,6 +43,7 @@ namespace Caos.Player
         Transform _bodyTransform;
         Transform _headTransform;
         Vector3 _headBaseScale;
+        Vector3 _headBasePosition;
         readonly List<Transform> _eyes = new List<Transform>();
         readonly List<Vector3> _eyeBasePositions = new List<Vector3>();
         float _bodyWidth = 1f;
@@ -101,11 +102,17 @@ namespace Caos.Player
 
         readonly LegRig[] _legRigs = new LegRig[2];
         readonly Transform[] _shoulders = new Transform[2];
+        readonly Transform[] _elbows = new Transform[2];
+        readonly Transform[] _hands = new Transform[2];
         float _gaitPhase;
         float _walkBlend;
         float _airBlend;
         float _landImpulse;
         float _lastVerticalSpeed;
+        float _rollBlend;
+        float _fireHold;
+        float _fireRecoil;
+        bool _firePoseLogged;
         bool _wasGrounded = true;
 
         PlayerController _controller;
@@ -119,6 +126,23 @@ namespace Caos.Player
         public int FaceIndex => _faceIndex;
         public int BuildIndex => _buildIndex;
         public int CostumeIndex => _costumeIndex;
+
+        /// <summary>
+        /// Dispara la pose de brazos: hombros hacia delante, codos flexionados y
+        /// un pequeño contrarresto. Lo llaman los directores de combate cuando
+        /// sale una bala real, no cada frame que el botón está pulsado.
+        /// </summary>
+        public void NotifyShot()
+        {
+            if (netRemote) return;
+            _fireRecoil = 1f;
+            _fireHold = 0.34f;
+            if (!_firePoseLogged)
+            {
+                Debug.Log("[Caos] Pose de disparo: brazos flexionados con contrarresto");
+                _firePoseLogged = true;
+            }
+        }
 
         /// <summary>El atuendo completo sustituye el color y la complexión elegidos.</summary>
         Color EffectiveBodyColor
@@ -181,8 +205,51 @@ namespace Caos.Player
                 grounded = _controller.IsGrounded;
             }
 
+            bool rolling = _controller != null && _controller.IsRolling;
+            _rollBlend = Mathf.MoveTowards(_rollBlend, rolling ? 1f : 0f, dt * 14f);
+            _fireHold = Mathf.MoveTowards(_fireHold, 0f, dt * 1.6f);
+            _fireRecoil = Mathf.MoveTowards(_fireRecoil, 0f, dt * 6f);
+
             AnimateLimbs(dt, speed, verticalSpeed, grounded);
             AnimateSoftParts(dt, acceleration, speed);
+            ApplyRollPose();
+        }
+
+        /// <summary>
+        /// Giro completo alrededor de la cadera. Se rota el cuerpo base, la
+        /// cabeza y toda la ropa con el mismo ángulo; desplazamos cada raíz para
+        /// que el pivote sea la cadera y no los pies. Al llegar a 360° la pose
+        /// vuelve a la normal sin petar ni desincronizar al personaje remoto.
+        /// </summary>
+        void ApplyRollPose()
+        {
+            float angle = 0f;
+            if (_controller != null && _controller.IsRolling)
+            {
+                float phase = _controller.RollPhase;
+                float eased = phase * phase * (3f - 2f * phase);
+                angle = 360f * eased;
+            }
+
+            Quaternion rotation = Quaternion.Euler(angle, 0f, 0f);
+            Vector3 pivot = new Vector3(0f, HipY, 0f);
+            Vector3 offset = pivot - rotation * pivot;
+
+            if (_outfitRoot != null)
+            {
+                _outfitRoot.localRotation = rotation;
+                _outfitRoot.localPosition = offset;
+            }
+            if (_bodyTransform != null)
+            {
+                _bodyTransform.localRotation = rotation;
+                _bodyTransform.localPosition = offset;
+            }
+            if (_headTransform != null)
+            {
+                _headTransform.localRotation = rotation;
+                _headTransform.localPosition = pivot + rotation * (_headBasePosition - pivot);
+            }
         }
 
         /// <summary>
@@ -208,11 +275,20 @@ namespace Caos.Player
             _wasGrounded = grounded;
             _lastVerticalSpeed = verticalSpeed;
 
+            // El giro recoge piernas y brazos; el disparo adelanta hombros y
+            // dobla codos. Ninguno de los dos toca el CharacterController.
+            float rollTuck = 0f;
+            if (_controller != null && _controller.IsRolling)
+                rollTuck = _rollBlend * Mathf.Sin(Mathf.PI * _controller.RollPhase);
+            float walk = _walkBlend * (1f - rollTuck);
+            float air = _airBlend * (1f - rollTuck);
+            float fire = Mathf.Clamp01(_fireHold * 1.8f + _fireRecoil * 0.55f);
+
             float ascend = Mathf.Clamp01(verticalSpeed / 5f);
             float descend = Mathf.Clamp01(-verticalSpeed / 7f);
-            float bob = Mathf.Abs(Mathf.Cos(_gaitPhase)) * 0.045f * _walkBlend
+            float bob = Mathf.Abs(Mathf.Cos(_gaitPhase)) * 0.045f * walk
                 - _landImpulse * 0.08f;
-            float idle = _controller == null ? 1f : 1f - _walkBlend;
+            float idle = _controller == null ? 1f : 1f - walk;
 
             for (int i = 0; i < 2; i++)
             {
@@ -220,16 +296,19 @@ namespace Caos.Player
                 float side = i == 0 ? -1f : 1f;
                 float phase = _gaitPhase + (i == 0 ? 0f : Mathf.PI);
 
-                float swing = Mathf.Sin(phase) * 34f * _walkBlend;
-                float kneeWalk = Mathf.Max(0f, Mathf.Sin(phase + 0.7f)) * 52f * _walkBlend;
+                float swing = Mathf.Sin(phase) * 34f * walk;
+                float kneeWalk = Mathf.Max(0f, Mathf.Sin(phase + 0.7f)) * 58f * walk;
+                float idleFlex = 5f * (1f - walk) * (1f - air);
                 float airHip = -10f + side * 6f - 30f * ascend - 14f * descend;
                 float airKnee = 8f + 58f * ascend + 18f * descend;
 
-                float hipAngle = Mathf.Lerp(swing, airHip, _airBlend);
-                float kneeAngle = Mathf.Lerp(kneeWalk, airKnee, _airBlend)
-                    + _landImpulse * 24f;
+                float hipAngle = Mathf.Lerp(swing, airHip, air) - idleFlex * 0.5f;
+                float kneeAngle = Mathf.Lerp(kneeWalk, airKnee, air)
+                    + _landImpulse * 28f + idleFlex;
+                hipAngle = Mathf.Lerp(hipAngle, -78f, rollTuck);
+                kneeAngle = Mathf.Lerp(kneeAngle, 120f, rollTuck);
                 float footAngle = -hipAngle - kneeAngle * 0.75f
-                    + Mathf.Max(0f, swing) * 0.4f * (1f - _airBlend);
+                    + Mathf.Max(0f, swing) * 0.4f * (1f - air);
 
                 rig.hip.localRotation = Quaternion.Euler(hipAngle, 0f, 0f);
                 rig.hip.localPosition = new Vector3(0f, HipY + bob, 0f);
@@ -239,14 +318,28 @@ namespace Caos.Player
                 var shoulder = _shoulders[i];
                 if (shoulder == null) continue;
 
-                float armSwing = -Mathf.Sin(phase) * 38f * _walkBlend;
+                float armSwing = -Mathf.Sin(phase) * 40f * walk;
                 float armAir = -20f - 62f * ascend - 28f * descend;
-                float armAngle = Mathf.Lerp(armSwing, armAir, _airBlend)
-                    + Mathf.Sin(Time.time * 2.2f) * 3f * idle * (1f - _airBlend);
+                float armAngle = Mathf.Lerp(armSwing, armAir, air)
+                    + Mathf.Sin(Time.time * 2.2f) * 3f * idle * (1f - air);
+                armAngle = Mathf.Lerp(armAngle, -58f - _fireRecoil * 14f, fire);
+                armAngle = Mathf.Lerp(armAngle, 70f, rollTuck);
                 float armRoll = side * (4f + 6f * Mathf.Abs(Mathf.Sin(phase))
-                    * _walkBlend * (1f - _airBlend));
+                    * walk * (1f - air)) * (1f - fire);
 
                 shoulder.localRotation = Quaternion.Euler(armAngle, 0f, armRoll);
+
+                var elbow = _elbows[i];
+                if (elbow != null)
+                {
+                    float elbowAngle = Mathf.Lerp(12f, 68f, fire)
+                        - _fireRecoil * 16f + rollTuck * 85f;
+                    elbow.localRotation = Quaternion.Euler(elbowAngle, 0f, 0f);
+                }
+                var hand = _hands[i];
+                if (hand != null)
+                    hand.localRotation = Quaternion.Euler(
+                        -swing * side * 0.4f * (1f - fire), 0f, 0f);
             }
         }
 
@@ -650,6 +743,7 @@ namespace Caos.Player
             if (_headTransform != null)
             {
                 _headBaseScale = _headTransform.localScale;
+                _headBasePosition = _headTransform.localPosition;
                 var headFilter = _headTransform.GetComponent<MeshFilter>();
                 if (headFilter != null) _headBaseMesh = headFilter.sharedMesh;
             }
@@ -1070,6 +1164,8 @@ namespace Caos.Player
             {
                 _legRigs[i] = null;
                 _shoulders[i] = null;
+                _elbows[i] = null;
+                _hands[i] = null;
             }
             _bellyOffset = Vector3.zero;
             _bellyVelocity = Vector3.zero;
@@ -1509,21 +1605,41 @@ namespace Caos.Player
             TorsoRing(1.15f, out float rx, out _, out _);
             bool mega = EffectiveBuild == 3;
             float radius = 0.10f * (0.85f + 0.15f * _bodyWidth);
-            float height = mega ? 0.22f : 0.32f;
+            float upperLength = mega ? 0.11f : 0.12f;
+            float lowerLength = mega ? 0.10f : 0.11f;
+            float elbowDrop = upperLength * 2f;
 
             for (int side = -1; side <= 1; side += 2)
             {
                 int i = side < 0 ? 0 : 1;
                 float x = side * (rx + radius + 0.04f);
+                Quaternion tilt = Quaternion.Euler(0f, 0f, side * 12f);
+
                 var shoulder = MakePivot("Shoulder", new Vector3(x, ShoulderY, 0f), _outfitRoot);
                 _shoulders[i] = shoulder;
+                var elbow = MakePivot("Elbow", new Vector3(0f, -elbowDrop, 0f), shoulder);
+                _elbows[i] = elbow;
+                Vector3 elbowOffset = shoulder.localPosition + new Vector3(0f, -elbowDrop, 0f);
 
-                var arm = Piece(PrimitiveType.Capsule, "Arm",
-                    new Vector3(x, 1.15f, 0f),
-                    new Vector3(radius, height, radius), EffectiveBodyColor,
-                    Quaternion.Euler(0f, 0f, side * 12f), true, 0.25f);
-                AttachToPivot(arm, shoulder, shoulder.localPosition);
-                RegisterJiggle(arm, 0.35f);
+                var upper = Piece(PrimitiveType.Capsule, "ArmUpper",
+                    new Vector3(x, ShoulderY - upperLength, 0f),
+                    new Vector3(radius, upperLength, radius), EffectiveBodyColor,
+                    tilt, true, 0.25f);
+                AttachToPivot(upper, shoulder, shoulder.localPosition);
+                RegisterJiggle(upper, 0.30f);
+
+                var forearm = Piece(PrimitiveType.Capsule, "ArmLower",
+                    new Vector3(x, ShoulderY - elbowDrop - lowerLength, 0f),
+                    new Vector3(radius * 0.92f, lowerLength, radius * 0.92f),
+                    EffectiveBodyColor, tilt, true, 0.25f);
+                AttachToPivot(forearm, elbow, elbowOffset);
+
+                var hand = Piece(PrimitiveType.Sphere, "Hand",
+                    new Vector3(x, ShoulderY - elbowDrop - lowerLength * 2.55f, 0f),
+                    Vector3.one * radius * 1.15f, EffectiveBodyColor,
+                    null, true, 0.25f);
+                AttachToPivot(hand, elbow, elbowOffset);
+                _hands[i] = hand.transform;
             }
         }
 

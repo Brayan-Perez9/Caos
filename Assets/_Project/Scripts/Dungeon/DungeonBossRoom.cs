@@ -51,7 +51,7 @@ namespace Caos.Dungeon
             Vector3 position = Center + Vector3.forward * (Radius * 0.42f);
             ArenaBoss boss = Director.SpawnBoss(position, Definition.bossKind,
                 BossIndex(Definition.bossKind),
-                Mathf.Max(200f, Definition.bossHealth) * scale,
+                Mathf.Max(320f, Definition.bossHealth) * scale,
                 Mathf.Max(1f, Definition.bossSpeed),
                 Mathf.Max(5f, Definition.bossDamage) * scale);
             if (boss != null) _phase = PhaseBoss;

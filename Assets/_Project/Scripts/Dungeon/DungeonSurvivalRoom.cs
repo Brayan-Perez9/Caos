@@ -68,7 +68,7 @@ namespace Caos.Dungeon
         void SpawnOne(DungeonEnemyKind kind)
         {
             float scale = Director.DifficultyScale;
-            float health = 48f * scale;
+            float health = 70f * scale;
             float speed = 3.3f;
             float damage = 13f;
 

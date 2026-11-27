@@ -88,7 +88,7 @@ namespace Caos.Dungeon
                         ? DungeonEnemyKind.Lanzador
                         : DungeonEnemyKind.Normal;
 
-                float health = (46f + _wave * 6f) * scale;
+                float health = (68f + _wave * 9f) * scale;
                 float speed = 3.1f + _wave * 0.12f;
                 float damage = 12f + _wave * 1.5f;
 

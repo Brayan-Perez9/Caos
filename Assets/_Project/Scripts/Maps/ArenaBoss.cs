@@ -17,6 +17,8 @@ namespace Caos.Maps
         static readonly Color HammerColor = new Color(0.42f, 0.44f, 0.48f);
         static readonly Color HandleColor = new Color(0.55f, 0.34f, 0.16f);
 
+        const float SpineY = 0.25f;
+
         [SerializeField] float moveSpeed = 3.1f;
         [SerializeField] float hitDamage = 26f;
         [SerializeField] float slamRadius = 4.3f;
@@ -34,6 +36,11 @@ namespace Caos.Maps
         CharacterController _controller;
         Transform _head;
         Transform _torso;
+        Transform _spine;
+        float _headLocalY;
+        int _silhouette;
+        Color _accentOverride;
+        bool _hasAccentOverride;
         Transform _leftArm;
         Transform _rightArm;
         Transform _hammerPivot;
@@ -110,6 +117,27 @@ namespace Caos.Maps
             _nextPower = Time.time + 1.2f;
         }
 
+        /// <summary>
+        /// Sobrecarga visual: mantiene la firma antigua y añade silueta y color.
+        /// La silueta 1 es el superjefe (más crestas); el color tiña el cuerpo
+        /// sin crear materiales nuevos por instancia.
+        /// </summary>
+        public void Configure(float speed, float damage, IArenaCombatDirector director,
+            ArenaBossKind kind, int index, int silhouette, Color accent)
+        {
+            Configure(speed, damage, director, kind, index);
+            SetVisualShape(silhouette, accent);
+        }
+
+        /// <summary>Perfil visual opcional, aplicado antes de construir la malla.</summary>
+        public void SetVisualShape(int silhouette, Color accent)
+        {
+            _silhouette = Mathf.Clamp(silhouette, 0, 2);
+            _accentOverride = accent;
+            _hasAccentOverride = true;
+            if (_built) return;
+        }
+
         void Awake()
         {
             _health = GetComponent<ChaosHealth>();
@@ -147,6 +175,12 @@ namespace Caos.Maps
             if (rootRenderer != null) rootRenderer.enabled = false;
 
             int kindSeed = (int)_kind * 17 + _bossIndex;
+            if (_hasAccentOverride)
+            {
+                _bodyColor = Color.Lerp(_bodyColor, _accentOverride, 0.32f);
+                _accentColor = Color.Lerp(_accentColor, _accentOverride, 0.55f);
+            }
+            _headLocalY = headHeight - SpineY;
             Color legColor = Color.Lerp(_bodyColor, Color.black, 0.42f);
             Color armColor = Color.Lerp(_bodyColor, _accentColor, 0.38f);
             Color shadow = Color.Lerp(_bodyColor, new Color(0.06f, 0.09f, 0.18f), 0.55f);
@@ -181,23 +215,30 @@ namespace Caos.Maps
             Material handleMat = ArenaCreatureKit.Toon(HandleColor,
                 new Color(0.2f, 0.11f, 0.05f), rim, 0.18f, 0.22f);
 
-            _torso = ArenaCreatureKit.Make(transform, "Torso",
+            // Columna flexible: torso, pecho, cabeza y brazos comparten pivote.
+            // Las piernas y el telegrafo siguen sujetos a la raíz.
+            _spine = new GameObject("SpinePivot").transform;
+            _spine.SetParent(transform, false);
+            _spine.localPosition = new Vector3(0f, SpineY, 0f);
+
+            _torso = ArenaCreatureKit.Make(_spine, "Torso",
                 CaosVisualKit.OrganicCrown(0.9f, 100 + kindSeed, 0.9f), bodyMat,
-                new Vector3(0f, 0.15f, 0f), Vector3.one * 1.14f, Quaternion.identity,
+                new Vector3(0f, 0.15f - SpineY, 0f), Vector3.one * 1.14f, Quaternion.identity,
                 parts, colors, _bodyColor);
-            ArenaCreatureKit.Make(transform, "ChestPlate",
+            ArenaCreatureKit.Make(_spine, "ChestPlate",
                 CaosVisualKit.OrganicCrown(0.44f, 108 + kindSeed, 0.95f), accentMat,
-                new Vector3(0f, 0.28f, 0.86f), new Vector3(1.12f, 1.05f, 0.22f),
+                new Vector3(0f, 0.28f - SpineY, 0.86f), new Vector3(1.12f, 1.05f, 0.22f),
                 Quaternion.identity, parts, colors, _accentColor);
 
-            _head = ArenaCreatureKit.Make(transform, "Head",
+            _head = ArenaCreatureKit.Make(_spine, "Head",
                 CaosVisualKit.OrganicCrown(0.62f, 120 + kindSeed, 0.84f), accentMat,
-                new Vector3(0f, headHeight, 0.12f), Vector3.one, Quaternion.identity,
+                new Vector3(0f, _headLocalY, 0.12f), Vector3.one, Quaternion.identity,
                 parts, colors, _accentColor);
 
             _eyes = new Transform[2];
             _brows = new Transform[2];
-            int hornCount = _kind == ArenaBossKind.Tormenta ? 4 : 2;
+            int hornCount = _silhouette == 1 ? 6
+                : _kind == ArenaBossKind.Tormenta ? 4 : 2;
             _accessories = new Transform[hornCount];
             for (int i = 0; i < 2; i++)
             {
@@ -252,16 +293,16 @@ namespace Caos.Maps
                     Quaternion.identity, parts, colors, legColor);
             }
 
-            _leftArm = ArenaCreatureKit.MakeLimb(transform, "LeftArmPivot",
-                0.13f, 0.75f, armMat, new Vector3(-0.95f, 0.7f, 0.1f),
+            _leftArm = ArenaCreatureKit.MakeLimb(_spine, "LeftArmPivot",
+                0.13f, 0.75f, armMat, new Vector3(-0.95f, 0.7f - SpineY, 0.1f),
                 Quaternion.Euler(0f, 0f, 12f), armColor, parts, colors);
             ArenaCreatureKit.Make(_leftArm, "LeftHand",
                 CaosVisualKit.OrganicCrown(0.19f, 160 + kindSeed, 0.9f), armMat,
                 new Vector3(0f, -0.75f, 0f), Vector3.one, Quaternion.identity,
                 parts, colors, armColor);
 
-            _rightArm = ArenaCreatureKit.MakeLimb(transform, "RightArmPivot",
-                0.13f, 0.75f, armMat, new Vector3(0.95f, 0.7f, 0.1f),
+            _rightArm = ArenaCreatureKit.MakeLimb(_spine, "RightArmPivot",
+                0.13f, 0.75f, armMat, new Vector3(0.95f, 0.7f - SpineY, 0.1f),
                 Quaternion.Euler(0f, 0f, -12f), armColor, parts, colors);
             ArenaCreatureKit.Make(_rightArm, "RightHand",
                 CaosVisualKit.OrganicCrown(0.19f, 161 + kindSeed, 0.9f), armMat,
@@ -418,10 +459,11 @@ namespace Caos.Maps
             _visualTime += Time.unscaledDeltaTime;
             _hurtTimer = Mathf.Max(0f, _hurtTimer - Time.unscaledDeltaTime);
 
+            float motionScale = ArenaJuice.ReduceMotion ? 0.35f : 1f;
             float gait = _visualTime * (6f + _bossIndex);
-            float swing = Mathf.Sin(gait) * 18f;
-            float recoil = _hurtTimer > 0f
-                ? Mathf.Sin((1f - _hurtTimer / 0.18f) * Mathf.PI) : 0f;
+            float swing = Mathf.Sin(gait) * 18f * motionScale;
+            float recoil = (_hurtTimer > 0f
+                ? Mathf.Sin((1f - _hurtTimer / 0.18f) * Mathf.PI) : 0f) * motionScale;
 
             if (_legs != null)
             {
@@ -441,13 +483,29 @@ namespace Caos.Maps
             if (_head != null)
             {
                 Vector3 position = _head.localPosition;
-                position.y = headHeight + Mathf.Sin(gait * 1.6f) * 0.06f - recoil * 0.07f;
+                position.y = _headLocalY + Mathf.Sin(gait * 1.6f) * 0.06f * motionScale
+                    - recoil * 0.07f;
                 _head.localPosition = position;
                 _head.localRotation = Quaternion.Euler(
-                    recoil * 10f, Mathf.Sin(gait * 0.6f) * 12f, Mathf.Sin(gait) * 4f);
+                    recoil * 10f, Mathf.Sin(gait * 0.6f) * 12f * motionScale,
+                    Mathf.Sin(gait) * 4f * motionScale);
             }
+
+            // Flexión de columna: el jefe se balancea y se encoge al golpearlo.
+            if (_spine != null)
+            {
+                float sway = Mathf.Sin(gait * 0.5f);
+                _spine.localRotation = Quaternion.Euler(
+                    -recoil * 7f + Mathf.Sin(gait) * 2f * motionScale,
+                    sway * 3f * motionScale,
+                    sway * 4f * motionScale);
+                _spine.localPosition = new Vector3(0f,
+                    SpineY - Mathf.Abs(Mathf.Sin(gait)) * 0.04f * motionScale, 0f);
+            }
+
             if (_torso != null)
-                _torso.localRotation = Quaternion.Euler(-recoil * 9f, 0f, Mathf.Sin(gait * 0.5f) * 3f);
+                _torso.localRotation = Quaternion.Euler(-recoil * 6f, 0f,
+                    Mathf.Sin(gait * 0.5f) * 3f * motionScale);
 
             if (_eyes != null)
             {

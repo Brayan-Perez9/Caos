@@ -157,6 +157,7 @@ namespace Caos.Dungeon
             }
 
             ArenaAudio.Play(ArenaAudio.Sound.Shoot, origin, weapon == ArenaWeaponKind.Escopeta ? 0.6f : 0.4f);
+            CharacterCustomization.Instance?.NotifyShot();
             ArenaJuice.Current.AddTrauma(weapon == ArenaWeaponKind.Escopeta ? 0.08f : 0.04f);
         }
 
@@ -180,6 +181,13 @@ namespace Caos.Dungeon
         public ArenaMonster SpawnMonster(Vector3 position, float hitPoints,
             float speed, float damage)
         {
+            int shape = Random.Range(0, 4);
+            return SpawnMonster(position, hitPoints, speed, damage, shape, ShapeAccent(shape));
+        }
+
+        ArenaMonster SpawnMonster(Vector3 position, float hitPoints,
+            float speed, float damage, int shape, Color accent)
+        {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             go.name = "DungeonMonster";
             go.transform.position = position;
@@ -190,12 +198,29 @@ namespace Caos.Dungeon
 
             var monster = go.AddComponent<ArenaMonster>();
             monster.Configure(speed, damage, (IArenaCombatDirector)this);
+            monster.SetVisualShape(shape, accent);
             _monsters.Add(monster);
             Track(go, 0f);
 
             ArenaJuice.Current.Spawn(go.transform.position);
             ArenaJuice.Current.Punch(go.transform, 1.2f);
+            Debug.Log($"[Caos] Forma de monstruo: {go.name} tipo={shape} HP={hitPoints:0}");
             return monster;
+        }
+
+        static Color BossAccent(ArenaBossKind kind)
+        {
+            if (kind == ArenaBossKind.Canion) return DungeonPalette.UiCoral;
+            if (kind == ArenaBossKind.Tormenta) return DungeonPalette.UiViolet;
+            return DungeonPalette.UiCyan;
+        }
+
+        static Color ShapeAccent(int shape)
+        {
+            if (shape == 1) return DungeonPalette.UiViolet;
+            if (shape == 2) return DungeonPalette.UiCyan;
+            if (shape == 3) return DungeonPalette.UiCoral;
+            return new Color(0.84f, 0.16f, 0.20f);
         }
 
         /// <summary>
@@ -205,7 +230,30 @@ namespace Caos.Dungeon
         public ArenaMonster SpawnVariant(Vector3 position, DungeonEnemyKind kind,
             float hitPoints, float speed, float damage)
         {
-            ArenaMonster monster = SpawnMonster(position, hitPoints, speed, damage);
+            int shape;
+            Color accent;
+            if (kind == DungeonEnemyKind.Lanzador)
+            {
+                shape = 2;      // alto y estrecho; el rayo sale de una cresta
+                accent = DungeonPalette.UiCyan;
+            }
+            else if (kind == DungeonEnemyKind.Elite)
+            {
+                shape = 1;      // tanque ancho con hombreras
+                accent = DungeonPalette.UiViolet;
+            }
+            else if (kind == DungeonEnemyKind.Superboss)
+            {
+                shape = 1;
+                accent = DungeonPalette.UiCoral;
+            }
+            else
+            {
+                shape = Random.Range(0, 4);
+                accent = ShapeAccent(shape);
+            }
+
+            ArenaMonster monster = SpawnMonster(position, hitPoints, speed, damage, shape, accent);
             if (monster == null) return null;
 
             if (kind == DungeonEnemyKind.Lanzador)
@@ -244,7 +292,8 @@ namespace Caos.Dungeon
             health.Configure(hitPoints, false);
 
             var boss = go.AddComponent<ArenaBoss>();
-            boss.Configure(speed, damage, (IArenaCombatDirector)this, kind, index);
+            boss.Configure(speed, damage, (IArenaCombatDirector)this, kind, index,
+                0, BossAccent(kind));
             _bosses.Add(boss);
             Track(go, 0f);
 
@@ -266,6 +315,7 @@ namespace Caos.Dungeon
 
             boss.name = "DungeonSuperboss_" + kind;
             boss.transform.localScale = new Vector3(1.8f, 1.7f, 1.8f);
+            boss.SetVisualShape(1, DungeonPalette.UiCoral);
             AttachCaster(boss.gameObject, 2.6f, damage * 0.55f, 30f, DungeonPalette.UiCoral);
             ArenaJuice.Current.AddTrauma(0.4f);
             Debug.Log($"[Caos] SUPERJEFE invocado: {kind} HP={hitPoints:0} daño={damage:0}");

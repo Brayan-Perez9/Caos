@@ -23,6 +23,11 @@ namespace Caos.Player
         [SerializeField] float coyoteTime = 0.15f;
         [SerializeField] float jumpBufferTime = 0.15f;
 
+        [Header("Giro hacia delante")]
+        [SerializeField] float rollDuration = 0.58f;
+        [SerializeField] float rollSpeed = 9.5f;
+        [SerializeField] float rollCooldown = 0.85f;
+
         [Header("Cámara y reaparición")]
         [SerializeField] Transform cameraReference;
         [SerializeField] Transform spawnPoint;
@@ -37,9 +42,19 @@ namespace Caos.Player
         float _lastJumpPressedTime = float.NegativeInfinity;
         bool _wasGrounded;
 
+        float _rollTime;
+        float _rollCooldown;
+        Vector3 _rollDirection;
+
         public bool IsGrounded => _controller != null && _controller.isGrounded;
         public Vector3 Velocity => _velocity;
         public float HorizontalSpeed => new Vector2(_velocity.x, _velocity.z).magnitude;
+
+        /// <summary>Estado del giro procedural que lee el atuendo para animar.</summary>
+        public bool IsRolling => _rollTime > 0f;
+        public float RollPhase => rollDuration <= 0f
+            ? 0f : Mathf.Clamp01(1f - _rollTime / rollDuration);
+        public Vector3 RollDirection => _rollDirection;
 
         /// <summary>Modificadores temporales que usan los eventos de las misiones.</summary>
         public float SpeedMultiplier { get; set; } = 1f;
@@ -88,12 +103,16 @@ namespace Caos.Player
             if (InputEnabled && _input.JumpPressed) _lastJumpPressedTime = Time.time;
             if (_controller.isGrounded) _lastGroundedTime = Time.time;
 
+            if (_rollCooldown > 0f) _rollCooldown -= Time.deltaTime;
+            if (InputEnabled && _input.RollPressed) TryStartRoll();
+
             // Flanco de aterrizaje: feedback solo al tocar suelo, no cada frame.
             if (_controller.isGrounded && !_wasGrounded && _velocity.y < -1f)
                 ArenaJuice.Active?.Land(transform.position, -_velocity.y);
             _wasGrounded = _controller.isGrounded;
 
             MoveHorizontally();
+            if (_rollTime > 0f) _rollTime = Mathf.Max(0f, _rollTime - Time.deltaTime);
             ApplyGravityAndJump();
 
             if (InputEnabled && ShoveEnabled && _input.AttackPressed && _pusher != null)
@@ -102,7 +121,8 @@ namespace Caos.Player
             if (transform.position.y < killY) Respawn(GetSpawnPosition());
         }
 
-        void MoveHorizontally()
+        /// <summary>Dirección deseada en el plano horizontal, relativa a la cámara.</summary>
+        Vector3 GetWishDirection()
         {
             Transform cam = cameraReference != null
                 ? cameraReference
@@ -110,11 +130,47 @@ namespace Caos.Player
 
             Vector3 camForward = Vector3.ProjectOnPlane(cam.forward, Vector3.up).normalized;
             Vector3 camRight = Vector3.ProjectOnPlane(cam.right, Vector3.up).normalized;
+            if (camForward.sqrMagnitude < 0.001f) camForward = transform.forward;
+            if (camRight.sqrMagnitude < 0.001f) camRight = transform.right;
 
             Vector2 move = InputEnabled ? _input.Move : Vector2.zero;
             Vector3 wish = camForward * move.y + camRight * move.x;
+            wish.y = 0f;
             if (wish.sqrMagnitude > 1f) wish.Normalize();
+            return wish;
+        }
 
+        void TryStartRoll()
+        {
+            if (_rollTime > 0f || _rollCooldown > 0f || !_controller.isGrounded) return;
+
+            Vector3 wish = GetWishDirection();
+            if (wish.sqrMagnitude < 0.001f) wish = transform.forward;
+            _rollDirection = wish.normalized;
+            _rollTime = rollDuration;
+            _rollCooldown = rollCooldown;
+
+            transform.rotation = Quaternion.LookRotation(_rollDirection, Vector3.up);
+            Debug.Log("[Caos] Giro hacia adelante con Q");
+        }
+
+        void MoveHorizontally()
+        {
+            if (_rollTime > 0f)
+            {
+                // Arco de velocidad: arranca y termina suave, pero recorre más
+                // suelo que una caminada normal. La rotación la manda el giro.
+                float speed = rollSpeed * Mathf.Sin(Mathf.PI * RollPhase);
+                _velocity.x = _rollDirection.x * speed;
+                _velocity.z = _rollDirection.z * speed;
+
+                Quaternion rollRotation = Quaternion.LookRotation(_rollDirection, Vector3.up);
+                float rollBlend = 1f - Mathf.Exp(-24f * Time.deltaTime);
+                transform.rotation = Quaternion.Slerp(transform.rotation, rollRotation, rollBlend);
+                return;
+            }
+
+            Vector3 wish = GetWishDirection();
             float airControl = _controller.isGrounded ? 1f : AirControlMultiplier;
             float targetSpeed = (_input.SprintHeld ? sprintSpeed : walkSpeed)
                 * SpeedMultiplier * airControl;
@@ -140,7 +196,7 @@ namespace Caos.Player
             bool canCoyote = Time.time - _lastGroundedTime <= coyoteTime;
             bool jumpQueued = Time.time - _lastJumpPressedTime <= jumpBufferTime;
 
-            if (canCoyote && jumpQueued)
+            if (!IsRolling && canCoyote && jumpQueued)
             {
                 _velocity.y = Mathf.Sqrt(jumpHeight * -2f * gravity) * JumpMultiplier;
                 _lastJumpPressedTime = float.NegativeInfinity;
@@ -167,6 +223,8 @@ namespace Caos.Player
             _controller.enabled = false;
             transform.position = position;
             _velocity = Vector3.zero;
+            _rollTime = 0f;
+            _rollCooldown = 0f;
             _controller.enabled = true;
         }
     }

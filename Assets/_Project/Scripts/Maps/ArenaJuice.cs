@@ -32,6 +32,9 @@ namespace Caos.Maps
         /// <summary>El botón de pausa escribe esta misma preferencia desde PlayerCamera.</summary>
         static bool MotionReduced => PlayerPrefs.GetInt("Caos.ReduceMotion", 0) == 1;
 
+        /// <summary>Accesible para las poses procedurales que quieran atenuarse.</summary>
+        public static bool ReduceMotion => MotionReduced;
+
         /// <summary>Se crea solo cuando algo pide feedback, sin tocar las escenas.</summary>
         public static ArenaJuice Current
         {

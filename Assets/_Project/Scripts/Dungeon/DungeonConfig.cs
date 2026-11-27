@@ -47,7 +47,7 @@ namespace Caos.Dungeon
         public ArenaWeaponKind weapon = ArenaWeaponKind.Pistola;
         public ArenaElement element = ArenaElement.Normal;
         public ArenaBossKind bossKind = ArenaBossKind.Martillo;
-        public float bossHealth = 900f;
+        public float bossHealth = 1250f;
         public float bossSpeed = 2.8f;
         public float bossDamage = 26f;
     }
@@ -77,7 +77,7 @@ namespace Caos.Dungeon
         public int eliteWaveCount = 1;
         public int bossAdds = 3;
         public float bossAddInterval = 5.5f;
-        public float superBossHealth = 1500f;
+        public float superBossHealth = 2100f;
         public float superBossSpeed = 3.2f;
         public float superBossDamage = 34f;
 
@@ -112,7 +112,7 @@ namespace Caos.Dungeon
                         0f, 0, ArenaWeaponKind.Pistola, ArenaElement.Normal),
                     Def(DungeonRoomKind.Jefe, "JEFE FINAL", "Derrota al guardián y a su forma suprema",
                         0f, 0, ArenaWeaponKind.Rifle, ArenaElement.Fuego, 0, 0,
-                        ArenaBossKind.Tormenta, 900f, 2.8f, 26f)
+                        ArenaBossKind.Tormenta, 1250f, 2.8f, 26f)
                 };
             }
 
@@ -143,7 +143,7 @@ namespace Caos.Dungeon
             eliteWaveCount = Mathf.Max(1, eliteWaveCount);
             bossAdds = Mathf.Max(1, bossAdds);
             bossAddInterval = Mathf.Max(3f, bossAddInterval);
-            superBossHealth = Mathf.Max(600f, superBossHealth);
+            superBossHealth = Mathf.Max(900f, superBossHealth);
             superBossSpeed = Mathf.Max(1f, superBossSpeed);
             superBossDamage = Mathf.Max(8f, superBossDamage);
 
@@ -166,6 +166,7 @@ namespace Caos.Dungeon
                 }
                 else if (room.kind == DungeonRoomKind.Jefe)
                 {
+                    room.bossHealth = Mathf.Max(1250f, room.bossHealth);
                     room.objective = "Derrota al guardián y a su forma suprema";
                 }
             }
@@ -174,7 +175,7 @@ namespace Caos.Dungeon
         static DungeonRoomDefinition Def(DungeonRoomKind kind, string title, string objective,
             float duration = 0f, int goal = 0, ArenaWeaponKind weapon = ArenaWeaponKind.Pistola,
             ArenaElement element = ArenaElement.Normal, int waves = 4, int perWave = 6,
-            ArenaBossKind boss = ArenaBossKind.Martillo, float bossHp = 900f,
+            ArenaBossKind boss = ArenaBossKind.Martillo, float bossHp = 1250f,
             float bossSpeed = 2.8f, float bossDamage = 26f)
         {
             return new DungeonRoomDefinition

@@ -268,6 +268,7 @@ namespace Caos.Maps
 
             ArenaAudio.Play(ArenaAudio.Sound.Shoot, origin,
                 _weapon == ArenaWeaponKind.Escopeta ? 0.65f : 0.4f);
+            CharacterCustomization.Instance?.NotifyShot();
             // Tier pequeño: apenas un toque, para no castigar disparos rápidos.
             ArenaJuice.Current.AddTrauma(_weapon == ArenaWeaponKind.Escopeta ? 0.09f : 0.045f);
         }
@@ -418,6 +419,14 @@ namespace Caos.Maps
             return position;
         }
 
+        static Color ArenaAccent(int shape)
+        {
+            if (shape == 1) return new Color(0.72f, 0.39f, 0.95f);
+            if (shape == 2) return new Color(0.30f, 0.84f, 0.96f);
+            if (shape == 3) return new Color(0.98f, 0.62f, 0.30f);
+            return new Color(0.84f, 0.16f, 0.20f);
+        }
+
         void SpawnMonster(Vector3? forcedPosition = null)
         {
             GameObject go = GameObject.CreatePrimitive(PrimitiveType.Capsule);
@@ -425,14 +434,18 @@ namespace Caos.Maps
             go.transform.position = forcedPosition ?? SpawnPosition();
             go.transform.localScale = new Vector3(0.82f, 0.9f, 0.82f);
 
+            float hitPoints = 78f + Mathf.Min(_elapsed * 0.65f, 110f);
             var health = go.AddComponent<ChaosHealth>();
-            health.Configure(52f + Mathf.Min(_elapsed * 0.45f, 90f), false);
+            health.Configure(hitPoints, false);
 
             var monster = go.AddComponent<ArenaMonster>();
             monster.Configure(3.1f + Random.Range(0f, 0.9f), 15f, this);
+            int shape = (_kills + Mathf.FloorToInt(_elapsed * 0.8f) + _monsters.Count) % 4;
+            monster.SetVisualShape(shape, ArenaAccent(shape));
             _monsters.Add(monster);
             ArenaJuice.Current.Spawn(go.transform.position);
             ArenaJuice.Current.Punch(go.transform, 1.22f);
+            Debug.Log($"[Caos] Monstruo de arena: forma={shape} HP={hitPoints:0}");
         }
 
         public void SummonMinions(int count, Vector3 origin)
@@ -474,7 +487,7 @@ namespace Caos.Maps
             ArenaBossKind kind = index == 1 ? ArenaBossKind.Martillo
                 : index == 2 ? ArenaBossKind.Canion : ArenaBossKind.Tormenta;
 
-            float hitPoints = index == 1 ? 1400f : index == 2 ? 2200f : 3200f;
+            float hitPoints = index == 1 ? 1700f : index == 2 ? 2600f : 3800f;
             float speed = index == 1 ? 2.4f : index == 2 ? 2.8f : 3.2f;
             float damage = index == 1 ? 26f : index == 2 ? 30f : 34f;
             float scale = index == 1 ? 1.25f : index == 2 ? 1.32f : 1.4f;
@@ -492,7 +505,11 @@ namespace Caos.Maps
             health.Configure(hitPoints, false);
 
             var boss = go.AddComponent<ArenaBoss>();
-            boss.Configure(speed, damage, this, kind, index);
+            Color bossAccent = index == 1 ? new Color(1f, 0.55f, 0.25f)
+                : index == 2 ? new Color(0.72f, 0.36f, 1f)
+                : new Color(0.35f, 0.85f, 1f);
+            boss.Configure(speed, damage, this, kind, index,
+                index >= 3 ? 1 : 0, bossAccent);
             _bosses.Add(boss);
             _spawnedBossCount = index;
 
