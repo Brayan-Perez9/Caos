@@ -349,7 +349,7 @@ namespace Caos.UI
             DrawCard(2, new Rect(1230f, 708f, 650f, 232f),
                 CaosFrontendArt.Get(CaosFrontendArt.Slot.Customization), Cyan,
                 "TU CAMPEÓN", "PERSONALIZAR PERSONAJE",
-                "Mira tu personaje actual y prepara futuras opciones de apariencia.", mouse);
+                "Compra skins con las monedas que consigas en la mazmorra.", mouse);
 
             if (GUI.Button(new Rect(80f, 936f, 360f, 58f),
                     "LOBBY MULTIJUGADOR", _buttonStyle))
@@ -403,7 +403,9 @@ namespace Caos.UI
             DrawShadowLabel(new Rect(76f, 44f, 1100f, 110f),
                 "PERSONALIZAR", _titleStyle, new Color(0f, 0f, 0f, 0.78f));
             GUI.Label(new Rect(84f, 152f, 1000f, 44f),
-                "Tu campeón actual · próximamente más opciones", _subtitleStyle);
+                "Tu campeón actual · pestaña TIENDA para comprar skins", _subtitleStyle);
+            GUI.Label(new Rect(84f, 190f, 1000f, 40f),
+                $"Monedas guardadas: {CaosProfile.Coins}", _sectionStyle);
 
             var panel = new Rect(1290f, 148f, 550f, 790f);
             GUI.Box(panel, GUIContent.none, _panelStyle);
@@ -425,7 +427,7 @@ namespace Caos.UI
 
             GUI.Label(new Rect(panel.x + 28f, panel.y + panel.height - 74f,
                     panel.width - 56f, 52f),
-                "Más estilos, colores y atuendos llegarán pronto.", _hintStyle);
+                "Gana monedas en la mazmorra y cómpralas aquí.", _hintStyle);
 
             if (GUI.Button(new Rect(80f, 940f, 320f, 58f), "VOLVER AL LOBBY", _buttonStyle))
                 BackToLobby();

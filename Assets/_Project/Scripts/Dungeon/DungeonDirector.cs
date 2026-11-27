@@ -26,6 +26,7 @@ namespace Caos.Dungeon
         DungeonCombatBridge _bridge;
         DungeonHud _hud;
         DungeonNetSync _netSync;
+        CaosNetPlayers _netPlayers;
         Caos.UI.CaosPauseMenu _pauseMenu;
         Caos.UI.CustomizationScreen _customizationScreen;
         PlayerController _player;
@@ -62,6 +63,10 @@ namespace Caos.Dungeon
         /// <summary>Alias usado por las salas heredadas de la primera versión.</summary>
         public DungeonCombatBridge Combat => _bridge;
         public DungeonNetSync NetSync => _netSync;
+        /// <summary>Jugadores presentes en la partida (local + remotos visibles).</summary>
+        public int PartySize => Mathf.Clamp(1 + (_netPlayers != null ? _netPlayers.RemoteCount : 0), 1, 4);
+        /// <summary>Multiplicador de densidad, vida y daño según el tamaño del grupo.</summary>
+        public float DifficultyScale => 1f + 0.45f * (PartySize - 1);
         public PlayerController Player => _player;
         public ChaosHealth Health => _health;
         public DungeonRoom[] Rooms => _rooms;
@@ -115,6 +120,7 @@ namespace Caos.Dungeon
             _hud = _hud != null ? _hud : FindFirstObjectByType<DungeonHud>();
             _netSync = FindFirstObjectByType<DungeonNetSync>();
             if (_netSync != null) _netSync.Configure(this);
+            _netPlayers = FindFirstObjectByType<CaosNetPlayers>();
             _pauseMenu = FindFirstObjectByType<Caos.UI.CaosPauseMenu>();
             _customizationScreen = FindFirstObjectByType<Caos.UI.CustomizationScreen>();
 
@@ -180,6 +186,7 @@ namespace Caos.Dungeon
 
             _bridge.SetWeapon(room.Definition.weapon, room.Definition.element);
             room.Begin();
+            Debug.Log($"[Caos] SALA {index + 1}/{_rooms.Length}: {room.Title}");
             ShowBanner($"SALA {index + 1}/{_rooms.Length} — {room.Title}", 2.8f);
         }
 
@@ -262,12 +269,20 @@ namespace Caos.Dungeon
             if (won)
             {
                 int bonus = _state.AddCoins(40);
-                ShowBanner($"¡MAZMORRA COMPLETADA! +{bonus} monedas · R para repetir", 8f);
+                int runCoins = _state.Coins;
+                int saved = CaosProfile.AddCoins(runCoins);
+                Debug.Log($"[Caos] PROGRESO: run completada, +{bonus} monedas, banco={saved}");
+                ShowBanner($"¡MAZMORRA COMPLETADA! +{bonus} monedas · " +
+                    $"{runCoins} guardadas ({saved} en total) · R para repetir", 8f);
                 ArenaAudio.Play(ArenaAudio.Sound.Upgrade, transform.position, 1f);
             }
             else
             {
-                ShowBanner("DERROTA — pulsa R para repetir", 8f);
+                int rescued = Mathf.RoundToInt(_state.Coins * 0.5f);
+                int saved = CaosProfile.AddCoins(rescued);
+                Debug.Log($"[Caos] PROGRESO: derrota, {rescued} monedas rescatadas, banco={saved}");
+                ShowBanner($"DERROTA — {rescued} monedas rescatadas ({saved} en total) · R para repetir",
+                    8f);
                 ArenaAudio.Play(ArenaAudio.Sound.Hurt, transform.position, 0.9f);
             }
         }
@@ -345,6 +360,15 @@ namespace Caos.Dungeon
             return _bridge.SpawnMonster(position, hitPoints, speed, damage);
         }
 
+        public ArenaMonster SpawnVariant(Vector3 position, DungeonEnemyKind kind,
+            float hitPoints, float speed, float damage)
+        {
+            if (_bridge == null) return null;
+            DungeonRoom room = CurrentRoom;
+            position = room != null ? room.Clamp(position) : new Vector3(position.x, 0.95f, position.z);
+            return _bridge.SpawnVariant(position, kind, hitPoints, speed, damage);
+        }
+
         public ArenaBoss SpawnBoss(Vector3 position, ArenaBossKind kind, int index,
             float hitPoints, float speed, float damage)
         {
@@ -352,6 +376,15 @@ namespace Caos.Dungeon
             DungeonRoom room = CurrentRoom;
             position = room != null ? room.Clamp(position) : new Vector3(position.x, 0.95f, position.z);
             return _bridge.SpawnBoss(position, kind, index, hitPoints, speed, damage);
+        }
+
+        public ArenaBoss SpawnSuperBoss(Vector3 position, ArenaBossKind kind, int index,
+            float hitPoints, float speed, float damage)
+        {
+            if (_bridge == null) return null;
+            DungeonRoom room = CurrentRoom;
+            position = room != null ? room.Clamp(position) : new Vector3(position.x, 0.95f, position.z);
+            return _bridge.SpawnSuperBoss(position, kind, index, hitPoints, speed, damage);
         }
 
         public void DamagePlayer(float amount, Vector3 source)

@@ -187,7 +187,7 @@ namespace Caos.UI
                 DrawCard(2, new Rect(980f, 676f, 880f, 204f),
                     CaosFrontendArt.Get(CaosFrontendArt.Slot.Customization), CaosShellUI.Cyan,
                     "Tu campeón", "PERSONALIZAR PERSONAJE",
-                    "Mira tu personaje actual y prepara futuras opciones de apariencia.",
+                    "Compra skins con las monedas que ganes en la mazmorra.",
                     mouse, styles);
 
                 if (GUI.Button(new Rect(830f, 922f, 340f, 58f),

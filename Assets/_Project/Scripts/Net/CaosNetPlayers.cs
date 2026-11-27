@@ -41,6 +41,9 @@ namespace Caos.Net
 
         bool Connected => _peer != null && _peer.IsConnected;
 
+        /// <summary>Cuantos avatares remotos hay activos (sin contar el local).</summary>
+        public int RemoteCount => _remotes.Count;
+
         /// <summary>Nombre + token de proceso: dos jugadores pueden llamarse igual.</summary>
         string Identity => _identity ?? (_identity = LocalName + "@" +
             Guid.NewGuid().ToString("N").Substring(0, 6));

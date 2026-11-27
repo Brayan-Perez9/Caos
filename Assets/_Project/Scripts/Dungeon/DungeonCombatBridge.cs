@@ -198,6 +198,40 @@ namespace Caos.Dungeon
             return monster;
         }
 
+        /// <summary>
+        /// Monstruo con una variante de la mazmorra: lanzador de rayos o élite.
+        /// Reutiliza ArenaMonster y solo añade el componente de rayo cuando toca.
+        /// </summary>
+        public ArenaMonster SpawnVariant(Vector3 position, DungeonEnemyKind kind,
+            float hitPoints, float speed, float damage)
+        {
+            ArenaMonster monster = SpawnMonster(position, hitPoints, speed, damage);
+            if (monster == null) return null;
+
+            if (kind == DungeonEnemyKind.Lanzador)
+            {
+                monster.name = "DungeonLanzador";
+                monster.transform.localScale = new Vector3(0.88f, 0.96f, 0.88f);
+                AttachCaster(monster.gameObject, 3.1f, damage * 1.1f, 27f, DungeonPalette.UiCyan);
+            }
+            else if (kind == DungeonEnemyKind.Elite)
+            {
+                monster.name = "DungeonElite";
+                monster.transform.localScale = new Vector3(1.18f, 1.28f, 1.18f);
+                AttachCaster(monster.gameObject, 4.6f, damage * 0.8f, 24f, DungeonPalette.UiViolet);
+            }
+
+            Debug.Log($"[Caos] Enemigo variante: {monster.name} HP={hitPoints:0} daño={damage:0}");
+            return monster;
+        }
+
+        void AttachCaster(GameObject host, float interval, float damage, float speed, Color color)
+        {
+            DungeonBeamCaster caster = host.AddComponent<DungeonBeamCaster>();
+            caster.Configure((IArenaCombatDirector)this,
+                _player != null ? _player.transform : null, interval, damage, speed, color);
+        }
+
         public ArenaBoss SpawnBoss(Vector3 position, ArenaBossKind kind, int index,
             float hitPoints, float speed, float damage)
         {
@@ -217,6 +251,24 @@ namespace Caos.Dungeon
             ArenaAudio.Play(ArenaAudio.Sound.Boss, position, 0.9f);
             ArenaJuice.Current.AddTrauma(0.5f);
             ArenaJuice.Current.Spawn(position, true);
+            return boss;
+        }
+
+        /// <summary>
+        /// Segunda fase del guardián final: mismo jefe de Arena, pero más grande,
+        /// más resistente y con rayos propios además de sus poderes normales.
+        /// </summary>
+        public ArenaBoss SpawnSuperBoss(Vector3 position, ArenaBossKind kind, int index,
+            float hitPoints, float speed, float damage)
+        {
+            ArenaBoss boss = SpawnBoss(position, kind, index, hitPoints, speed, damage);
+            if (boss == null) return null;
+
+            boss.name = "DungeonSuperboss_" + kind;
+            boss.transform.localScale = new Vector3(1.8f, 1.7f, 1.8f);
+            AttachCaster(boss.gameObject, 2.6f, damage * 0.55f, 30f, DungeonPalette.UiCoral);
+            ArenaJuice.Current.AddTrauma(0.4f);
+            Debug.Log($"[Caos] SUPERJEFE invocado: {kind} HP={hitPoints:0} daño={damage:0}");
             return boss;
         }
 

@@ -144,6 +144,7 @@ namespace Caos.Player
             _controller = GetComponent<PlayerController>();
 
             Load();
+            LoadEquippedSkin();
             CreateOutfitRoot();
             RebuildOutfit();
         }
@@ -392,6 +393,7 @@ namespace Caos.Player
 
             playerColor = color;
             ApplyColor();
+            ClearSkinSelection();
         }
 
         public void SetHat(int index)
@@ -400,6 +402,7 @@ namespace Caos.Player
             if (index == _hatIndex) return;
             _hatIndex = index;
             RebuildOutfit();
+            ClearSkinSelection();
         }
 
         public void SetShirt(int index)
@@ -408,6 +411,7 @@ namespace Caos.Player
             if (index == _shirtIndex) return;
             _shirtIndex = index;
             RebuildOutfit();
+            ClearSkinSelection();
         }
 
         public void SetPants(int index)
@@ -416,6 +420,7 @@ namespace Caos.Player
             if (index == _pantsIndex) return;
             _pantsIndex = index;
             RebuildOutfit();
+            ClearSkinSelection();
         }
 
         public void SetFace(int index)
@@ -424,6 +429,7 @@ namespace Caos.Player
             if (index == _faceIndex) return;
             _faceIndex = index;
             RebuildOutfit();
+            ClearSkinSelection();
         }
 
         public void SetBuild(int index)
@@ -432,6 +438,7 @@ namespace Caos.Player
             if (index == _buildIndex) return;
             _buildIndex = index;
             RebuildOutfit();
+            ClearSkinSelection();
         }
 
         public void SetCostume(int index)
@@ -440,6 +447,42 @@ namespace Caos.Player
             if (index == _costumeIndex) return;
             _costumeIndex = index;
             RebuildOutfit();
+            ClearSkinSelection();
+        }
+
+        /// <summary>Aplica una skin comprada sin tocar el saldo ni el perfil remoto.</summary>
+        public void ApplySkin(CaosSkinDefinition skin)
+        {
+            if (skin == null || netRemote) return;
+
+            CopySkin(skin);
+            ApplyColor();
+            RebuildOutfit();
+            Save();
+        }
+
+        /// <summary>Restaura la skin comprada al crear el avatar local.</summary>
+        void LoadEquippedSkin()
+        {
+            if (netRemote) return;
+            CaosSkinDefinition skin = CaosSkinCatalog.Find(CaosProfile.EquippedSkinId);
+            if (skin != null) CopySkin(skin);
+        }
+
+        void CopySkin(CaosSkinDefinition skin)
+        {
+            playerColor = skin.color;
+            _hatIndex = Clamp(skin.hat, OutfitCatalog.Hats.Length);
+            _shirtIndex = Clamp(skin.shirt, OutfitCatalog.Shirts.Length);
+            _pantsIndex = Clamp(skin.pants, OutfitCatalog.Pants.Length);
+            _faceIndex = Clamp(skin.face, OutfitCatalog.Faces.Length);
+            _buildIndex = Clamp(skin.build, OutfitCatalog.Builds.Length);
+            _costumeIndex = Clamp(skin.costume, OutfitCatalog.Costumes.Length);
+        }
+
+        void ClearSkinSelection()
+        {
+            if (!netRemote) CaosProfile.ClearEquippedSkin();
         }
 
         /// <summary>Guarda en PlayerPrefs (lo llaman las pantallas al cerrar).</summary>

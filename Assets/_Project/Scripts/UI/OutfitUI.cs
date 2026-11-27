@@ -17,16 +17,21 @@ namespace Caos.UI
         public const int TabFace = 4;
         public const int TabBody = 5;
         public const int TabCostume = 6;
-        public const int TabCount = 7;
+        public const int TabShop = 7;
+        public const int TabCount = 8;
 
         static readonly string[] TabNames =
         {
-            "COLOR", "GORROS", "CAMISAS", "PANTALON", "ROSTRO", "CUERPO", "ATUENDO",
+            "COLOR", "GORROS", "CAMISAS", "PANTALON", "ROSTRO", "CUERPO", "ATUENDO", "TIENDA",
         };
 
         static GUIStyle _tabStyle;
         static GUIStyle _optionStyle;
         static GUIStyle _hintStyle;
+        static GUIStyle _shopNameStyle;
+        static GUIStyle _shopBodyStyle;
+        static string _shopMessage = "";
+        static float _shopMessageUntil;
         static readonly Color Selected = new Color32(255, 214, 96, 255);
 
         /// <summary>Dibuja el panel dentro de <paramref name="area"/> y devuelve la pestaña activa.</summary>
@@ -52,6 +57,22 @@ namespace Caos.UI
                     wordWrap = true,
                 };
                 _hintStyle.normal.textColor = new Color(1f, 1f, 1f, 0.55f);
+                _shopNameStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 12,
+                    fontStyle = FontStyle.Bold,
+                    alignment = TextAnchor.MiddleLeft,
+                    clipping = TextClipping.Clip,
+                };
+                _shopNameStyle.normal.textColor = new Color32(255, 214, 96, 255);
+                _shopBodyStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 10,
+                    alignment = TextAnchor.UpperLeft,
+                    wordWrap = true,
+                    clipping = TextClipping.Clip,
+                };
+                _shopBodyStyle.normal.textColor = new Color(1f, 1f, 1f, 0.72f);
             }
 
             // ---------------------------------------------------- pestañas
@@ -98,9 +119,80 @@ namespace Caos.UI
                     GUI.Label(new Rect(area.x, area.y + content.height - 34f, area.width, 30f),
                         "El atuendo completo cubre ropa, rostro y sombrero", _hintStyle);
                     break;
+                case TabShop:
+                    DrawShop(content, character);
+                    break;
             }
 
             return tab;
+        }
+
+        static void DrawShop(Rect area, CharacterCustomization character)
+        {
+            const float gap = 8f;
+            const int columns = 2;
+
+            GUI.Label(new Rect(area.x, area.y, area.width, 24f),
+                $"MONEDAS: {CaosProfile.Coins}   ·   Gana monedas limpiando la mazmorra",
+                _hintStyle);
+
+            CaosSkinDefinition[] skins = CaosSkinCatalog.Skins;
+            int rows = Mathf.CeilToInt(skins.Length / (float)columns);
+            float gridTop = area.y + 28f;
+            float cellWidth = (area.width - gap) / columns;
+            float cellHeight = Mathf.Max(58f, (area.height - 30f - gap * (rows - 1)) / rows);
+
+            for (int i = 0; i < skins.Length; i++)
+            {
+                CaosSkinDefinition skin = skins[i];
+                int col = i % columns;
+                int row = i / columns;
+                var card = new Rect(area.x + col * (cellWidth + gap),
+                    gridTop + row * (cellHeight + gap), cellWidth, cellHeight);
+
+                Color before = GUI.color;
+                GUI.color = new Color(0.05f, 0.07f, 0.13f, 0.82f);
+                GUI.DrawTexture(card, Texture2D.whiteTexture);
+                GUI.color = before;
+
+                GUI.Label(new Rect(card.x + 8f, card.y + 4f, card.width - 16f, 18f),
+                    skin.title, _shopNameStyle);
+                GUI.Label(new Rect(card.x + 8f, card.y + 21f, card.width - 16f, cellHeight - 46f),
+                    $"{skin.description} · {skin.price} monedas", _shopBodyStyle);
+
+                bool owned = CaosProfile.Owns(skin.id);
+                bool selected = string.Equals(CaosProfile.EquippedSkinId, skin.id,
+                    System.StringComparison.OrdinalIgnoreCase);
+                string action = selected ? "EQUIPADO" : owned ? "USAR" : "COMPRAR";
+
+                GUI.enabled = !selected;
+                if (GUI.Button(new Rect(card.x + 8f, card.y + cellHeight - 25f,
+                        card.width - 16f, 21f), action, _tabStyle))
+                {
+                    if (!owned && !CaosProfile.TryBuy(skin))
+                    {
+                        _shopMessage = $"Te faltan {skin.price - CaosProfile.Coins} monedas";
+                        _shopMessageUntil = Time.realtimeSinceStartup + 2.2f;
+                    }
+                    else
+                    {
+                        CaosProfile.Equip(skin.id);
+                        character.ApplySkin(skin);
+                        _shopMessage = "Skin aplicada";
+                        _shopMessageUntil = Time.realtimeSinceStartup + 1.6f;
+                    }
+                }
+                GUI.enabled = true;
+            }
+
+            if (Time.realtimeSinceStartup < _shopMessageUntil)
+            {
+                Color before = GUI.color;
+                GUI.color = new Color(1f, 0.86f, 0.5f, 1f);
+                GUI.Label(new Rect(area.x, area.y + area.height - 20f, area.width, 20f),
+                    _shopMessage, _hintStyle);
+                GUI.color = before;
+            }
         }
 
         static void DrawPalette(Rect area, CharacterCustomization character)

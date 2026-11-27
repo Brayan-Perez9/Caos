@@ -16,6 +16,13 @@ MonoBehaviour:
   roomTransitionSeconds: 1.6
   roomRadius: 12
   roomClearCoins: 8
+  casterEvery: 3
+  eliteWaveCount: 1
+  bossAdds: 3
+  bossAddInterval: 5.5
+  superBossHealth: 1500
+  superBossSpeed: 3.2
+  superBossDamage: 34
   rooms:
   - kind: 0
     title: ENTRADA DEL CAOS
@@ -45,8 +52,8 @@ MonoBehaviour:
     bossDamage: 26
   - kind: 2
     title: SOBREVIVE AL CAOS
-    objective: Resiste 30 s a martillos y bolas
-    duration: 30
+    objective: Resiste a trampas, oleadas y lanzadores
+    duration: 32
     goal: 0
     waveCount: 3
     enemiesPerWave: 4
@@ -71,11 +78,11 @@ MonoBehaviour:
     bossDamage: 26
   - kind: 4
     title: OLEADAS
-    objective: Limpia 3 oleadas de monstruos
+    objective: Limpia 4 oleadas y esquiva los rayos
     duration: 0
     goal: 0
-    waveCount: 3
-    enemiesPerWave: 4
+    waveCount: 4
+    enemiesPerWave: 6
     weapon: 1
     element: 4
     bossKind: 0
@@ -83,7 +90,7 @@ MonoBehaviour:
     bossSpeed: 2.8
     bossDamage: 26
   - kind: 5
-    title: CÁMARA DEL TESORO
+    title: "C\xC1MARA DEL TESORO"
     objective: Elige una recompensa (1 / 2 / 3)
     duration: 0
     goal: 0
@@ -97,7 +104,7 @@ MonoBehaviour:
     bossDamage: 26
   - kind: 6
     title: JEFE FINAL
-    objective: Derrota al guardián de la mazmorra
+    objective: "Derrota al guardi\xE1n y a su forma suprema"
     duration: 0
     goal: 0
     waveCount: 0
@@ -110,7 +117,7 @@ MonoBehaviour:
     bossDamage: 26
   relics:
   - id: corazon_fuego
-    title: CORAZÓN DE FUEGO
+    title: "CORAZ\xD3N DE FUEGO"
     description: Tus disparos queman
     effect: 0
     magnitude: 1
@@ -126,16 +133,16 @@ MonoBehaviour:
     magnitude: 1
   - id: moneda_maldita
     title: MONEDA MALDITA
-    description: Recompensas +50 %, enemigos más duros
+    description: "Recompensas +50 %, enemigos m\xE1s duros"
     effect: 3
     magnitude: 1.5
   - id: diente_caos
     title: DIENTE DEL CAOS
-    description: Daño +25 %
+    description: "Da\xF1o +25 %"
     effect: 4
     magnitude: 1.25
   - id: vitalidad
     title: VITALIDAD
-    description: Vida máxima +30
+    description: "Vida m\xE1xima +30"
     effect: 5
     magnitude: 30

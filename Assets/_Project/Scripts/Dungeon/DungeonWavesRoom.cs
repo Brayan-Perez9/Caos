@@ -3,7 +3,11 @@ using Caos.Maps;
 
 namespace Caos.Dungeon
 {
-    /// <summary>Oleadas: limpia cada grupo antes de que aparezca el siguiente.</summary>
+    /// <summary>
+    /// Oleadas: limpia cada grupo antes de que aparezca el siguiente. Mezcla
+    /// monstruos normales, lanzadores de rayos y élites; el grupo crece con el
+    /// número de jugadores presentes en la partida.
+    /// </summary>
     public class DungeonWavesRoom : DungeonRoom
     {
         int _wave;
@@ -47,7 +51,7 @@ namespace Caos.Dungeon
                 }
                 else
                 {
-                    _delay = 1.8f;
+                    _delay = 1.6f;
                     Director.ShowBanner($"Oleada {_wave} limpia — prepara la siguiente", 1.8f);
                 }
                 return;
@@ -63,16 +67,46 @@ namespace Caos.Dungeon
         {
             _wave++;
             _killed = 0;
-            int requested = Mathf.Max(1, Definition.enemiesPerWave + _wave - 1);
-            int spawned = 0;
 
+            int waveCount = Mathf.Max(1, Definition.waveCount);
+            float scale = Director.DifficultyScale;
+            int requested = Mathf.Max(1, Definition.enemiesPerWave + _wave - 1);
+            requested = Mathf.Clamp(requested + Mathf.RoundToInt(scale) - 1, 1, 16);
+
+            DungeonConfig config = Director.Config;
+            int casterEvery = config != null ? Mathf.Max(2, config.casterEvery) : 3;
+            int elites = _wave >= waveCount
+                ? config != null ? Mathf.Max(1, config.eliteWaveCount) : 1
+                : _wave > 1 ? 1 : 0;
+            elites = Mathf.Min(elites, requested);
+
+            int spawned = 0;
             for (int i = 0; i < requested; i++)
             {
-                if (Director.SpawnMonster(RandomPoint(3f),
-                        46f + _wave * 6f, 3.1f + _wave * 0.12f, 12f + _wave * 1.5f) != null)
+                DungeonEnemyKind kind = i < elites ? DungeonEnemyKind.Elite
+                    : _wave > 1 && i % casterEvery == casterEvery - 1
+                        ? DungeonEnemyKind.Lanzador
+                        : DungeonEnemyKind.Normal;
+
+                float health = (46f + _wave * 6f) * scale;
+                float speed = 3.1f + _wave * 0.12f;
+                float damage = 12f + _wave * 1.5f;
+
+                if (kind == DungeonEnemyKind.Elite)
                 {
-                    spawned++;
+                    health *= 2.1f;
+                    speed *= 0.92f;
+                    damage *= 1.45f;
                 }
+                else if (kind == DungeonEnemyKind.Lanzador)
+                {
+                    health *= 0.85f;
+                    speed *= 0.9f;
+                    damage *= 1.1f;
+                }
+
+                if (Director.SpawnVariant(RandomPoint(3f), kind, health, speed, damage) != null)
+                    spawned++;
             }
 
             if (spawned == 0)
@@ -86,7 +120,8 @@ namespace Caos.Dungeon
             _spawned = spawned;
             _waveActive = true;
             ArenaAudio.Play(ArenaAudio.Sound.Boss, Center, 0.55f);
-            Director.ShowBanner($"OLEADA {_wave}/{Mathf.Max(1, Definition.waveCount)}", 2f);
+            Director.ShowBanner($"OLEADA {_wave}/{waveCount} " +
+                (elites > 0 ? "· ¡ÉLITES!" : ""), 2f);
         }
     }
 }

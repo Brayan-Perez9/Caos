@@ -24,6 +24,15 @@ namespace Caos.Dungeon
         Vida
     }
 
+    /// <summary>Variantes de enemigo que aparecen en la mazmorra.</summary>
+    public enum DungeonEnemyKind
+    {
+        Normal,
+        Lanzador,
+        Elite,
+        Superboss
+    }
+
     /// <summary>Una sala tal como la edita el diseñador en el Inspector.</summary>
     [System.Serializable]
     public class DungeonRoomDefinition
@@ -62,6 +71,16 @@ namespace Caos.Dungeon
         public float roomTransitionSeconds = 1.6f;
         public float roomRadius = 12f;
         public int roomClearCoins = 8;
+
+        [Header("Dificultad")]
+        public int casterEvery = 3;
+        public int eliteWaveCount = 1;
+        public int bossAdds = 3;
+        public float bossAddInterval = 5.5f;
+        public float superBossHealth = 1500f;
+        public float superBossSpeed = 3.2f;
+        public float superBossDamage = 34f;
+
         public DungeonRoomDefinition[] rooms;
         public DungeonRelicDefinition[] relics;
 
@@ -83,15 +102,15 @@ namespace Caos.Dungeon
                     Def(DungeonRoomKind.Entrada, "ENTRADA DEL CAOS", "Llega a la puerta luminosa"),
                     Def(DungeonRoomKind.Exploracion, "RUINAS DE LOS COFRES", "Recoge 3 cofres y encuentra la salida",
                         0f, 3, ArenaWeaponKind.Pistola, ArenaElement.Normal),
-                    Def(DungeonRoomKind.Supervivencia, "SOBREVIVE AL CAOS", "Resiste 30 s a martillos y bolas",
+                    Def(DungeonRoomKind.Supervivencia, "SOBREVIVE AL CAOS", "Resiste a trampas, oleadas y lanzadores",
                         30f, 0, ArenaWeaponKind.Escopeta, ArenaElement.Fuego),
                     Def(DungeonRoomKind.Carrera, "CARRERA MORTAL", "Pasa 5 controles antes de que acabe el tiempo",
                         42f, 5, ArenaWeaponKind.Rifle, ArenaElement.Aire),
-                    Def(DungeonRoomKind.Oleadas, "OLEADAS", "Limpia 3 oleadas de monstruos",
-                        0f, 0, ArenaWeaponKind.Escopeta, ArenaElement.Rayo, 3, 4),
+                    Def(DungeonRoomKind.Oleadas, "OLEADAS", "Limpia 4 oleadas y esquiva los rayos",
+                        0f, 0, ArenaWeaponKind.Escopeta, ArenaElement.Rayo, 4, 6),
                     Def(DungeonRoomKind.Recompensa, "CÁMARA DEL TESORO", "Elige una recompensa (1 / 2 / 3)",
                         0f, 0, ArenaWeaponKind.Pistola, ArenaElement.Normal),
-                    Def(DungeonRoomKind.Jefe, "JEFE FINAL", "Derrota al guardián de la mazmorra",
+                    Def(DungeonRoomKind.Jefe, "JEFE FINAL", "Derrota al guardián y a su forma suprema",
                         0f, 0, ArenaWeaponKind.Rifle, ArenaElement.Fuego, 0, 0,
                         ArenaBossKind.Tormenta, 900f, 2.8f, 26f)
                 };
@@ -109,11 +128,52 @@ namespace Caos.Dungeon
                     Relic("vitalidad", "VITALIDAD", "Vida máxima +30", DungeonRelicEffect.Vida, 30f)
                 };
             }
+
+            NormalizeDifficulty();
+        }
+
+        /// <summary>
+        /// El asset puede venir de una versión anterior con menos enemigos.
+        /// Actualizamos los mínimos sin sobrescribir lo que ya haya editado
+        /// el diseñador en el Inspector.
+        /// </summary>
+        void NormalizeDifficulty()
+        {
+            casterEvery = Mathf.Max(2, casterEvery);
+            eliteWaveCount = Mathf.Max(1, eliteWaveCount);
+            bossAdds = Mathf.Max(1, bossAdds);
+            bossAddInterval = Mathf.Max(3f, bossAddInterval);
+            superBossHealth = Mathf.Max(600f, superBossHealth);
+            superBossSpeed = Mathf.Max(1f, superBossSpeed);
+            superBossDamage = Mathf.Max(8f, superBossDamage);
+
+            if (rooms == null) return;
+            for (int i = 0; i < rooms.Length; i++)
+            {
+                DungeonRoomDefinition room = rooms[i];
+                if (room == null) continue;
+
+                if (room.kind == DungeonRoomKind.Oleadas)
+                {
+                    room.waveCount = Mathf.Max(4, room.waveCount);
+                    room.enemiesPerWave = Mathf.Max(6, room.enemiesPerWave);
+                    room.objective = $"Limpia {room.waveCount} oleadas y esquiva los rayos";
+                }
+                else if (room.kind == DungeonRoomKind.Supervivencia)
+                {
+                    room.duration = Mathf.Max(32f, room.duration);
+                    room.objective = "Resiste a trampas, oleadas y lanzadores";
+                }
+                else if (room.kind == DungeonRoomKind.Jefe)
+                {
+                    room.objective = "Derrota al guardián y a su forma suprema";
+                }
+            }
         }
 
         static DungeonRoomDefinition Def(DungeonRoomKind kind, string title, string objective,
             float duration = 0f, int goal = 0, ArenaWeaponKind weapon = ArenaWeaponKind.Pistola,
-            ArenaElement element = ArenaElement.Normal, int waves = 3, int perWave = 4,
+            ArenaElement element = ArenaElement.Normal, int waves = 4, int perWave = 6,
             ArenaBossKind boss = ArenaBossKind.Martillo, float bossHp = 900f,
             float bossSpeed = 2.8f, float bossDamage = 26f)
         {

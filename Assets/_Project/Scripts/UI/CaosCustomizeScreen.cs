@@ -118,7 +118,10 @@ namespace Caos.UI
                 CaosShellUI.DrawShadowLabel(new Rect(76f, 40f, 1100f, 110f),
                     "PERSONALIZAR", styles.Title, new Color(0f, 0f, 0f, 0.78f));
                 GUI.Label(new Rect(84f, 148f, 1000f, 44f),
-                    "Tu campeón actual · próximamente más opciones", styles.Subtitle);
+                    "Tu campeón actual · abre la pestaña TIENDA para comprar skins",
+                    styles.Subtitle);
+                GUI.Label(new Rect(84f, 188f, 1000f, 40f),
+                    $"Monedas guardadas: {CaosProfile.Coins}", styles.Section);
 
                 var panel = new Rect(1290f, 140f, 550f, 800f);
                 GUI.Box(panel, GUIContent.none, styles.Panel);
@@ -142,7 +145,7 @@ namespace Caos.UI
 
                 GUI.Label(new Rect(panel.x + 28f, panel.y + panel.height - 74f,
                         panel.width - 56f, 52f),
-                    "Más estilos, colores y atuendos llegarán pronto.", styles.Hint);
+                    "Completa la mazmorra para ganar monedas y desbloquear skins.", styles.Hint);
 
                 if (GUI.Button(new Rect(80f, 936f, 320f, 58f),
                         "VOLVER AL LOBBY", styles.Button)) Back();
