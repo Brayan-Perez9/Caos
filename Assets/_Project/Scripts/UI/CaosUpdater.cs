@@ -255,9 +255,9 @@ namespace Caos.UI
 
         void OnGUI()
         {
-            if (CaosSceneLoader.IsLoading) return;
-            if (CaosFrontend.Active &&
-                CaosFrontend.Instance.Screen != CaosFrontendScreen.Lobby) return;
+            // El actualizador nunca se superpone al armazón: entrada, lobby,
+            // personalización y carga son módulos limpios.
+            if (CaosShell.IsBlocked) return;
 
             EnsureStyles();
 

@@ -39,6 +39,7 @@ namespace Caos.EditorTools
             try
             {
                 EnsureSceneExists();
+                RefreshFrontendScenes();
                 ConfigureScenes();
 
                 var options = new BuildPlayerOptions
@@ -120,12 +121,28 @@ namespace Caos.EditorTools
             }
         }
 
+        /// <summary>
+        /// Los builders son la fuente de verdad del armazón. Regenerar estas
+        /// escenas en cada build evita que una versión antigua de Menu siga
+        /// arrastrando la personalización superpuesta.
+        /// </summary>
+        static void RefreshFrontendScenes()
+        {
+            MenuSceneBuilder.CreateMenuSceneInternal();
+            LoadingSceneBuilder.CreateLoadingSceneInternal();
+            FrontendLobbySceneBuilder.CreateFrontendLobbySceneInternal();
+            CustomizeSceneBuilder.CreateCustomizeSceneInternal();
+        }
+
         static void ConfigureScenes()
         {
-            // Menú, lobby, misión corta y por último el tablero.
+            // Cada pantalla del armazón es una escena distinta; Menu siempre 0.
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(MenuSceneBuilder.ScenePath, true),
+                new EditorBuildSettingsScene(LoadingSceneBuilder.ScenePath, true),
+                new EditorBuildSettingsScene(FrontendLobbySceneBuilder.ScenePath, true),
+                new EditorBuildSettingsScene(CustomizeSceneBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(LobbySceneBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(ChaosExpressBuilder.ScenePath, true),
                 new EditorBuildSettingsScene(ArenaSceneBuilder.ScenePath, true),

@@ -9,9 +9,9 @@ using Caos.UI;
 namespace Caos.EditorTools
 {
     /// <summary>
-    /// Construye la escena Menu (pantalla de inicio): personaje a la izquierda
-    /// sobre un pedestal, fondo oscuro y la cámara encuadrado para dejar la
-    /// derecha libre a la interfaz (paleta de colores y nombre).
+    /// Construye la escena Menu como módulo de entrada: arte de bienvenida,
+    /// título y precarga. La personalización vive en su propia escena y el
+    /// lobby en otra, para que nada se superponga.
     /// Menú: Caos → Create Menu Scene.
     /// </summary>
     public static class MenuSceneBuilder
@@ -55,18 +55,14 @@ namespace Caos.EditorTools
             var root = new GameObject("Menu");
 
             BuildStage(root.transform);
-            CreatePreviewCharacter(root.transform);
             CreateCamera(root.transform);
 
-            new GameObject("CustomizationMenu").AddComponent<CustomizationMenu>();
-            new GameObject("CaosLobbyEntry").AddComponent<CaosLobbyEntry>();
-            new GameObject("CaosUpdater").AddComponent<CaosUpdater>();
-
-            // El bootstrap en runtime también lo añade a escenas ya existentes.
-            new GameObject("CaosFrontend").AddComponent<CaosFrontend>();
+            // Solo el módulo de entrada. Ni personaje, ni personalización,
+            // ni actualizador superpuestos.
+            new GameObject("CaosStartupScreen").AddComponent<CaosStartupScreen>();
         }
 
-        static void BuildStage(Transform parent)
+        internal static void BuildStage(Transform parent)
         {
             // Suelo oscuro
             var floor = GameObject.CreatePrimitive(PrimitiveType.Plane);
@@ -93,7 +89,7 @@ namespace Caos.EditorTools
             SandboxSceneBuilder.SetMaterial(backdrop, "Backdrop");
         }
 
-        static void CreatePreviewCharacter(Transform parent)
+        internal static void CreatePreviewCharacter(Transform parent)
         {
             // Personaje solo visual (sin controlador): gira despacio en el menú.
             var preview = new GameObject("PreviewCharacter");
@@ -104,7 +100,7 @@ namespace Caos.EditorTools
             preview.AddComponent<CharacterCustomization>();
         }
 
-        static void CreateCamera(Transform parent)
+        internal static void CreateCamera(Transform parent)
         {
             // Cámara horizontal: el personaje (x=-1.7) queda en el tercio
             // izquierdo; la mitad derecha queda libre para la interfaz.

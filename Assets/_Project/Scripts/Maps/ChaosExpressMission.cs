@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using Caos.Net;
 using Caos.Player;
+using Caos.UI;
 
 namespace Caos.Maps
 {
@@ -722,7 +723,9 @@ namespace Caos.Maps
         {
             _peer?.Shutdown();
             CaosSession.ResetForMenu();
-            SceneManager.LoadScene("Lobby");
+            CaosSceneLoader.Begin(CaosShell.LobbyScene, "ARENA CAOS",
+                "Volviendo al lobby...", "Preparando el caos...",
+                CaosFrontendArt.Get(CaosFrontendArt.Slot.Startup));
         }
 
         // ---------------------------------------------------------- interfaz

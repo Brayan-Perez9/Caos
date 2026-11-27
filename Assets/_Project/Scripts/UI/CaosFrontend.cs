@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 using Caos.Net;
 using Caos.Player;
 
@@ -63,16 +62,9 @@ namespace Caos.UI
         GUIStyle _cardStyle;
         GUIStyle _creditStyle;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-        static void Bootstrap()
-        {
-            if (SceneManager.GetActiveScene().name != "Menu") return;
-            if (FindFirstObjectByType<CaosFrontend>() != null) return;
-
-            var holder = new GameObject("CaosFrontend");
-            holder.AddComponent<CaosFrontend>();
-        }
-
+        // El armazón ya no se inyecta en Menu: cada pantalla tiene su escena
+        // propia (Menu, FrontendLobby, Customize y Loading). Este componente
+        // se conserva solo por compatibilidad con escenas antiguas.
         void Awake()
         {
             if (Instance != null && Instance != this)
@@ -266,7 +258,9 @@ namespace Caos.UI
 
         void OnGUI()
         {
-            if (CaosSceneLoader.IsLoading) return;
+            // Compatibilidad: si una escena antigua todavía arrastra este
+            // componente, no debe dibujar sobre los módulos dedicados.
+            if (CaosShell.IsBlocked) return;
 
             EnsureStyles();
 

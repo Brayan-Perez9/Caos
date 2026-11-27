@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 using Caos.Dungeon;
 using Caos.Maps;
 using Caos.Net;
@@ -87,7 +86,9 @@ namespace Caos.UI
         {
             CaosNetPeer.Instance?.Shutdown();
             CaosSession.ResetForMenu();
-            SceneManager.LoadScene("Lobby");
+            CaosSceneLoader.Begin(CaosShell.LobbyScene, "ARENA CAOS",
+                "Volviendo al lobby...", "Preparando el caos...",
+                CaosFrontendArt.Get(CaosFrontendArt.Slot.Startup));
         }
 
         void QuitGame()

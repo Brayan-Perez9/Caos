@@ -38,3 +38,5 @@ desktop.ini
 Caos-Windows.zip
 CaosUpdate.zip
 _caos_update_tmp/
+# Unity recupera escenas temporales al reconstruir escenas
+Assets/_Recovery/

@@ -1788,9 +1788,7 @@ namespace Caos.Player
         void OnGUI()
         {
             if (string.IsNullOrEmpty(playerName)) return;
-            if (Caos.UI.CaosSceneLoader.IsLoading) return;
-            if (Caos.UI.CaosFrontend.Active &&
-                Caos.UI.CaosFrontend.Instance.Screen == Caos.UI.CaosFrontendScreen.Loading) return;
+            if (Caos.UI.CaosShell.IsBlocked) return;
 
             Camera cam = Camera.main;
             if (cam == null) return;

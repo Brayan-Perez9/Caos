@@ -55,7 +55,7 @@ namespace Caos.UI
 
         void Update()
         {
-            if (CaosFrontend.Active) return;
+            if (CaosShell.IsBlocked) return;
 
             // Vitrina: el personaje gira despacio.
             if (_preview != null)
@@ -101,7 +101,8 @@ namespace Caos.UI
 
         void OnGUI()
         {
-            if (CaosFrontend.Active || CaosSceneLoader.IsLoading) return;
+            // Legacy: el armazón nueva tiene su propia escena de personalización.
+            if (CaosShell.IsBlocked) return;
 
             EnsureStyles();
 

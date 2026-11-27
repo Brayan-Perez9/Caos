@@ -14,7 +14,7 @@ namespace Caos.UI
 
         void OnGUI()
         {
-            if (CaosFrontend.Active || CaosSceneLoader.IsLoading) return;
+            if (CaosShell.IsBlocked) return;
 
             if (_buttonStyle == null)
             {
