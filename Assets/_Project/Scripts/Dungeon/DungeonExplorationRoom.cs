@@ -38,6 +38,7 @@ namespace Caos.Dungeon
                 Definition.weapon, Definition.element);
             TrackObject(weapon);
 
+            DungeonCannon.Place(Director, this, 1, 9f, 5.5f, 1.6f);
             Director.ShowBanner(Title + " — " + Objective, 2.6f);
         }
 

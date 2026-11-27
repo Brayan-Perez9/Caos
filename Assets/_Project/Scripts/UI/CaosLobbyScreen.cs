@@ -190,36 +190,37 @@ namespace Caos.UI
                     Event.current != null ? Event.current.mousePosition : Vector2.zero,
                     _scale, _offsetX, _offsetY);
 
-                DrawCard(0, new Rect(980f, 236f, 880f, 204f),
+                DrawCard(0, new Rect(980f, 224f, 880f, 150f),
                     CaosFrontendArt.Get(CaosFrontendArt.Slot.Dungeon), CaosShellUI.Violet,
                     "MODO 01", "MAZMORRA",
                     "Salas conectadas, recompensas y un guardián distinto en cada partida.",
                     mouse, styles);
-                DrawCard(1, new Rect(980f, 456f, 880f, 204f),
+                DrawCard(1, new Rect(980f, 386f, 880f, 150f),
                     CaosFrontendArt.Get(CaosFrontendArt.Slot.Arena), CaosShellUI.Coral,
                     "MODO 02", "ARENAS",
                     "Oleadas, jefes y caos directo con la arena que ya conoces.",
                     mouse, styles);
-                DrawCard(2, new Rect(980f, 676f, 880f, 204f),
-                    CaosFrontendArt.Get(CaosFrontendArt.Slot.Customization), CaosShellUI.Cyan,
-                    "Tu campeón", "PERSONALIZAR PERSONAJE",
-                    "Compra skins con las monedas que ganes en la mazmorra.",
-                    mouse, styles);
 
-                // Tienda exterior: visible en el lobby, sin entrar en la escena
-                // de personalización. Tres skins del catálogo con compra/equipo.
-                var shopPanel = new Rect(24f, 542f, 724f, 392f);
-                CaosShellUI.DrawRect(shopPanel, new Color(0.02f, 0.04f, 0.09f, 0.88f));
+                // Apartado propio, encima del botón de personalizar y fuera del
+                // retrato del campeón: no tapa al personaje.
+                var shopPanel = new Rect(980f, 548f, 880f, 118f);
+                CaosShellUI.DrawRect(shopPanel, new Color(0.02f, 0.04f, 0.09f, 0.9f));
                 CaosShellUI.DrawOutline(shopPanel, CaosShellUI.Cyan, 3f);
                 OutfitUI.DrawLobbyShop(
-                    new Rect(shopPanel.x + 12f, shopPanel.y + 10f,
-                        shopPanel.width - 24f, shopPanel.height - 20f),
+                    new Rect(shopPanel.x + 12f, shopPanel.y + 8f,
+                        shopPanel.width - 24f, shopPanel.height - 16f),
                     _previewCustomization);
 
-                if (GUI.Button(new Rect(830f, 922f, 340f, 58f),
+                DrawCard(2, new Rect(980f, 678f, 880f, 150f),
+                    CaosFrontendArt.Get(CaosFrontendArt.Slot.Customization), CaosShellUI.Cyan,
+                    "Tu campeón", "PERSONALIZAR PERSONAJE",
+                    "Ajusta color y ropa, o usa las skins compradas en la tienda.",
+                    mouse, styles);
+
+                if (GUI.Button(new Rect(830f, 856f, 340f, 54f),
                         "SALA MULTIJUGADOR", styles.Button)) Activate(3);
 
-                GUI.Label(new Rect(832f, 996f, 940f, 30f),
+                GUI.Label(new Rect(832f, 930f, 940f, 30f),
                     "Flechas/WASD + ENTER · 1/2/3 o clic: tienda · Ratón: clic · Mando: cruceta + A",
                     styles.Kicker);
 

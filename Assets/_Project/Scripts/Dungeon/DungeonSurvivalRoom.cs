@@ -25,12 +25,13 @@ namespace Caos.Dungeon
             _nextSpawn = Time.time + 1.8f;
             _nextSurge = Time.time + _total * 0.42f;
 
-            AddHazard(DungeonHazardMode.Orbit, 4.2f, 1.5f, 13f,
+            AddHazard(DungeonHazardMode.Orbit, 4.2f, 1.5f, 10f,
                 new Vector3(0.5f, 0.5f, 0.5f), 0f);
-            AddHazard(DungeonHazardMode.Orbit, 7.2f, -1.1f, 15f,
+            AddHazard(DungeonHazardMode.Orbit, 7.2f, -1.1f, 11f,
                 new Vector3(0.62f, 0.62f, 0.62f), 2.2f);
-            AddHazard(DungeonHazardMode.Sweep, Radius * 0.75f, 0.95f, 12f,
+            AddHazard(DungeonHazardMode.Sweep, Radius * 0.75f, 0.95f, 9f,
                 new Vector3(0.42f, 0.42f, Radius * 1.5f), 1.1f);
+            DungeonCannon.Place(Director, this, 2, 10f, 5f, 1.2f);
 
             Director.ShowBanner(Title + " — " + Objective, 2.6f);
         }
@@ -68,21 +69,20 @@ namespace Caos.Dungeon
         void SpawnOne(DungeonEnemyKind kind)
         {
             float scale = Director.DifficultyScale;
-            float health = 70f * scale;
-            float speed = 3.3f;
-            float damage = 13f;
+            float health = 90f * scale;
+            float speed = 3.4f;
+            float damage = 17f;
 
+            // SpawnVariant decide el daño de melé y de rayo según la variante.
             if (kind == DungeonEnemyKind.Elite)
             {
-                health *= 2f;
+                health *= 2.2f;
                 speed *= 0.9f;
-                damage *= 1.4f;
             }
             else if (kind == DungeonEnemyKind.Lanzador)
             {
-                health *= 0.9f;
-                speed *= 0.9f;
-                damage *= 1.1f;
+                health *= 0.8f;
+                speed *= 0.92f;
             }
 
             Director.SpawnVariant(RandomPoint(3f), kind, health, speed, damage);

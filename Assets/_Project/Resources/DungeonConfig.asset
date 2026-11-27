@@ -14,15 +14,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Caos.Runtime::Caos.Dungeon.DungeonConfig
   seed: 20261127
   roomTransitionSeconds: 1.6
-  roomRadius: 12
+  roomRadius: 16
   roomClearCoins: 8
-  casterEvery: 3
-  eliteWaveCount: 1
-  bossAdds: 3
-  bossAddInterval: 5.5
-  superBossHealth: 2100
+  casterEvery: 2
+  eliteWaveCount: 2
+  bossAdds: 4
+  bossAddInterval: 4.2
+  superBossHealth: 3200
   superBossSpeed: 3.2
-  superBossDamage: 34
+  superBossDamage: 44
   rooms:
   - kind: 0
     title: ENTRADA DEL CAOS
@@ -39,9 +39,9 @@ MonoBehaviour:
     bossDamage: 26
   - kind: 1
     title: RUINAS DE LOS COFRES
-    objective: Recoge 3 cofres y encuentra la salida
+    objective: Recoge 5 cofres y encuentra la salida
     duration: 0
-    goal: 3
+    goal: 5
     waveCount: 3
     enemiesPerWave: 4
     weapon: 0
@@ -52,8 +52,8 @@ MonoBehaviour:
     bossDamage: 26
   - kind: 2
     title: SOBREVIVE AL CAOS
-    objective: Resiste a trampas, oleadas y lanzadores
-    duration: 32
+    objective: "Resiste a trampas, oleadas, lanzadores y ca\xF1ones"
+    duration: 48
     goal: 0
     waveCount: 3
     enemiesPerWave: 4
@@ -65,9 +65,9 @@ MonoBehaviour:
     bossDamage: 26
   - kind: 3
     title: CARRERA MORTAL
-    objective: Pasa 5 controles antes de que acabe el tiempo
-    duration: 42
-    goal: 5
+    objective: Pasa 7 controles antes de que acabe el tiempo
+    duration: 58
+    goal: 7
     waveCount: 3
     enemiesPerWave: 4
     weapon: 2
@@ -78,11 +78,11 @@ MonoBehaviour:
     bossDamage: 26
   - kind: 4
     title: OLEADAS
-    objective: Limpia 4 oleadas y esquiva los rayos
+    objective: "Limpia 6 oleadas y esquiva los rayos y ca\xF1ones"
     duration: 0
     goal: 0
-    waveCount: 4
-    enemiesPerWave: 6
+    waveCount: 6
+    enemiesPerWave: 8
     weapon: 1
     element: 4
     bossKind: 0
@@ -112,9 +112,9 @@ MonoBehaviour:
     weapon: 2
     element: 1
     bossKind: 2
-    bossHealth: 1250
+    bossHealth: 1900
     bossSpeed: 2.8
-    bossDamage: 26
+    bossDamage: 34
   relics:
   - id: corazon_fuego
     title: "CORAZ\xD3N DE FUEGO"

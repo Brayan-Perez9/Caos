@@ -146,7 +146,9 @@ namespace Caos.Dungeon
             CreateSpawnPoint();
             WireCamera();
 
-            List<DungeonRoomKind> route = DungeonRoute.Build(seed, Mathf.Max(0, extraRooms));
+            // Tres salas extra son parte del recorrido base: la mazmorra no se
+            // acorta aunque la escena venga de una versión anterior del builder.
+            List<DungeonRoomKind> route = DungeonRoute.Build(seed, Mathf.Max(3, extraRooms));
             if (!DungeonRoute.IsValid(route))
                 route = new List<DungeonRoomKind>(DungeonRoute.Required);
 
@@ -322,8 +324,12 @@ namespace Caos.Dungeon
             if (_finished) return;
             _state.RoomsCleared++;
             int gained = _state.AddCoins(config.roomClearCoins);
+            // La ruta es más larga y los cañones castigan quedarse quieto: cada
+            // sala limpia devuelve un poco de vida para que la run sea exigente
+            // pero no una carrera contra la muerte.
+            _health?.Heal(16);
             ArenaAudio.Play(ArenaAudio.Sound.Upgrade, room.Center, 0.55f);
-            ShowBanner($"{room.Title} completada · +{gained} monedas", 2.4f);
+            ShowBanner($"{room.Title} completada · +{gained} monedas · +16 vida", 2.4f);
             if (RemoteClient) _netSync.SendGoal(_currentIndex);
         }
 

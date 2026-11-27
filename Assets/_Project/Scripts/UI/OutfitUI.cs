@@ -50,36 +50,43 @@ namespace Caos.UI
                 _lobbyShopLogged = true;
             }
 
-            GUI.Label(new Rect(area.x, area.y, area.width, 24f),
-                "TIENDA DEL LOBBY", _hintStyle);
-            GUI.Label(new Rect(area.x, area.y + 22f, area.width, 24f),
-                $"MONEDAS: {CaosProfile.Coins}", _hintStyle);
+            bool compact = area.height < 200f;
+
+            GUI.Label(new Rect(area.x, area.y, area.width, 22f),
+                compact ? $"TIENDA · MONEDAS: {CaosProfile.Coins}" : "TIENDA DEL LOBBY",
+                _hintStyle);
+            if (!compact)
+                GUI.Label(new Rect(area.x, area.y + 22f, area.width, 24f),
+                    $"MONEDAS: {CaosProfile.Coins}", _hintStyle);
 
             CaosSkinDefinition[] skins = CaosSkinCatalog.Skins;
             const int shown = 3;
             float gap = 8f;
+            float header = compact ? 25f : 48f;
             float cardWidth = (area.width - gap * (shown - 1)) / shown;
-            float cardHeight = area.height - 52f;
+            float cardHeight = area.height - header - (compact ? 6f : 4f);
 
             for (int i = 0; i < shown && i < skins.Length; i++)
             {
                 var card = new Rect(area.x + i * (cardWidth + gap),
-                    area.y + 48f, cardWidth, cardHeight);
-                DrawSkinCard(card, skins[i], character);
+                    area.y + header, cardWidth, cardHeight);
+                DrawSkinCard(card, skins[i], character, compact);
             }
 
             if (Time.realtimeSinceStartup < _shopMessageUntil)
             {
                 Color before = GUI.color;
                 GUI.color = new Color(1f, 0.86f, 0.5f, 1f);
-                GUI.Label(new Rect(area.x, area.y + area.height - 20f, area.width, 20f),
-                    _shopMessage, _hintStyle);
+                var messageRect = compact
+                    ? new Rect(area.x + area.width * 0.52f, area.y, area.width * 0.48f, 22f)
+                    : new Rect(area.x, area.y + area.height - 20f, area.width, 20f);
+                GUI.Label(messageRect, _shopMessage, _hintStyle);
                 GUI.color = before;
             }
         }
 
         static void DrawSkinCard(Rect card, CaosSkinDefinition skin,
-            CharacterCustomization character)
+            CharacterCustomization character, bool compact = false)
         {
             Color before = GUI.color;
             GUI.color = new Color(0.05f, 0.07f, 0.13f, 0.88f);
@@ -87,10 +94,20 @@ namespace Caos.UI
             GUI.color = before;
             CaosShellUI.DrawOutline(card, new Color(0.28f, 0.78f, 0.95f, 1f), 2f);
 
-            GUI.Label(new Rect(card.x + 8f, card.y + 6f, card.width - 16f, 18f),
-                skin.title, _shopNameStyle);
-            GUI.Label(new Rect(card.x + 8f, card.y + 24f, card.width - 16f, 40f),
-                $"{skin.description} · {skin.price} monedas", _shopBodyStyle);
+            if (compact)
+            {
+                GUI.Label(new Rect(card.x + 8f, card.y + 3f, card.width - 16f, 18f),
+                    skin.title, _shopNameStyle);
+                GUI.Label(new Rect(card.x + 8f, card.y + 19f, card.width - 16f, 18f),
+                    $"{skin.price} monedas", _shopBodyStyle);
+            }
+            else
+            {
+                GUI.Label(new Rect(card.x + 8f, card.y + 6f, card.width - 16f, 18f),
+                    skin.title, _shopNameStyle);
+                GUI.Label(new Rect(card.x + 8f, card.y + 24f, card.width - 16f, 40f),
+                    $"{skin.description} · {skin.price} monedas", _shopBodyStyle);
+            }
 
             bool owned = CaosProfile.Owns(skin.id);
             bool selected = string.Equals(CaosProfile.EquippedSkinId, skin.id,
@@ -98,8 +115,8 @@ namespace Caos.UI
             string action = selected ? "EQUIPADO" : owned ? "USAR" : "COMPRAR";
 
             GUI.enabled = !selected;
-            if (GUI.Button(new Rect(card.x + 8f, card.y + card.height - 26f,
-                    card.width - 16f, 22f), action, _tabStyle))
+            if (GUI.Button(new Rect(card.x + 8f, card.y + card.height - 24f,
+                    card.width - 16f, 20f), action, _tabStyle))
             {
                 BuyOrEquip(skin, character);
             }

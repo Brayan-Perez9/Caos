@@ -34,6 +34,7 @@ namespace Caos.Dungeon
             _waveActive = false;
             _delay = 1.1f;
             Director.SetWeapon(Definition.weapon, Definition.element);
+            DungeonCannon.Place(Director, this, 1 + Director.PartySize - 1, 12f, 4.2f, 0.4f);
             Director.ShowBanner(Title + " — " + Objective, 2.6f);
         }
 
@@ -88,21 +89,22 @@ namespace Caos.Dungeon
                         ? DungeonEnemyKind.Lanzador
                         : DungeonEnemyKind.Normal;
 
-                float health = (68f + _wave * 9f) * scale;
-                float speed = 3.1f + _wave * 0.12f;
-                float damage = 12f + _wave * 1.5f;
+                // El daño definitivo por tipo lo reparte SpawnVariant: aquí solo
+                // se fijan resistencia y movimiento para que cada variante pegue
+                // distinto sin duplicar multiplicadores.
+                float health = (92f + _wave * 13f) * scale;
+                float speed = 3.35f + _wave * 0.12f;
+                float damage = 16f + _wave * 2f;
 
                 if (kind == DungeonEnemyKind.Elite)
                 {
-                    health *= 2.1f;
-                    speed *= 0.92f;
-                    damage *= 1.45f;
+                    health *= 2.2f;
+                    speed *= 0.9f;
                 }
                 else if (kind == DungeonEnemyKind.Lanzador)
                 {
-                    health *= 0.85f;
-                    speed *= 0.9f;
-                    damage *= 1.1f;
+                    health *= 0.8f;
+                    speed *= 0.92f;
                 }
 
                 if (Director.SpawnVariant(RandomPoint(3f), kind, health, speed, damage) != null)

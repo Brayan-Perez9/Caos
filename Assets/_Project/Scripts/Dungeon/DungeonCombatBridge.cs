@@ -259,23 +259,48 @@ namespace Caos.Dungeon
                 accent = ShapeAccent(shape);
             }
 
-            ArenaMonster monster = SpawnMonster(position, hitPoints, speed, damage, shape, accent);
+            // Cada variante reparte el daño de forma distinta: el lanzador
+            // apenas pega en cuerpo a cuerpo pero su rayo es letal; el élite
+            // es un tanque de melé con un rayo secundario; el normal no lanza.
+            float meleeDamage = damage;
+            float rayDamage = 0f;
+            float rayInterval = 0f;
+            float raySpeed = 0f;
+
+            if (kind == DungeonEnemyKind.Lanzador)
+            {
+                meleeDamage = damage * 0.65f;
+                rayDamage = damage * 2.1f;
+                rayInterval = 2.6f;
+                raySpeed = 30f;
+            }
+            else if (kind == DungeonEnemyKind.Elite)
+            {
+                meleeDamage = damage * 2.2f;
+                rayDamage = damage * 0.9f;
+                rayInterval = 5.2f;
+                raySpeed = 25f;
+            }
+
+            ArenaMonster monster = SpawnMonster(position, hitPoints, speed,
+                meleeDamage, shape, accent);
             if (monster == null) return null;
 
             if (kind == DungeonEnemyKind.Lanzador)
             {
                 monster.name = "DungeonLanzador";
                 monster.transform.localScale = new Vector3(0.88f, 0.96f, 0.88f);
-                AttachCaster(monster.gameObject, 3.1f, damage * 1.1f, 27f, DungeonPalette.UiCyan);
+                AttachCaster(monster.gameObject, rayInterval, rayDamage, raySpeed, DungeonPalette.UiCyan);
             }
             else if (kind == DungeonEnemyKind.Elite)
             {
                 monster.name = "DungeonElite";
                 monster.transform.localScale = new Vector3(1.18f, 1.28f, 1.18f);
-                AttachCaster(monster.gameObject, 4.6f, damage * 0.8f, 24f, DungeonPalette.UiViolet);
+                AttachCaster(monster.gameObject, rayInterval, rayDamage, raySpeed, DungeonPalette.UiViolet);
             }
 
-            Debug.Log($"[Caos] Enemigo variante: {monster.name} HP={hitPoints:0} daño={damage:0}");
+            Debug.Log($"[Caos] Enemigo variante: {monster.name} HP={hitPoints:0} " +
+                $"melé={meleeDamage:0} rayo={rayDamage:0}");
             return monster;
         }
 

@@ -76,6 +76,7 @@ namespace Caos.Dungeon
             if (boss != null)
             {
                 _phase = PhaseSuper;
+                DungeonCannon.Place(Director, this, 2, 12f, 4.6f, 0.8f);
                 Director.ShowBanner("SUPERJEFE — " + BossLabel(Definition.bossKind), 3f);
                 ArenaAudio.Play(ArenaAudio.Sound.Boss, position, 1f);
             }
@@ -117,7 +118,7 @@ namespace Caos.Dungeon
             {
                 DungeonEnemyKind kind = i == 0 ? DungeonEnemyKind.Lanzador : DungeonEnemyKind.Normal;
                 Director.SpawnVariant(RandomPoint(4f), kind,
-                    54f * Director.DifficultyScale, 3.4f, 14f * Director.DifficultyScale);
+                    72f * Director.DifficultyScale, 3.5f, 19f * Director.DifficultyScale);
             }
             Director.ShowBanner("EL JEFE INVOCA REFUERZOS", 1.6f);
         }

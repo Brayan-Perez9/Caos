@@ -66,6 +66,7 @@ namespace Caos.EditorTools
             var director = new GameObject("DungeonDirector").AddComponent<DungeonDirector>();
             var serializedDirector = new SerializedObject(director);
             serializedDirector.FindProperty("config").objectReferenceValue = EnsureConfig();
+            serializedDirector.FindProperty("extraRooms").intValue = 3;
             serializedDirector.ApplyModifiedPropertiesWithoutUndo();
 
             director.SetPlayer(player);
