@@ -41,7 +41,7 @@ namespace Caos.Dungeon
         void Update()
         {
             if (_collected || _director == null || _director.Finished ||
-                _director.TransitionActive) return;
+                _director.TransitionActive || _director.Paused) return;
 
             transform.Rotate(0f, 72f * Time.unscaledDeltaTime, 0f, Space.World);
             Vector3 position = _origin;
@@ -49,11 +49,17 @@ namespace Caos.Dungeon
             transform.position = position;
 
             PlayerController player = _director.Player;
-            if (player != null && Vector3.Distance(player.transform.position,
-                    transform.position) < 1.5f)
+            if (player != null)
             {
-                _collected = true;
-                _director.CollectPickup(this);
+                // Comparación horizontal: la altura del cofre no debe impedir
+                // recogerlo mientras bota.
+                Vector3 delta = player.transform.position - transform.position;
+                delta.y = 0f;
+                if (delta.sqrMagnitude < 2.25f)
+                {
+                    _collected = true;
+                    _director.CollectPickup(this);
+                }
             }
         }
     }

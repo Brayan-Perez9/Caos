@@ -16,6 +16,7 @@ namespace Caos.Dungeon
         DungeonDirector _director;
         DungeonRoomDefinition _definition;
         GameObject _exit;
+        BoxCollider _exitGate;
         Vector3 _exitBaseScale = Vector3.one;
 
         public int Index { get; private set; }
@@ -70,6 +71,12 @@ namespace Caos.Dungeon
                 new Vector3(2.8f, 0.06f, 2.8f), DungeonPalette.ExitClosed, _exit.transform, false);
             DungeonVisuals.Cylinder("Beam", ExitPoint + Vector3.up * 1.3f,
                 new Vector3(0.34f, 1.3f, 0.34f), DungeonPalette.ExitClosed, _exit.transform, false);
+
+            // Puerta física: impide entrar en la sala siguiente antes de
+            // completar el objetivo, y bloquea el camino de vuelta al terminar.
+            _exitGate = _exit.AddComponent<BoxCollider>();
+            _exitGate.center = new Vector3(0f, 1.4f, 0f);
+            _exitGate.size = new Vector3(3.2f, 2.8f, 0.6f);
 
             SetExitOpen(false);
         }
@@ -171,6 +178,7 @@ namespace Caos.Dungeon
         void SetExitOpen(bool open)
         {
             if (_exit == null) return;
+            if (_exitGate != null) _exitGate.enabled = !open;
             Material material = open ? DungeonPalette.ExitOpen : DungeonPalette.ExitClosed;
             Renderer[] renderers = _exit.GetComponentsInChildren<Renderer>();
             for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = material;

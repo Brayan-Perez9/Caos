@@ -26,6 +26,8 @@ namespace Caos.Dungeon
         DungeonCombatBridge _bridge;
         DungeonHud _hud;
         DungeonNetSync _netSync;
+        Caos.UI.CaosPauseMenu _pauseMenu;
+        Caos.UI.CustomizationScreen _customizationScreen;
         PlayerController _player;
         ChaosHealth _health;
         Transform _spawnPoint;
@@ -35,6 +37,7 @@ namespace Caos.Dungeon
         System.Random _rng;
 
         int _currentIndex;
+        int _pendingRoomIndex = -1;
         int _seed;
         bool _finished;
         bool _victory;
@@ -47,7 +50,11 @@ namespace Caos.Dungeon
         public bool Finished => _finished;
         public bool Victory => _victory;
         public bool TransitionActive => _transition;
+        public bool Paused => _pauseMenu != null && _pauseMenu.IsOpen;
         public bool CanPause => !_finished && !_transition;
+        public bool InputBlockedByUi => Paused ||
+            (_customizationScreen != null && _customizationScreen.IsOpen);
+        bool RemoteClient => _netSync != null && _netSync.Connected && _netSync.IsClient;
 
         public DungeonConfig Config => config;
         public DungeonRunState State => _state;
@@ -73,11 +80,11 @@ namespace Caos.Dungeon
 
         void Start()
         {
-            if (config == null)
-            {
-                config = ScriptableObject.CreateInstance<DungeonConfig>();
-                config.name = "DungeonConfig (runtime)";
-            }
+            // Clonamos el asset: la elección aleatoria del jefe no debe
+            // persistirse en el .asset compartido entre partidas.
+            config = config != null
+                ? Instantiate(config)
+                : ScriptableObject.CreateInstance<DungeonConfig>();
             config.ApplyDefaults();
 
             // En partida en red el anfitrión reparte la semilla del lobby.
@@ -108,6 +115,8 @@ namespace Caos.Dungeon
             _hud = _hud != null ? _hud : FindFirstObjectByType<DungeonHud>();
             _netSync = FindFirstObjectByType<DungeonNetSync>();
             if (_netSync != null) _netSync.Configure(this);
+            _pauseMenu = FindFirstObjectByType<Caos.UI.CaosPauseMenu>();
+            _customizationScreen = FindFirstObjectByType<Caos.UI.CustomizationScreen>();
 
             if (_bridge == null)
             {
@@ -117,6 +126,14 @@ namespace Caos.Dungeon
             }
 
             _bridge.Configure(this, _player, _health, _state);
+
+            // En Arena el aim controller encuentra al director solo; aquí no
+            // existe ArenaDirector, así que le inyectamos el puente de combate.
+            ArenaAimController aim = _player != null
+                ? _player.GetComponent<ArenaAimController>()
+                : FindFirstObjectByType<ArenaAimController>();
+            if (aim != null) aim.Configure(_bridge);
+
             if (_health != null) _health.Configure(Mathf.Max(30f, startHealth), true);
             if (_hud != null) _hud.Configure(this);
 
@@ -150,11 +167,10 @@ namespace Caos.Dungeon
 
         void BeginRoom(int index)
         {
-            DungeonRoom room = CurrentRoom;
-            if (room == null) return;
+            if (_rooms == null || index < 0 || index >= _rooms.Length) return;
 
             _currentIndex = index;
-            room = CurrentRoom;
+            DungeonRoom room = _rooms[index];
 
             if (_player != null && _spawnPoint != null)
             {
@@ -180,6 +196,8 @@ namespace Caos.Dungeon
                 return;
             }
 
+            if (Paused) return;
+
             if (_transition)
             {
                 _transitionTimer -= unscaled;
@@ -202,26 +220,32 @@ namespace Caos.Dungeon
 
         void AdvanceRoom()
         {
-            if (_currentIndex + 1 >= _rooms.Length)
+            int next = _currentIndex + 1;
+            if (next >= _rooms.Length)
             {
-                FinishRun(true);
+                // En red el host decide la victoria; el invitado espera su mensaje.
+                bool authority = _netSync == null || !_netSync.Connected || _netSync.IsHost;
+                if (authority) FinishRun(true);
                 return;
             }
 
             CurrentRoom?.End();
             _bridge.ClearEnemies();
+            _pendingRoomIndex = next;
             _transition = true;
             _transitionTimer = Mathf.Max(0.2f, config.roomTransitionSeconds);
             if (_player != null) _player.InputEnabled = false;
-            _netSync?.NotifyRoom(_currentIndex + 1);
+            _netSync?.NotifyRoom(next);
             ShowBanner("ABRIENDO LA SIGUIENTE PUERTA…", _transitionTimer);
         }
 
         void FinishTransition()
         {
+            int next = _pendingRoomIndex;
+            _pendingRoomIndex = -1;
             _transition = false;
-            BeginRoom(_currentIndex + 1);
-            if (_player != null) _player.InputEnabled = true;
+            BeginRoom(next);
+            if (_player != null && !InputBlockedByUi) _player.InputEnabled = true;
         }
 
         void FinishRun(bool won)
@@ -275,7 +299,7 @@ namespace Caos.Dungeon
             if (_finished) return;
             DungeonRoom room = CurrentRoom;
             if (room != null) room.Fail("Has caído en combate");
-            if (!_finished) FinishRun(false);
+            else FinishRun(false);
         }
 
         public void OnRoomCompleted(DungeonRoom room)
@@ -285,12 +309,19 @@ namespace Caos.Dungeon
             int gained = _state.AddCoins(config.roomClearCoins);
             ArenaAudio.Play(ArenaAudio.Sound.Upgrade, room.Center, 0.55f);
             ShowBanner($"{room.Title} completada · +{gained} monedas", 2.4f);
+            if (RemoteClient) _netSync.SendGoal(_currentIndex);
         }
 
         public void OnRoomFailed(DungeonRoom room, string reason)
         {
             if (_finished) return;
             ShowBanner($"FALLO: {reason}", 3f);
+            if (RemoteClient)
+            {
+                _netSync.SendDefeat(_currentIndex);
+                if (_player != null) _player.InputEnabled = false;
+                return; // el host difunde la derrota confirmada
+            }
             FinishRun(false);
         }
 
@@ -398,7 +429,6 @@ namespace Caos.Dungeon
         {
             if (_finished) return;
             CurrentRoom?.Fail(reason);
-            if (!_finished) FinishRun(false);
         }
 
         public void TryUseGate()
@@ -411,19 +441,32 @@ namespace Caos.Dungeon
         public void NetworkRoom(int roomIndex)
         {
             if (_rooms == null || roomIndex < 0 || roomIndex >= _rooms.Length ||
-                _finished || roomIndex == _currentIndex) return;
+                _finished || (roomIndex == _currentIndex && !_transition)) return;
+
+            // Un mensaje del host cancela cualquier transición local pendiente.
+            _transition = false;
+            _transitionTimer = 0f;
+            _pendingRoomIndex = -1;
 
             CurrentRoom?.End();
             _bridge?.ClearEnemies();
-            _currentIndex = roomIndex - 1;
             BeginRoom(roomIndex);
+            if (_player != null && !InputBlockedByUi) _player.InputEnabled = true;
         }
 
         public void NetworkFinish(bool won) => FinishRun(won);
 
         public void OnRemoteGoal(int roomIndex)
         {
-            if (!_finished && roomIndex >= _currentIndex) CurrentRoom?.Complete();
+            if (_finished || _rooms == null || roomIndex < _currentIndex) return;
+            CurrentRoom?.Complete();
+
+            // La última sala no tiene transición: el host cierra la partida.
+            if (!_transition && _currentIndex == _rooms.Length - 1 &&
+                CurrentRoom != null && CurrentRoom.Completed)
+            {
+                AdvanceRoom();
+            }
         }
 
         public void OnRemoteDefeat()

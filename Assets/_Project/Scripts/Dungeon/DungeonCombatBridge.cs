@@ -13,6 +13,10 @@ namespace Caos.Dungeon
     public class DungeonCombatBridge : MonoBehaviour, IArenaCombatDirector
     {
         static readonly Color BloodColor = new Color(0.58f, 0.02f, 0.03f);
+        static readonly Dictionary<ArenaElement, Material> BulletMaterials =
+            new Dictionary<ArenaElement, Material>();
+        static readonly Dictionary<Color, Material> EnemyBulletMaterials =
+            new Dictionary<Color, Material>();
 
         [SerializeField] ArenaWeaponKind weapon = ArenaWeaponKind.Pistola;
         [SerializeField] ArenaElement element = ArenaElement.Normal;
@@ -157,8 +161,7 @@ namespace Caos.Dungeon
             shot.name = "DungeonBullet";
             shot.transform.position = origin;
             shot.transform.localScale = Vector3.one * (bulletElement == ArenaElement.Rayo ? 0.24f : 0.19f);
-            shot.GetComponent<Renderer>().sharedMaterial = ArenaMaterial.Create(
-                ArenaElementInfo.Color(bulletElement), 0f, 0.6f);
+            shot.GetComponent<Renderer>().sharedMaterial = BulletMaterial(bulletElement);
 
             var projectile = shot.AddComponent<ArenaProjectile>();
             projectile.Configure((IArenaCombatDirector)this, direction, speed, damage, bulletElement);
@@ -210,8 +213,29 @@ namespace Caos.Dungeon
             return boss;
         }
 
+        static Material BulletMaterial(ArenaElement element)
+        {
+            if (!BulletMaterials.TryGetValue(element, out Material material))
+            {
+                material = ArenaMaterial.Create(ArenaElementInfo.Color(element), 0f, 0.6f);
+                BulletMaterials.Add(element, material);
+            }
+            return material;
+        }
+
+        static Material EnemyBulletMaterial(Color color)
+        {
+            if (!EnemyBulletMaterials.TryGetValue(color, out Material material))
+            {
+                material = ArenaMaterial.Create(color);
+                EnemyBulletMaterials.Add(color, material);
+            }
+            return material;
+        }
+
         void Track(GameObject go, float lifetime)
         {
+            _spawned.RemoveAll(item => item == null);
             _spawned.Add(go);
             if (lifetime > 0f) Destroy(go, lifetime);
         }
@@ -239,7 +263,8 @@ namespace Caos.Dungeon
 
         public void DamagePlayer(float amount, Vector3 source)
         {
-            if (_director == null || _director.Finished || _health == null || _health.IsDead) return;
+            if (_director == null || _director.Finished || _director.Paused ||
+                _health == null || _health.IsDead) return;
             if (Time.time < _nextTrapHit && amount < 20f) return;
 
             // Las criaturas ya escalan su daño en MonsterDamage; aquí llega el
@@ -340,7 +365,7 @@ namespace Caos.Dungeon
             shot.name = "DungeonBossBullet";
             shot.transform.position = origin;
             shot.transform.localScale = Vector3.one * 0.34f;
-            shot.GetComponent<Renderer>().sharedMaterial = ArenaMaterial.Create(color);
+            shot.GetComponent<Renderer>().sharedMaterial = EnemyBulletMaterial(color);
 
             var projectile = shot.AddComponent<ArenaEnemyProjectile>();
             projectile.Configure((IArenaCombatDirector)this, direction, speed, damage);

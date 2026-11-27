@@ -22,7 +22,7 @@ namespace Caos.Dungeon
 
         void OnGUI()
         {
-            if (_director == null) return;
+            if (_director == null || _director.State == null || _director.Bridge == null) return;
 
             float scale = UiScale();
             EnsureStyles(scale);

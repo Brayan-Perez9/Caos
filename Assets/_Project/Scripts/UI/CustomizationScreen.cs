@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using Caos.Dungeon;
 using Caos.Player;
 
 namespace Caos.UI
@@ -36,6 +37,8 @@ namespace Caos.UI
             ApplyLock();
         }
 
+        public bool IsOpen => _open;
+
         void Update()
         {
             if (_open) return;
@@ -59,7 +62,16 @@ namespace Caos.UI
 
         void ApplyLock()
         {
-            if (_controller != null) _controller.InputEnabled = !_open;
+            if (_controller == null) return;
+
+            bool blocked = _open;
+            var pause = FindFirstObjectByType<CaosPauseMenu>();
+            if (pause != null && pause.IsOpen) blocked = true;
+
+            var dungeon = FindFirstObjectByType<DungeonDirector>();
+            if (dungeon != null && !dungeon.CanPause) blocked = true;
+
+            _controller.InputEnabled = !blocked;
         }
 
         // ---------------------------------------------------------- dibujo

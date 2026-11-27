@@ -42,7 +42,8 @@ namespace Caos.Dungeon
 
         void Update()
         {
-            if (_director == null || _director.Finished || _director.TransitionActive) return;
+            if (_director == null || _director.Finished || _director.TransitionActive ||
+                _director.Paused) return;
             DungeonRoom room = _director.CurrentRoom;
             if (room == null || !room.Active || room.Completed || room.Failed) return;
 
@@ -71,7 +72,25 @@ namespace Caos.Dungeon
 
             PlayerController player = _director.Player;
             if (player == null || Time.time < _nextHit) return;
-            if (Vector3.Distance(player.transform.position, transform.position) > 1.5f) return;
+
+            float distance;
+            if (_mode == DungeonHazardMode.Sweep)
+            {
+                // La barra es larga: hay que medir contra el segmento, no
+                // contra su centro, o los extremos no lastiman.
+                Vector3 relative = player.transform.position - transform.position;
+                float halfLength = _baseScale.z * 0.5f;
+                float along = Mathf.Clamp(Vector3.Dot(relative, transform.forward),
+                    -halfLength, halfLength);
+                Vector3 closest = transform.position + transform.forward * along;
+                distance = Vector3.Distance(player.transform.position, closest);
+            }
+            else
+            {
+                distance = Vector3.Distance(player.transform.position, transform.position);
+            }
+
+            if (distance > 1.5f) return;
 
             _nextHit = Time.time + 0.65f;
             _director.DamagePlayer(_damage, transform.position);

@@ -63,14 +63,27 @@ namespace Caos.Dungeon
         {
             _wave++;
             _killed = 0;
-            _spawned = Mathf.Max(1, Definition.enemiesPerWave + _wave - 1);
+            int requested = Mathf.Max(1, Definition.enemiesPerWave + _wave - 1);
+            int spawned = 0;
 
-            for (int i = 0; i < _spawned; i++)
+            for (int i = 0; i < requested; i++)
             {
-                Director.SpawnMonster(RandomPoint(3f),
-                    46f + _wave * 6f, 3.1f + _wave * 0.12f, 12f + _wave * 1.5f);
+                if (Director.SpawnMonster(RandomPoint(3f),
+                        46f + _wave * 6f, 3.1f + _wave * 0.12f, 12f + _wave * 1.5f) != null)
+                {
+                    spawned++;
+                }
             }
 
+            if (spawned == 0)
+            {
+                _wave = Mathf.Max(0, _wave - 1);
+                _spawned = 0;
+                _delay = 1f;
+                return;
+            }
+
+            _spawned = spawned;
             _waveActive = true;
             ArenaAudio.Play(ArenaAudio.Sound.Boss, Center, 0.55f);
             Director.ShowBanner($"OLEADA {_wave}/{Mathf.Max(1, Definition.waveCount)}", 2f);

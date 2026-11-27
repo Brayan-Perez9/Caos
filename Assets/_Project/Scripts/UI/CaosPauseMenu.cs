@@ -22,6 +22,10 @@ namespace Caos.UI
         static readonly Color Violet = new Color32(123, 97, 255, 255);
 
         bool _open;
+
+        /// <summary>Lo consulta el director de mazmorra para detener sus temporizadores.</summary>
+        public bool IsOpen => _open;
+
         PlayerController _player;
         GUIStyle _titleStyle;
         GUIStyle _buttonStyle;
@@ -57,7 +61,17 @@ namespace Caos.UI
         {
             _open = value;
             if (_player == null) _player = FindFirstObjectByType<PlayerController>();
-            if (_player != null) _player.InputEnabled = !value;
+            if (_player != null)
+            {
+                bool blocked = value;
+                var customization = FindFirstObjectByType<CustomizationScreen>();
+                if (customization != null && customization.IsOpen) blocked = true;
+
+                var dungeon = FindFirstObjectByType<DungeonDirector>();
+                if (dungeon != null && !dungeon.CanPause) blocked = true;
+
+                _player.InputEnabled = !blocked;
+            }
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }

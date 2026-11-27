@@ -1,0 +1,141 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72b93128bf10cb0b0f7893ca7e759480, type: 3}
+  m_Name: DungeonConfig
+  m_EditorClassIdentifier: Caos.Runtime::Caos.Dungeon.DungeonConfig
+  seed: 20261127
+  roomTransitionSeconds: 1.6
+  roomRadius: 12
+  roomClearCoins: 8
+  rooms:
+  - kind: 0
+    title: ENTRADA DEL CAOS
+    objective: Llega a la puerta luminosa
+    duration: 0
+    goal: 0
+    waveCount: 3
+    enemiesPerWave: 4
+    weapon: 0
+    element: 0
+    bossKind: 0
+    bossHealth: 900
+    bossSpeed: 2.8
+    bossDamage: 26
+  - kind: 1
+    title: RUINAS DE LOS COFRES
+    objective: Recoge 3 cofres y encuentra la salida
+    duration: 0
+    goal: 3
+    waveCount: 3
+    enemiesPerWave: 4
+    weapon: 0
+    element: 0
+    bossKind: 0
+    bossHealth: 900
+    bossSpeed: 2.8
+    bossDamage: 26
+  - kind: 2
+    title: SOBREVIVE AL CAOS
+    objective: Resiste 30 s a martillos y bolas
+    duration: 30
+    goal: 0
+    waveCount: 3
+    enemiesPerWave: 4
+    weapon: 1
+    element: 1
+    bossKind: 0
+    bossHealth: 900
+    bossSpeed: 2.8
+    bossDamage: 26
+  - kind: 3
+    title: CARRERA MORTAL
+    objective: Pasa 5 controles antes de que acabe el tiempo
+    duration: 42
+    goal: 5
+    waveCount: 3
+    enemiesPerWave: 4
+    weapon: 2
+    element: 2
+    bossKind: 0
+    bossHealth: 900
+    bossSpeed: 2.8
+    bossDamage: 26
+  - kind: 4
+    title: OLEADAS
+    objective: Limpia 3 oleadas de monstruos
+    duration: 0
+    goal: 0
+    waveCount: 3
+    enemiesPerWave: 4
+    weapon: 1
+    element: 4
+    bossKind: 0
+    bossHealth: 900
+    bossSpeed: 2.8
+    bossDamage: 26
+  - kind: 5
+    title: CÁMARA DEL TESORO
+    objective: Elige una recompensa (1 / 2 / 3)
+    duration: 0
+    goal: 0
+    waveCount: 3
+    enemiesPerWave: 4
+    weapon: 0
+    element: 0
+    bossKind: 0
+    bossHealth: 900
+    bossSpeed: 2.8
+    bossDamage: 26
+  - kind: 6
+    title: JEFE FINAL
+    objective: Derrota al guardián de la mazmorra
+    duration: 0
+    goal: 0
+    waveCount: 0
+    enemiesPerWave: 0
+    weapon: 2
+    element: 1
+    bossKind: 2
+    bossHealth: 900
+    bossSpeed: 2.8
+    bossDamage: 26
+  relics:
+  - id: corazon_fuego
+    title: CORAZÓN DE FUEGO
+    description: Tus disparos queman
+    effect: 0
+    magnitude: 1
+  - id: botas_caos
+    title: BOTAS DEL CAOS
+    description: Velocidad +18 %
+    effect: 1
+    magnitude: 1.18
+  - id: escudo_ancestral
+    title: ESCUDO ANCESTRAL
+    description: Bloquea un golpe mortal
+    effect: 2
+    magnitude: 1
+  - id: moneda_maldita
+    title: MONEDA MALDITA
+    description: Recompensas +50 %, enemigos más duros
+    effect: 3
+    magnitude: 1.5
+  - id: diente_caos
+    title: DIENTE DEL CAOS
+    description: Daño +25 %
+    effect: 4
+    magnitude: 1.25
+  - id: vitalidad
+    title: VITALIDAD
+    description: Vida máxima +30
+    effect: 5
+    magnitude: 30

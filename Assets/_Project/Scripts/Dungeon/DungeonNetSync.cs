@@ -89,11 +89,11 @@ namespace Caos.Dungeon
                     if (IsClient) _director.NetworkFinish(payload == "1");
                     break;
                 case CaosMessageKind.DungeonGoal:
-                    if (IsClient && int.TryParse(payload, out int goal))
+                    if (IsHost && int.TryParse(payload, out int goal))
                         _director.OnRemoteGoal(goal);
                     break;
                 case CaosMessageKind.DungeonDefeat:
-                    if (IsClient) _director.OnRemoteDefeat();
+                    if (IsHost) _director.OnRemoteDefeat();
                     break;
                 case CaosMessageKind.PeerLeft:
                     RemoveRemote(from);

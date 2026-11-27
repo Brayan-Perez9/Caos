@@ -40,7 +40,7 @@ namespace Caos.Dungeon
                 TrackObject(marker);
             }
 
-            AddSweeper(0.85f, 1.2f);
+            AddSweeper(0.85f, 12f);
             AddOrbiter(5.5f, -1.35f);
             Director.ShowBanner(Title + " — " + Objective, 2.6f);
         }

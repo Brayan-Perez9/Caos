@@ -18,6 +18,9 @@ EditorBuildSettings:
     path: Assets/_Project/Scenes/ArenaCaos.unity
     guid: 017da5af8776c4d41b6320abb2c946be
   - enabled: 1
+    path: Assets/_Project/Scenes/Dungeon.unity
+    guid: 362245ef99f13abb6ad23c710b9194bb
+  - enabled: 1
     path: Assets/_Project/Scenes/Sandbox.unity
     guid: 5d0f727a3968dd648a36de54bb8effc5
   m_configObjects:
