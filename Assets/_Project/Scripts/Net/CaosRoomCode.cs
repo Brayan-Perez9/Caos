@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using UnityEngine;
 
@@ -40,22 +42,54 @@ namespace Caos.Net
 
         public static string LocalAddress()
         {
+            var addresses = LocalAddresses();
+            return addresses != null && addresses.Count > 0 ? addresses[0] : "127.0.0.1";
+        }
+
+        /// <summary>
+        /// Todas las IPv4 utilizables del equipo. Un host puede tener Ethernet y
+        /// Wi-Fi a la vez; si el código toma la tarjeta equivocada, el invitado
+        /// puede conectar con otra de estas IP seguida del puerto.
+        /// </summary>
+        public static IReadOnlyList<string> LocalAddresses()
+        {
+            var found = new List<string>();
+
             try
             {
                 foreach (var address in Dns.GetHostEntry(Dns.GetHostName()).AddressList)
+                    AddAddress(found, address);
+            }
+            catch
+            {
+                // Sin DNS todavía podemos leer las tarjetas de red.
+            }
+
+            try
+            {
+                foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
                 {
-                    if (address.AddressFamily != AddressFamily.InterNetwork) continue;
-                    string text = address.ToString();
-                    if (text == "127.0.0.1" || text.StartsWith("169.254.")) continue;
-                    return text;
+                    if (nic.OperationalStatus != OperationalStatus.Up) continue;
+                    foreach (var info in nic.GetIPProperties().UnicastAddresses)
+                        AddAddress(found, info.Address);
                 }
             }
             catch
             {
-                // Sin DNS: el código seguirá siendo válido para la misma máquina.
+                // Plataforma sin información de interfaces: usamos DNS.
             }
 
-            return "127.0.0.1";
+            if (found.Count == 0) found.Add("127.0.0.1");
+            return found;
+        }
+
+        static void AddAddress(List<string> found, IPAddress address)
+        {
+            if (address == null || address.AddressFamily != AddressFamily.InterNetwork) return;
+
+            string text = address.ToString();
+            if (text == "127.0.0.1" || text.StartsWith("169.254.")) return;
+            if (!found.Contains(text)) found.Add(text);
         }
 
         public static bool TryParse(string input, out string host, out int port)
@@ -64,7 +98,13 @@ namespace Caos.Net
             port = 7777;
             if (string.IsNullOrWhiteSpace(input)) return false;
 
-            string text = input.Trim().ToUpperInvariant()
+            string original = input.Trim();
+
+            // Formato directo: 192.168.1.5:7777 o solo 192.168.1.5.
+            // Útil cuando el código apunta a otra tarjeta de red del host.
+            if (TryParseDirect(original, out host, out port)) return true;
+
+            string text = original.ToUpperInvariant()
                 .Replace(" ", string.Empty)
                 .Replace("-", string.Empty)
                 .Replace("_", string.Empty);
@@ -87,6 +127,28 @@ namespace Caos.Net
             if (port < 1 || port > 65535 || ipv4 == 0u || ipv4 == 0xFFFFFFFFu) return false;
 
             host = $"{ipv4 >> 24}.{(ipv4 >> 16) & 255}.{(ipv4 >> 8) & 255}.{ipv4 & 255}";
+            return true;
+        }
+
+        static bool TryParseDirect(string text, out string host, out int port)
+        {
+            host = string.Empty;
+            port = 7777;
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            string addressText = text;
+            int colon = text.LastIndexOf(':');
+            if (colon >= 0)
+            {
+                addressText = text.Substring(0, colon);
+                if (!int.TryParse(text.Substring(colon + 1), out port) ||
+                    port < 1 || port > 65535) return false;
+            }
+
+            if (!IPAddress.TryParse(addressText, out var address) ||
+                address.AddressFamily != AddressFamily.InterNetwork) return false;
+
+            host = address.ToString();
             return true;
         }
 

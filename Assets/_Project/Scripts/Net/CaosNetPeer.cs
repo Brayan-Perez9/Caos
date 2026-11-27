@@ -167,11 +167,15 @@ namespace Caos.Net
             try
             {
                 var client = new TcpClient();
-                client.Connect(address.Trim(), remotePort);
-                if (!client.Connected)
+                string endpoint = $"{address.Trim()}:{remotePort}";
+
+                // Un Connect sincronizado puede bloquearse casi un minuto si el
+                // host no responde. Limitamos la espera para dar un error claro.
+                var task = client.ConnectAsync(address.Trim(), remotePort);
+                if (!task.Wait(TimeSpan.FromSeconds(6)) || !client.Connected)
                 {
                     client.Close();
-                    error = "No se pudo conectar con el host.";
+                    error = $"Tiempo de espera agotado al conectar con {endpoint}.";
                     return false;
                 }
 
@@ -191,10 +195,32 @@ namespace Caos.Net
             }
             catch (Exception exception)
             {
-                error = $"No se pudo conectar: {exception.Message}";
+                error = $"No se pudo conectar: {DescribeConnectionError(exception)}";
                 Shutdown();
                 return false;
             }
+        }
+
+        static string DescribeConnectionError(Exception exception)
+        {
+            if (exception is AggregateException aggregate) exception = aggregate.GetBaseException();
+
+            if (exception is SocketException socket)
+            {
+                switch (socket.SocketErrorCode)
+                {
+                    case SocketError.ConnectionRefused:
+                        return "el host rechazó la conexión (revisa IP, puerto y firewall).";
+                    case SocketError.TimedOut:
+                    case SocketError.HostUnreachable:
+                    case SocketError.NetworkUnreachable:
+                        return "no se alcanzó al host (¿estáis en la misma red?).";
+                    case SocketError.HostNotFound:
+                        return "no se encontró la IP del host.";
+                }
+            }
+
+            return exception.Message;
         }
 
         public void Shutdown()

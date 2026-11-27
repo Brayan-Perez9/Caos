@@ -19,7 +19,7 @@ namespace Caos.UI
         CaosNetPeer _peer;
         string _joinText = string.Empty;
         string _name = "Jugador";
-        string _status = "Crea una sala o escribe el código de tu amigo.";
+        string _status = "Crea una sala o escribe el código/IP de tu amigo.";
         string _chatText = string.Empty;
         readonly List<string> _chat = new List<string>();
         bool _started;
@@ -117,7 +117,7 @@ namespace Caos.UI
 
         void TrimChat()
         {
-            while (_chat.Count > 8) _chat.RemoveAt(0);
+            while (_chat.Count > 6) _chat.RemoveAt(0);
         }
 
         void CreateRoom()
@@ -139,13 +139,14 @@ namespace Caos.UI
         {
             if (_peer.Connect(host, port, out string error))
             {
-                _status = $"Conectado a la sala de {host}.";
+                _status = $"Conectado a la sala de {host}:{port}.";
                 _chat.Add("Conectado. Esperando al anfitrión…");
                 Debug.Log($"[Caos] Conectado a {host}:{port}");
             }
             else
             {
-                _status = error;
+                _status = $"No se pudo entrar en {host}:{port}. {error}";
+                Debug.LogWarning($"[Caos] Fallo al unirse a {host}:{port}: {error}");
             }
         }
 
@@ -223,16 +224,32 @@ namespace Caos.UI
                 if (GUI.Button(new Rect(x + width - 190f, y, 190f, 42f), "UNIRSE"))
                 {
                     if (CaosRoomCode.TryParse(_joinText, out string host, out int port)) Join(host, port);
-                    else _status = "Código no válido. Debe ser CAOS-XXXXXXXXXX";
+                    else _status = "Dato no válido. Usa CAOS-XXXXXXXXXX o IP:PUERTO (ej. 192.168.1.5:7777).";
                 }
             }
             y += 54f;
 
-            GUI.Label(new Rect(x, y, width, 30f), _status, _labelStyle);
-            y += 34f;
+            GUI.Label(new Rect(x, y, width, 44f), _status, _labelStyle);
+            y += 48f;
+
+            if (_peer.IsHost)
+            {
+                var addresses = CaosRoomCode.LocalAddresses();
+                string list = string.Empty;
+                for (int i = 0; i < addresses.Count; i++)
+                {
+                    if (i > 0) list += " · ";
+                    list += addresses[i] + ":" + _peer.Port;
+                }
+
+                GUI.Label(new Rect(x, y, width, 42f),
+                    $"IP del anfitrión: {list}", _smallStyle);
+                y += 42f;
+            }
 
             GUI.Label(new Rect(x, y, width, 28f),
-                "Hasta 4 jugadores en la misma Wi-Fi o LAN.", _smallStyle);
+                "Hasta 4 jugadores. Si falla, usa IP:PUERTO y permite Caos.exe en el firewall.",
+                _smallStyle);
             y += 30f;
 
             int partySize = _peer.IsHost ? _peer.PeerNames.Count + 1 : (_peer.IsClient ? 2 : 1);
@@ -306,7 +323,7 @@ namespace Caos.UI
             _labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, wordWrap = true };
             _labelStyle.normal.textColor = Color.white;
 
-            _smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 13 };
+            _smallStyle = new GUIStyle(GUI.skin.label) { fontSize = 13, wordWrap = true };
             _smallStyle.normal.textColor = new Color(0.85f, 0.87f, 0.95f);
 
             _buttonStyle = new GUIStyle(GUI.skin.button)
