@@ -8,12 +8,17 @@ namespace Caos.Dungeon
     /// <summary>HUD IMGUI de la mazmorra: mismo estilo y escala que ArenaHud.</summary>
     public class DungeonHud : MonoBehaviour
     {
+        const float MiniMapHeight = 230f;
+        const float MiniMapGap = 12f;
+
         DungeonDirector _director;
         CaosNetPlayers _netPlayers;
         bool _partyLogged;
+        bool _miniMapLogged;
         GUIStyle _titleStyle;
         GUIStyle _labelStyle;
         GUIStyle _smallStyle;
+        GUIStyle _mapStyle;
         GUIStyle _progressStyle;
         GUIStyle _bannerStyle;
         GUIStyle _resultStyle;
@@ -37,6 +42,7 @@ namespace Caos.Dungeon
             EnsureStyles(scale);
 
             DrawRoomPanel(scale);
+            DrawMiniMap(scale);
             DrawStatusPanel(scale);
             DrawPartyPanel(scale);
             DrawRoute(scale);
@@ -83,7 +89,8 @@ namespace Caos.Dungeon
 
         void DrawStatusPanel(float scale)
         {
-            var panel = new Rect(Screen.width - S(330f, scale), S(18f, scale),
+            var panel = new Rect(Screen.width - S(330f, scale),
+                S(18f + MiniMapHeight + MiniMapGap, scale),
                 S(310f, scale), S(140f, scale));
             DrawPanel(panel, DungeonPalette.UiPanel);
 
@@ -177,6 +184,154 @@ namespace Caos.Dungeon
                 _smallStyle);
             DrawBar(new Rect(rect.x, rect.y + S(22f, scale), rect.width, S(14f, scale)),
                 Mathf.Clamp01(current / Mathf.Max(1f, max)), color);
+        }
+
+        /// <summary>Mapa en la esquina superior derecha: sala actual, ruta y atajos.</summary>
+        void DrawMiniMap(float scale)
+        {
+            DungeonRoom[] rooms = _director.Rooms;
+            int count = rooms != null ? rooms.Length : 0;
+            if (count <= 0) return;
+
+            var panel = new Rect(Screen.width - S(330f, scale), S(18f, scale),
+                S(310f, scale), S(MiniMapHeight, scale));
+            DrawPanel(panel, DungeonPalette.UiPanel);
+
+            float x = panel.x + S(14f, scale);
+            float width = panel.width - S(28f, scale);
+            int current = _director.CurrentRoomNumber;
+            float zoneHeight = DungeonWorld.HeightFor(Mathf.Clamp(current - 1, 0, count - 1), count);
+
+            GUI.Label(new Rect(x, panel.y + S(8f, scale), width, S(20f, scale)),
+                "MAPA · " + DungeonWorld.ZoneLabel(Mathf.Clamp(current - 1, 0, count - 1), count) +
+                (zoneHeight < -0.01f ? " · CUEVA" : ""), _smallStyle);
+
+            float top = panel.y + S(34f, scale);
+            float bottom = panel.yMax - S(28f, scale);
+            float step = (bottom - top) / Mathf.Max(1, count - 1);
+            var points = new Vector2[count];
+
+            for (int i = 0; i < count; i++)
+            {
+                float level = -DungeonWorld.HeightFor(i, count) / 8f;
+                points[i] = new Vector2(x + width * (0.30f + 0.34f * level), top + i * step);
+            }
+
+            float thickness = S(3f, scale);
+            for (int i = 0; i < count - 1; i++)
+            {
+                Color lineColor = i < current - 1
+                    ? new Color(0.36f, 1f, 0.54f, 0.9f)
+                    : i == current - 1 ? DungeonPalette.UiCyan
+                    : new Color(0.24f, 0.28f, 0.36f, 0.9f);
+                DrawHLine(points[i].x, points[i + 1].x, points[i].y, thickness, lineColor);
+                DrawVLine(points[i + 1].x, points[i].y, points[i + 1].y, thickness, lineColor);
+            }
+
+            float nodeWidth = S(28f, scale);
+            float nodeHeight = S(16f, scale);
+            for (int i = 0; i < count; i++)
+            {
+                DungeonRoom room = rooms[i];
+                Color nodeColor = room != null && room.Failed
+                    ? DungeonPalette.UiCoral
+                    : i < current - 1
+                        ? new Color(0.36f, 1f, 0.54f)
+                        : i == current - 1
+                            ? DungeonPalette.UiYellow
+                            : new Color(0.24f, 0.28f, 0.36f, 0.9f);
+                DrawPanel(new Rect(points[i].x - nodeWidth * 0.5f,
+                    points[i].y - nodeHeight * 0.5f, nodeWidth, nodeHeight), nodeColor);
+
+                bool filled = i < current || (room != null && room.Failed);
+                Color previous = GUI.color;
+                GUI.color = filled ? new Color(0.05f, 0.08f, 0.12f) : DungeonPalette.UiText;
+                GUI.Label(new Rect(points[i].x - nodeWidth * 0.5f,
+                    points[i].y - nodeHeight * 0.5f, nodeWidth, nodeHeight),
+                    (i + 1).ToString(), _mapStyle);
+                GUI.color = previous;
+
+                if (DungeonWorld.HasShortcut(i) && i < count - 1)
+                {
+                    float stubEnd = points[i].x + S(18f, scale);
+                    DrawHLine(points[i].x + nodeWidth * 0.5f, stubEnd,
+                        points[i].y, thickness, DungeonPalette.UiViolet);
+                    DrawPanel(new Rect(stubEnd, points[i].y - S(5f, scale),
+                        S(10f, scale), S(10f, scale)), DungeonPalette.UiViolet);
+                }
+            }
+
+            if (_director.Player != null)
+            {
+                Vector3 pos = _director.Player.transform.position;
+                int nearest = 0;
+                float best = float.MaxValue;
+                for (int i = 0; i < count; i++)
+                {
+                    float distance = Mathf.Abs(rooms[i].Center.z - pos.z);
+                    if (distance < best)
+                    {
+                        best = distance;
+                        nearest = i;
+                    }
+                }
+
+                Vector2 marker = points[nearest];
+                if (nearest < count - 1 && pos.z > rooms[nearest].Center.z)
+                {
+                    float t = Mathf.Clamp01((pos.z - rooms[nearest].Center.z) /
+                        Mathf.Max(0.01f, rooms[nearest + 1].Center.z - rooms[nearest].Center.z));
+                    marker = Vector2.Lerp(points[nearest], points[nearest + 1], t);
+                }
+
+                float dot = S(12f, scale);
+                var outline = new Rect(marker.x - dot * 0.5f, marker.y - dot * 0.5f, dot, dot);
+                var inner = new Rect(marker.x - S(4f, scale), marker.y - S(4f, scale),
+                    S(8f, scale), S(8f, scale));
+                Color previous = GUI.color;
+                GUI.color = new Color(0.02f, 0.05f, 0.09f, 0.95f);
+                GUI.DrawTexture(outline, _roundTexture);
+                GUI.color = DungeonPalette.UiCyan;
+                GUI.DrawTexture(inner, _roundTexture);
+                GUI.color = previous;
+            }
+
+            GUI.Label(new Rect(x, panel.yMax - S(20f, scale), width, S(16f, scale)),
+                "VERDE=HECHA  AMARILLO=ACTUAL  ↔=ATAJO", _smallStyle);
+
+            if (!_miniMapLogged)
+            {
+                int shortcuts = 0;
+                int caves = 0;
+                for (int i = 0; i < count; i++)
+                {
+                    if (DungeonWorld.HasShortcut(i) && i < count - 1) shortcuts++;
+                    if (DungeonWorld.IsCave(i, count)) caves++;
+                }
+                Debug.Log($"[Caos] Mapa superior derecho: {count} salas, " +
+                    $"atajos={shortcuts}, cuevas={caves}, sala actual={current}");
+                _miniMapLogged = true;
+            }
+        }
+
+        static void DrawHLine(float x1, float x2, float y, float thickness, Color color)
+        {
+            var rect = new Rect(Mathf.Min(x1, x2), y - thickness * 0.5f,
+                Mathf.Max(thickness, Mathf.Abs(x2 - x1)), thickness);
+            Color previous = GUI.color;
+            GUI.color = color;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previous;
+        }
+
+        static void DrawVLine(float x, float y1, float y2, float thickness, Color color)
+        {
+            var rect = new Rect(x - thickness * 0.5f, Mathf.Min(y1, y2),
+                thickness, Mathf.Max(thickness, Mathf.Abs(y2 - y1)));
+            Color previous = GUI.color;
+            GUI.color = color;
+            GUI.DrawTexture(rect, Texture2D.whiteTexture);
+            GUI.color = previous;
         }
 
         void DrawRoute(float scale)
@@ -305,6 +460,8 @@ namespace Caos.Dungeon
             _smallStyle = Style(GUI.skin.label, 13f, scale, FontStyle.Bold,
                 new Color(0.78f, 0.84f, 0.92f), TextAnchor.MiddleLeft);
             _smallStyle.wordWrap = true;
+            _mapStyle = Style(GUI.skin.label, 11f, scale, FontStyle.Bold,
+                DungeonPalette.UiText, TextAnchor.MiddleCenter);
             _progressStyle = Style(GUI.skin.label, 17f, scale, FontStyle.Bold,
                 DungeonPalette.UiCyan, TextAnchor.MiddleLeft);
             _bannerStyle = Style(GUI.skin.label, 23f, scale, FontStyle.Bold,
