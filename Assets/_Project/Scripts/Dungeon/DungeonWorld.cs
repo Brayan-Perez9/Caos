@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 namespace Caos.Dungeon
 {
@@ -20,6 +21,8 @@ namespace Caos.Dungeon
         // 4 m repartidos en 16 peldaños: 0,25 m por escalón, por debajo del
         // stepOffset de 0,35 m del CharacterController del jugador.
         const int StairSteps = 16;
+
+        static bool _caveCeilingLogged;
 
         /// <summary>Altura del suelo de una sala dentro del mapa único.</summary>
         public static float HeightFor(int index, int total)
@@ -245,10 +248,19 @@ namespace Caos.Dungeon
         /// <summary>Techo y rocas decorativas de los tramos subterráneos.</summary>
         static void BuildCaveDressing(Transform parent, Vector3 center, float radius)
         {
-            DungeonVisuals.Box("CaveCeiling",
+            GameObject ceiling = DungeonVisuals.Box("CaveCeiling",
                 center + Vector3.up * (WallHeight + 0.35f),
                 new Vector3(radius * 2f, 0.7f, radius * 2f),
-                DungeonPalette.Wall, parent, false);
+                DungeonPalette.CaveCeiling, parent, false);
+            // No proyecta sombra: así el tramo inferior sigue iluminado y se ve
+            // a través del techo sin añadir colliders ni assets externos.
+            Renderer ceilingRenderer = ceiling.GetComponent<Renderer>();
+            if (ceilingRenderer != null) ceilingRenderer.shadowCastingMode = ShadowCastingMode.Off;
+            if (!_caveCeilingLogged)
+            {
+                Debug.Log("[Caos] Techo de cueva translúcido: se ve el nivel inferior");
+                _caveCeilingLogged = true;
+            }
 
             for (int i = 0; i < 6; i++)
             {

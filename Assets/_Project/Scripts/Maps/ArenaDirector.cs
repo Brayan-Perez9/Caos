@@ -210,7 +210,15 @@ namespace Caos.Maps
 
         void Start()
         {
-            CharacterCustomization.Instance?.SetPistolVisible(true);
+            // Atajo de verificación, igual que -dungeon en el lobby.
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-sword") >= 0)
+            {
+                _weapon = ArenaWeaponKind.Espada;
+                _element = ArenaElement.Rayo;
+                _hasWeapon = true;
+                Debug.Log("[Caos] Espada eléctrica equipada (-sword)");
+            }
+            CharacterCustomization.Instance?.SetWeaponVisible(_weapon, _element);
             for (int i = 0; i < initialMonsters; i++) SpawnMonster();
         }
 
@@ -225,8 +233,10 @@ namespace Caos.Maps
             _element = element;
             _hasWeapon = true;
             _nextFire = Time.time + 0.15f;
-            CharacterCustomization.Instance?.SetPistolVisible(true);
-            ShowBanner($"ARMA: {WeaponLabel()} · {ArenaElementInfo.Label(element)} — {ArenaElementInfo.Effect(element)}", 2.6f);
+            CharacterCustomization.Instance?.SetWeaponVisible(kind, element);
+            string how = kind == ArenaWeaponKind.Espada
+                ? "CLIC para golpear" : "CLIC para disparar";
+            ShowBanner($"ARMA: {WeaponLabel()} · {ArenaElementInfo.Label(element)} — {how}", 2.6f);
             ArenaAudio.Play(ArenaAudio.Sound.Upgrade, pickup.transform.position, 0.55f);
             ArenaJuice.Current.Pickup(pickup.transform.position);
             Destroy(pickup.gameObject);
@@ -236,6 +246,14 @@ namespace Caos.Maps
         public void TryFire(Transform shooter, Vector3 aimPoint)
         {
             if (!_hasWeapon || _finished || _upgradePending) return;
+
+            // La espada no tiene proyectil: el clic ejecuta un golpe cuerpo a cuerpo.
+            if (_weapon == ArenaWeaponKind.Espada)
+            {
+                TryMelee(shooter, aimPoint);
+                return;
+            }
+
             if (Time.time < _nextFire) return;
 
             float interval = FireInterval();
@@ -273,6 +291,68 @@ namespace Caos.Maps
             CharacterCustomization.Instance?.NotifyShot();
             // Tier pequeño: apenas un toque, para no castigar disparos rápidos.
             ArenaJuice.Current.AddTrauma(_weapon == ArenaWeaponKind.Escopeta ? 0.09f : 0.045f);
+        }
+
+        /// <summary>
+        /// Golpe de la espada eléctrica: arco corto delante del jugador, daño
+        /// cuerpo a cuerpo y salto de rayo. No crea ningún proyectil ni usa
+        /// NotifyShot, porque con espada no se dispara.
+        /// </summary>
+        void TryMelee(Transform shooter, Vector3 aimPoint)
+        {
+            if (Time.time < _nextFire) return;
+            _nextFire = Time.time + Mathf.Max(0.18f, FireInterval());
+
+            Vector3 origin = shooter.position + Vector3.up * 0.95f;
+            Vector3 direction = aimPoint - origin;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.01f) direction = shooter.forward;
+            float length = direction.magnitude;
+            direction = length > 0.0001f ? direction / length : Vector3.forward;
+
+            float damage = FireDamage() * 1.45f;
+            const float reach = 2.9f;
+            int hits = 0;
+
+            for (int i = 0; i < _monsters.Count; i++)
+            {
+                ArenaMonster monster = _monsters[i];
+                if (monster == null || monster.IsDead) continue;
+                Vector3 toTarget = monster.transform.position - shooter.position;
+                toTarget.y = 0f;
+                float distance = toTarget.magnitude;
+                if (distance > reach || distance < 0.001f) continue;
+                if (Vector3.Dot(direction, toTarget / distance) < 0.25f) continue;
+                monster.TakeDamage(damage, monster.transform.position + Vector3.up * 0.8f,
+                    direction, ArenaElement.Rayo, false);
+                hits++;
+            }
+
+            for (int i = 0; i < _bosses.Count; i++)
+            {
+                ArenaBoss boss = _bosses[i];
+                if (boss == null || boss.IsDead) continue;
+                Vector3 toTarget = boss.transform.position - shooter.position;
+                toTarget.y = 0f;
+                float distance = toTarget.magnitude;
+                if (distance > reach + 1f || distance < 0.001f) continue;
+                if (Vector3.Dot(direction, toTarget / distance) < 0.25f) continue;
+                boss.TakeDamage(damage, boss.transform.position + Vector3.up,
+                    direction, ArenaElement.Rayo, false);
+                hits++;
+            }
+
+            Vector3 impact = origin + direction * 1.4f;
+            ChaosFx.Burst(impact, ArenaElementInfo.Color(ArenaElement.Rayo),
+                hits > 0 ? 12 : 5);
+            ArenaAudio.Play(ArenaAudio.Sound.Hit, impact, hits > 0 ? 0.6f : 0.3f);
+            ArenaJuice.Current.Impact(impact, 0.4f, shooter);
+            ArenaJuice.Current.AddTrauma(0.09f);
+            if (hits > 0) ChainLightning(origin, damage * 0.35f, shooter);
+
+            CharacterCustomization.Instance?.NotifyMelee();
+            NetPlayers?.NotifyMelee(origin, shooter.eulerAngles.y);
+            Debug.Log($"[Caos] Espada eléctrica: golpe cuerpo a cuerpo · impactos={hits}");
         }
 
         void SpawnProjectile(Vector3 origin, Vector3 direction, float speed, float damage)
@@ -353,7 +433,8 @@ namespace Caos.Maps
         float FireInterval()
         {
             float baseInterval = _weapon == ArenaWeaponKind.Escopeta ? 0.62f
-                : _weapon == ArenaWeaponKind.Rifle ? 0.12f : 0.26f;
+                : _weapon == ArenaWeaponKind.Rifle ? 0.12f
+                : _weapon == ArenaWeaponKind.Espada ? 0.42f : 0.26f;
             return Mathf.Max(0.06f,
                 baseInterval * _fireRateBoost * Mathf.Pow(0.91f, _tier - 1));
         }
@@ -361,7 +442,8 @@ namespace Caos.Maps
         float FireDamage()
         {
             float baseDamage = _weapon == ArenaWeaponKind.Escopeta ? 13f
-                : _weapon == ArenaWeaponKind.Rifle ? 12f : 24f;
+                : _weapon == ArenaWeaponKind.Rifle ? 12f
+                : _weapon == ArenaWeaponKind.Espada ? 34f : 24f;
             float elementMultiplier = _element == ArenaElement.Fuego ? 1.05f
                 : _element == ArenaElement.Hielo ? 0.95f
                 : _element == ArenaElement.Veneno ? 0.9f : 1f;
@@ -376,6 +458,9 @@ namespace Caos.Maps
         }
 
         public string WeaponLabel() => _weapon.ToString().ToUpperInvariant();
+
+        /// <summary>La espada sustituye el disparo por golpes cuerpo a cuerpo.</summary>
+        public bool UsesMelee => _weapon == ArenaWeaponKind.Espada;
 
         // --------------------------------------------------------- monstruos
 

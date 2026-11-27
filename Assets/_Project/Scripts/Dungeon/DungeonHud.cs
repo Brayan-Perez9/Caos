@@ -95,10 +95,14 @@ namespace Caos.Dungeon
                 $"MONEDAS  {_director.State.Coins}", _titleStyle);
             y += S(28f, scale);
 
-            DungeonRoom room = _director.CurrentRoom;
-            string weapon = room != null && room.Definition != null
-                ? $"{room.Definition.weapon} · {ArenaElementInfo.Label(_director.Bridge.Element)}"
-                : "SANTO Y SEÑA";
+            string weapon = "SANTO Y SEÑA";
+            if (_director.Bridge != null)
+            {
+                bool sword = _director.Bridge.Weapon == ArenaWeaponKind.Espada;
+                weapon = $"{_director.Bridge.Weapon} · " +
+                    $"{ArenaElementInfo.Label(_director.Bridge.Element)}" +
+                    (sword ? " — CLIC GOLPEA" : " — CLIC DISPARA");
+            }
             GUI.Label(new Rect(x, y, width, S(22f, scale)), "ARMA  " + weapon, _smallStyle);
             y += S(24f, scale);
 

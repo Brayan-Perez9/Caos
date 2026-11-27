@@ -478,6 +478,8 @@ namespace Caos.EditorTools
                 ArenaWeaponKind.Escopeta, ArenaElement.Rayo, "Candy", parent);
             WeaponPedestal("RifleVeneno", new Vector3(0f, 5.2f, 14f),
                 ArenaWeaponKind.Rifle, ArenaElement.Veneno, "Lemon", parent);
+            WeaponPedestal("EspadaRayo", new Vector3(-14f, 1f, 10f),
+                ArenaWeaponKind.Espada, ArenaElement.Rayo, "Lemon", parent);
         }
 
         static void WeaponPedestal(string name, Vector3 position, ArenaWeaponKind kind,

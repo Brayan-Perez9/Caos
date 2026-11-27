@@ -5,6 +5,8 @@ namespace Caos.Maps
     {
         Pistola,
         Escopeta,
-        Rifle
+        Rifle,
+        /// <summary>Espada eléctrica: se añade al final para no desplazar ordinales.</summary>
+        Espada
     }
 }

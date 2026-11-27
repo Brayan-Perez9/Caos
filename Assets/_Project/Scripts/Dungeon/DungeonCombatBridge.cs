@@ -105,7 +105,13 @@ namespace Caos.Dungeon
 
         void Start()
         {
-            CharacterCustomization.Instance?.SetPistolVisible(true);
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-sword") >= 0)
+            {
+                weapon = ArenaWeaponKind.Espada;
+                element = ArenaElement.Rayo;
+                Debug.Log("[Caos] Espada eléctrica en mazmorra (-sword)");
+            }
+            CharacterCustomization.Instance?.SetWeaponVisible(weapon, element);
         }
 
         public void Configure(DungeonDirector director, PlayerController player,
@@ -119,11 +125,19 @@ namespace Caos.Dungeon
 
         public void SetWeapon(ArenaWeaponKind kind, ArenaElement newElement)
         {
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-sword") >= 0)
+            {
+                kind = ArenaWeaponKind.Espada;
+                newElement = ArenaElement.Rayo;
+            }
             weapon = kind;
             element = newElement;
             _nextFire = Time.time + 0.12f;
-            CharacterCustomization.Instance?.SetPistolVisible(true);
+            CharacterCustomization.Instance?.SetWeaponVisible(kind, newElement);
         }
+
+        /// <summary>Arma realmente equipada, para que el HUD no muestre la de la sala.</summary>
+        public ArenaWeaponKind Weapon => weapon;
 
         bool IArenaCombatDirector.Finished => _director != null && _director.Finished;
 
@@ -131,7 +145,16 @@ namespace Caos.Dungeon
 
         public void TryFire(Transform shooter, Vector3 aimPoint)
         {
-            if (!CanFire || Time.time < _nextFire) return;
+            if (!CanFire) return;
+
+            // Con espada el clic es un golpe: nunca se generan balas.
+            if (weapon == ArenaWeaponKind.Espada)
+            {
+                TryMelee(shooter, aimPoint);
+                return;
+            }
+
+            if (Time.time < _nextFire) return;
 
             float interval = fireInterval;
             if (element == ArenaElement.Aire) interval *= 0.82f;
@@ -165,6 +188,66 @@ namespace Caos.Dungeon
             ArenaAudio.Play(ArenaAudio.Sound.Shoot, origin, weapon == ArenaWeaponKind.Escopeta ? 0.6f : 0.4f);
             CharacterCustomization.Instance?.NotifyShot();
             ArenaJuice.Current.AddTrauma(weapon == ArenaWeaponKind.Escopeta ? 0.08f : 0.04f);
+        }
+
+        /// <summary>Golpe eléctrico cuerpo a cuerpo de la espada, sin balas.</summary>
+        void TryMelee(Transform shooter, Vector3 aimPoint)
+        {
+            if (Time.time < _nextFire) return;
+            _nextFire = Time.time + Mathf.Max(0.18f,
+                weapon == ArenaWeaponKind.Espada ? 0.42f : fireInterval);
+
+            Vector3 origin = shooter.position + Vector3.up * 0.95f;
+            Vector3 direction = aimPoint - origin;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.01f) direction = shooter.forward;
+            float length = direction.magnitude;
+            direction = length > 0.0001f ? direction / length : Vector3.forward;
+
+            float damage = weaponDamage *
+                (_state != null ? _state.DamageMultiplier : 1f) * 1.45f;
+            const float reach = 2.9f;
+            int hits = 0;
+
+            for (int i = 0; i < _monsters.Count; i++)
+            {
+                ArenaMonster monster = _monsters[i];
+                if (monster == null || monster.IsDead) continue;
+                Vector3 toTarget = monster.transform.position - shooter.position;
+                toTarget.y = 0f;
+                float distance = toTarget.magnitude;
+                if (distance > reach || distance < 0.001f) continue;
+                if (Vector3.Dot(direction, toTarget / distance) < 0.25f) continue;
+                monster.TakeDamage(damage, monster.transform.position + Vector3.up * 0.8f,
+                    direction, ArenaElement.Rayo, false);
+                hits++;
+            }
+
+            for (int i = 0; i < _bosses.Count; i++)
+            {
+                ArenaBoss boss = _bosses[i];
+                if (boss == null || boss.IsDead) continue;
+                Vector3 toTarget = boss.transform.position - shooter.position;
+                toTarget.y = 0f;
+                float distance = toTarget.magnitude;
+                if (distance > reach + 1f || distance < 0.001f) continue;
+                if (Vector3.Dot(direction, toTarget / distance) < 0.25f) continue;
+                boss.TakeDamage(damage, boss.transform.position + Vector3.up,
+                    direction, ArenaElement.Rayo, false);
+                hits++;
+            }
+
+            Vector3 impact = origin + direction * 1.4f;
+            ChaosFx.Burst(impact, ArenaElementInfo.Color(ArenaElement.Rayo),
+                hits > 0 ? 12 : 5);
+            ArenaAudio.Play(ArenaAudio.Sound.Hit, impact, hits > 0 ? 0.6f : 0.3f);
+            ArenaJuice.Current.Impact(impact, 0.4f, shooter);
+            ArenaJuice.Current.AddTrauma(0.09f);
+            if (hits > 0) ChainLightning(origin, damage * 0.35f, shooter);
+
+            CharacterCustomization.Instance?.NotifyMelee();
+            NetPlayers?.NotifyMelee(origin, shooter.eulerAngles.y);
+            Debug.Log($"[Caos] Espada eléctrica (mazmorra): golpe · impactos={hits}");
         }
 
         void SpawnBullet(Vector3 origin, Vector3 direction, float speed,

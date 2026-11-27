@@ -184,7 +184,7 @@ namespace Caos.Net
             Dispatch(CaosMessageKind.NetworkShot, payload);
         }
 
-        /// <summary>Llamado por Chaos Express cuando el martillo local golpea.</summary>
+        /// <summary>Llamado cuando el martillo o la espada local golpea.</summary>
         public void NotifyMelee(Vector3 origin, float yaw)
         {
             if (!Connected) return;
@@ -309,7 +309,11 @@ namespace Caos.Net
             if (!TryVector(parts, 1, out Vector3 origin)) return;
 
             ChaosFx.Burst(origin + Vector3.up * 1.1f,
-                new Color(1f, 0.9f, 0.4f), 4);
+                ArenaElementInfo.Color(ArenaElement.Rayo), 8);
+            // El mensaje de melee no lleva el tipo de arma: mostramos el arco
+            // de golpe en el avatar remoto sin añadir campos al protocolo.
+            if (_remotes.TryGetValue(parts[0], out RemoteState state) && state?.Avatar != null)
+                state.Avatar.NotifyMelee();
             Debug.Log($"[Caos] Golpe cuerpo a cuerpo replicado: {DisplayFrom(parts[0])}");
 
             if (_peer != null && _peer.IsHost)

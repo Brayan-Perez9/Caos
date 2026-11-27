@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using Caos.Maps;
 
 namespace Caos.Dungeon
@@ -16,6 +17,7 @@ namespace Caos.Dungeon
         static Material _checkpoint;
         static Material _checkpointDone;
         static Material _hazard;
+        static Material _caveCeiling;
         static Material _coin;
         static Material _chest;
         static Material _heart;
@@ -71,6 +73,14 @@ namespace Caos.Dungeon
         public static Material Checkpoint => _checkpoint ??= Make(new Color(0.45f, 0.82f, 1f), 0.4f);
         public static Material CheckpointDone => _checkpointDone ??= Make(new Color(0.36f, 1f, 0.54f), 0.5f);
         public static Material Hazard => _hazard ??= Make(new Color(1f, 0.30f, 0.28f), 0.35f);
+
+        /// <summary>
+        /// Techo de las cuevas: translúcido y solo para ese objeto, para que se
+        /// vea el nivel inferior sin volver transparentes las paredes ni las rocas.
+        /// </summary>
+        public static Material CaveCeiling => _caveCeiling ??= MakeTransparent(
+            new Color(0.20f, 0.28f, 0.42f, 0.16f));
+
         public static Material Coin => _coin ??= Make(new Color(1f, 0.78f, 0.18f), 0.5f);
         public static Material Chest => _chest ??= Make(new Color(0.95f, 0.50f, 0.16f), 0.35f);
         public static Material Heart => _heart ??= Make(new Color(1f, 0.30f, 0.44f), 0.4f);
@@ -90,5 +100,18 @@ namespace Caos.Dungeon
 
         static Material Make(Color color, float smoothness = 0.25f) =>
             ArenaMaterial.Create(color, 0f, smoothness);
+
+        static Material MakeTransparent(Color color)
+        {
+            Material material = Make(color, 0.15f);
+            material.SetFloat("_Surface", 1f);
+            material.SetFloat("_Blend", 0f);
+            material.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            material.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            material.SetFloat("_ZWrite", 0f);
+            material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            material.renderQueue = (int)RenderQueue.Transparent;
+            return material;
+        }
     }
 }

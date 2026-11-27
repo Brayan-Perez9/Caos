@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Caos.Maps;
 
 namespace Caos.Player
 {
@@ -106,8 +107,13 @@ namespace Caos.Player
         readonly Transform[] _elbows = new Transform[2];
         readonly Transform[] _hands = new Transform[2];
         Transform _gunRoot;
-        bool _pistolVisible;
+        readonly Transform[] _weaponVariants = new Transform[4];
+        ArenaWeaponKind _weaponKind = ArenaWeaponKind.Pistola;
+        bool _weaponVisible;
         bool _pistolLogged;
+        bool _swordLogged;
+        bool _meleeLogged;
+        float _meleeSwing;
         float _gaitPhase;
         float _walkBlend;
         float _airBlend;
@@ -149,18 +155,73 @@ namespace Caos.Player
         }
 
         /// <summary>
-        /// Muestra u oculta la pistola procedural anclada a la mano derecha.
-        /// Los directores de combate la encienden cuando el jugador tiene arma;
-        /// el avatar de menú y la misión del martillo la dejan apagada.
+        /// Muestra u oculta el arma anclada a la mano derecha. Se conserva por
+        /// compatibilidad; los directores usan SetWeaponVisible con el tipo real.
         /// </summary>
         public void SetPistolVisible(bool visible)
         {
-            _pistolVisible = visible;
-            if (_gunRoot != null) _gunRoot.gameObject.SetActive(visible);
-            if (visible && !_pistolLogged)
+            if (visible) SetWeaponVisible(ArenaWeaponKind.Pistola, ArenaElement.Normal);
+            else HideWeapon();
+        }
+
+        /// <summary>
+        /// Enciende el modelo procedural del arma equipada. Antes solo existía
+        /// una pistola genérica, así que el arma recogida no se veía en la mano.
+        /// </summary>
+        public void SetWeaponVisible(ArenaWeaponKind kind, ArenaElement element)
+        {
+            _weaponKind = kind;
+            _weaponVisible = true;
+            ApplyWeaponVariant();
+            if (_gunRoot != null) _gunRoot.gameObject.SetActive(true);
+
+            if (kind == ArenaWeaponKind.Espada)
             {
-                Debug.Log("[Caos] Pistola en mano: empuñadura con dos manos");
+                if (!_swordLogged)
+                {
+                    Debug.Log($"[Caos] Espada eléctrica en mano: hoja {ArenaElementInfo.Label(element)}");
+                    _swordLogged = true;
+                }
+                return;
+            }
+
+            if (!_pistolLogged)
+            {
+                Debug.Log($"[Caos] {kind} en mano: empuñadura con dos manos");
                 _pistolLogged = true;
+            }
+        }
+
+        /// <summary>Apaga el arma de la mano (menús y avatares de sala).</summary>
+        public void HideWeapon()
+        {
+            _weaponVisible = false;
+            ApplyWeaponVariant();
+            if (_gunRoot != null) _gunRoot.gameObject.SetActive(false);
+        }
+
+        void ApplyWeaponVariant()
+        {
+            int active = (int)_weaponKind;
+            for (int i = 0; i < _weaponVariants.Length; i++)
+                if (_weaponVariants[i] != null)
+                    _weaponVariants[i].gameObject.SetActive(_weaponVisible && i == active);
+        }
+
+        /// <summary>
+        /// Arco de golpe de la espada. El remoto no recibe el tipo de arma en el
+        /// mensaje de melee, así que le mostramos la hoja al ver el golpe.
+        /// </summary>
+        public void NotifyMelee()
+        {
+            if (netRemote && !_weaponVisible)
+                SetWeaponVisible(ArenaWeaponKind.Espada, ArenaElement.Rayo);
+
+            _meleeSwing = 1f;
+            if (!_meleeLogged)
+            {
+                Debug.Log("[Caos] Golpe con espada eléctrica: arco de brazo");
+                _meleeLogged = true;
             }
         }
 
@@ -227,6 +288,7 @@ namespace Caos.Player
             _rollBlend = Mathf.MoveTowards(_rollBlend, rolling ? 1f : 0f, dt * 14f);
             _fireHold = Mathf.MoveTowards(_fireHold, 0f, dt * 1.6f);
             _fireRecoil = Mathf.MoveTowards(_fireRecoil, 0f, dt * 6f);
+            _meleeSwing = Mathf.MoveTowards(_meleeSwing, 0f, dt * 2.6f);
 
             AnimateLimbs(dt, speed, verticalSpeed, grounded);
             AnimateSoftParts(dt, acceleration, speed);
@@ -300,10 +362,13 @@ namespace Caos.Player
                 rollTuck = _rollBlend * Mathf.Sin(Mathf.PI * _controller.RollPhase);
             float walk = _walkBlend * (1f - rollTuck);
             float air = _airBlend * (1f - rollTuck);
-            float fire = Mathf.Clamp01(_fireHold * 1.8f + _fireRecoil * 0.55f);
-            // Con pistola equipada los dos brazos sostienen el arma incluso en
-            // reposo; el disparo solo añade el contrarresto.
-            float hold = Mathf.Clamp01(Mathf.Max(fire, _pistolVisible ? 0.62f : 0f));
+            float fire = Mathf.Clamp01(_fireHold * 1.8f + _fireRecoil * 0.55f
+                + _meleeSwing * 0.8f);
+            bool sword = _weaponVisible && _weaponKind == ArenaWeaponKind.Espada;
+            // Con arma equipada los brazos la sostienen incluso en reposo; la
+            // espada se empuña con una mano y traza un arco al golpear.
+            float hold = Mathf.Clamp01(Mathf.Max(fire,
+                _weaponVisible ? (sword ? 0.45f : 0.62f) : 0f));
 
             float ascend = Mathf.Clamp01(verticalSpeed / 5f);
             float descend = Mathf.Clamp01(-verticalSpeed / 7f);
@@ -343,13 +408,17 @@ namespace Caos.Player
                 float armAir = -20f - 62f * ascend - 28f * descend;
                 float armAngle = Mathf.Lerp(armSwing, armAir, air)
                     + Mathf.Sin(Time.time * 2.2f) * 3f * idle * (1f - air);
-                armAngle = Mathf.Lerp(armAngle, -58f - _fireRecoil * 14f, hold);
+                float swingArc = sword
+                    ? Mathf.Sin((1f - _meleeSwing) * Mathf.PI) * 62f * _meleeSwing
+                    : 0f;
+                armAngle = Mathf.Lerp(armAngle, -58f - _fireRecoil * 14f + swingArc, hold);
                 armAngle = Mathf.Lerp(armAngle, 70f, rollTuck);
                 float armRoll = side * (4f + 6f * Mathf.Abs(Mathf.Sin(phase))
                     * walk * (1f - air)) * (1f - hold);
                 // La mano izquierda cruza hacia la empuñadura; la derecha la
-                // lleva al centro sin soltar el arma.
-                armRoll = Mathf.Lerp(armRoll, i == 0 ? 52f : -10f, hold);
+                // lleva al centro sin soltar el arma. La espada es a una mano.
+                armRoll = Mathf.Lerp(armRoll,
+                    sword ? (i == 0 ? 14f : -32f) : (i == 0 ? 52f : -10f), hold);
 
                 shoulder.localRotation = Quaternion.Euler(armAngle, 0f, armRoll);
 
@@ -1268,6 +1337,8 @@ namespace Caos.Player
                 _hands[i] = null;
             }
             _gunRoot = null;
+            for (int i = 0; i < _weaponVariants.Length; i++) _weaponVariants[i] = null;
+            _meleeSwing = 0f;
             _bellyOffset = Vector3.zero;
             _bellyVelocity = Vector3.zero;
 
@@ -1769,47 +1840,115 @@ namespace Caos.Player
         }
 
         /// <summary>
-        /// Pistola sin assets externos, colgada de la mano derecha. El cañón
-        /// apunta por el eje -Y local: al elevar los brazos en la pose de tiro
-        /// queda mirando hacia delante. La mano de apoyo es hija del arma para
-        /// que acompañe siempre al empuñador.
+        /// Armas procedurales sin assets externos, colgadas de la mano derecha.
+        /// El cañón o la hoja apunta por el eje -Y local: al elevar los brazos en
+        /// la pose de tiro queda mirando hacia delante. Solo se activa el modelo
+        /// del arma equipada y la mano de apoyo pertenece a las de fuego.
+        /// Los índices de _weaponVariants siguen los de ArenaWeaponKind.
         /// </summary>
         void BuildPistol()
         {
             if (_hands[1] == null) return;
 
-            var grip = MakePivot("GunGrip", new Vector3(0f, -0.04f, 0.02f), _hands[1]);
+            var grip = MakePivot("WeaponHold", new Vector3(0f, -0.04f, 0.02f), _hands[1]);
             _gunRoot = grip;
 
             Color steel = new Color32(58, 64, 74, 255);
             Color dark = new Color32(24, 27, 33, 255);
             Color sight = new Color32(255, 210, 92, 255);
+            Color electric = ArenaElementInfo.Color(ArenaElement.Rayo);
 
-            GripPiece(PrimitiveType.Cube, "PistolGrip", grip,
+            // 0 - pistola
+            var pistol = MakePivot("Pistol", Vector3.zero, grip);
+            _weaponVariants[0] = pistol;
+            GripPiece(PrimitiveType.Cube, "PistolGrip", pistol,
                 new Vector3(0f, 0.01f, 0f), new Vector3(0.075f, 0.15f, 0.085f),
                 dark, null, 0.35f);
-            GripPiece(PrimitiveType.Cube, "PistolFrame", grip,
+            GripPiece(PrimitiveType.Cube, "PistolFrame", pistol,
                 new Vector3(0f, -0.12f, 0f), new Vector3(0.09f, 0.14f, 0.075f),
                 steel, null, 0.55f, 0.35f);
-            GripPiece(PrimitiveType.Cube, "PistolSlide", grip,
+            GripPiece(PrimitiveType.Cube, "PistolSlide", pistol,
                 new Vector3(0f, -0.26f, 0f), new Vector3(0.095f, 0.20f, 0.085f),
                 steel, null, 0.65f, 0.45f);
-            GripPiece(PrimitiveType.Cylinder, "PistolBarrel", grip,
+            GripPiece(PrimitiveType.Cylinder, "PistolBarrel", pistol,
                 new Vector3(0f, -0.39f, 0f), new Vector3(0.035f, 0.10f, 0.035f),
                 dark, null, 0.7f, 0.5f);
-            GripPiece(PrimitiveType.Cube, "PistolTrigger", grip,
+            GripPiece(PrimitiveType.Cube, "PistolTrigger", pistol,
                 new Vector3(0f, -0.02f, 0.075f), new Vector3(0.055f, 0.10f, 0.022f),
                 steel, null, 0.5f, 0.3f);
-            GripPiece(PrimitiveType.Cube, "PistolSight", grip,
+            GripPiece(PrimitiveType.Cube, "PistolSight", pistol,
                 new Vector3(0f, -0.31f, -0.05f), new Vector3(0.02f, 0.03f, 0.02f),
                 sight, null, 0.6f, 0.2f);
 
-            float radius = 0.10f * (0.85f + 0.15f * _bodyWidth);
-            GripPiece(PrimitiveType.Sphere, "SupportHand", grip,
-                new Vector3(-radius * 0.75f, -0.13f, 0.015f),
-                Vector3.one * radius * 1.15f, EffectiveLimbColor, null, 0.25f);
+            // 1 - escopeta
+            var shotgun = MakePivot("Shotgun", Vector3.zero, grip);
+            _weaponVariants[1] = shotgun;
+            GripPiece(PrimitiveType.Cube, "ShotgunStock", shotgun,
+                new Vector3(0f, 0.07f, 0.03f), new Vector3(0.10f, 0.20f, 0.12f),
+                dark, null, 0.4f);
+            GripPiece(PrimitiveType.Cube, "ShotgunReceiver", shotgun,
+                new Vector3(0f, -0.16f, 0f), new Vector3(0.13f, 0.18f, 0.10f),
+                steel, null, 0.6f, 0.4f);
+            GripPiece(PrimitiveType.Cylinder, "ShotgunBarrelA", shotgun,
+                new Vector3(-0.035f, -0.38f, 0f), new Vector3(0.032f, 0.18f, 0.032f),
+                dark, null, 0.7f, 0.5f);
+            GripPiece(PrimitiveType.Cylinder, "ShotgunBarrelB", shotgun,
+                new Vector3(0.035f, -0.38f, 0f), new Vector3(0.032f, 0.18f, 0.032f),
+                dark, null, 0.7f, 0.5f);
 
-            grip.gameObject.SetActive(_pistolVisible);
+            // 2 - rifle
+            var rifle = MakePivot("Rifle", Vector3.zero, grip);
+            _weaponVariants[2] = rifle;
+            GripPiece(PrimitiveType.Cube, "RifleStock", rifle,
+                new Vector3(0f, 0.06f, 0.05f), new Vector3(0.09f, 0.19f, 0.13f),
+                dark, null, 0.4f);
+            GripPiece(PrimitiveType.Cube, "RifleBody", rifle,
+                new Vector3(0f, -0.15f, 0f), new Vector3(0.10f, 0.22f, 0.09f),
+                steel, null, 0.65f, 0.45f);
+            GripPiece(PrimitiveType.Cylinder, "RifleBarrel", rifle,
+                new Vector3(0f, -0.46f, 0f), new Vector3(0.028f, 0.24f, 0.028f),
+                dark, null, 0.7f, 0.55f);
+            GripPiece(PrimitiveType.Cube, "RifleSight", rifle,
+                new Vector3(0f, -0.31f, -0.05f), new Vector3(0.022f, 0.04f, 0.02f),
+                sight, null, 0.6f, 0.2f);
+
+            // 3 - espada eléctrica: empuñadura, guarda y hoja luminosa
+            var sword = MakePivot("ElectricSword", Vector3.zero, grip);
+            _weaponVariants[3] = sword;
+            GripPiece(PrimitiveType.Cylinder, "SwordHilt", sword,
+                new Vector3(0f, 0.03f, 0f), new Vector3(0.035f, 0.14f, 0.035f),
+                dark, null, 0.4f, 0.2f);
+            var guard = GripPiece(PrimitiveType.Cube, "SwordGuard", sword,
+                new Vector3(0f, -0.10f, 0f), new Vector3(0.26f, 0.035f, 0.09f),
+                electric, null, 0.55f, 0.4f);
+            var blade = GripPiece(PrimitiveType.Cube, "SwordBlade", sword,
+                new Vector3(0f, -0.43f, 0f), new Vector3(0.07f, 0.62f, 0.022f),
+                electric, null, 0.65f, 0.35f);
+            GripPiece(PrimitiveType.Cube, "SwordTip", sword,
+                new Vector3(0f, -0.77f, 0f), new Vector3(0.035f, 0.12f, 0.016f),
+                electric, null, 0.65f, 0.35f);
+            AddGlow(guard, electric);
+            AddGlow(blade, electric);
+
+            float radius = 0.10f * (0.85f + 0.15f * _bodyWidth);
+            for (int i = 0; i < 3; i++)
+            {
+                GripPiece(PrimitiveType.Sphere, "SupportHand", _weaponVariants[i],
+                    new Vector3(-radius * 0.75f, -0.13f, 0.015f),
+                    Vector3.one * radius * 1.15f, EffectiveLimbColor, null, 0.25f);
+            }
+
+            ApplyWeaponVariant();
+            grip.gameObject.SetActive(_weaponVisible);
+        }
+
+        static void AddGlow(GameObject piece, Color color)
+        {
+            if (piece == null) return;
+            Material material = piece.GetComponent<Renderer>().sharedMaterial;
+            if (material == null || !material.HasProperty("_EmissionColor")) return;
+            material.EnableKeyword("_EMISSION");
+            material.SetColor("_EmissionColor", color * 0.55f);
         }
 
         // ---------------------------------------------------------- camisas

@@ -38,6 +38,16 @@ namespace Caos.Dungeon
                 Definition.weapon, Definition.element);
             TrackObject(weapon);
 
+            // Espada eléctrica como alternativa cuerpo a cuerpo: al recogerla
+            // el puente de combate deja de generar balas.
+            GameObject sword = DungeonVisuals.Sphere("SwordPickup",
+                RandomPoint(3.5f) + Vector3.up * 0.5f, 0.55f,
+                DungeonPalette.Weapon, transform, true, true);
+            DungeonPickup pickupSword = sword.AddComponent<DungeonPickup>();
+            pickupSword.Configure(Director, DungeonPickupKind.Weapon, 0,
+                ArenaWeaponKind.Espada, ArenaElement.Rayo);
+            TrackObject(sword);
+
             DungeonCannon.Place(Director, this, 1, 9f, 5.5f, 1.6f);
             Director.ShowBanner(Title + " — " + Objective, 2.6f);
         }

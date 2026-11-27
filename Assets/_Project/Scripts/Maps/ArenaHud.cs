@@ -87,7 +87,8 @@ namespace Caos.Maps
 
             y += S(23f, scale);
             string weapon = $"ARMA {_director.WeaponLabel()} · {_director.ElementLabel} " +
-                            $"<color=#FFD166>Nv{_director.WeaponTier}</color> — {_director.ElementEffect}";
+                            $"<color=#FFD166>Nv{_director.WeaponTier}</color> — " +
+                            (_director.UsesMelee ? "CLIC GOLPEA" : _director.ElementEffect);
             GUI.Label(new Rect(x, y, textWidth, S(20f, scale)), weapon, _smallStyle);
 
             y += S(24f, scale);
