@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using Caos.Interactions;
+using Caos.Maps;
 using Caos.Player;
 using Caos.UI;
 
@@ -65,6 +66,8 @@ namespace Caos.EditorTools
             var root = new GameObject("Sandbox");
 
             BuildArena(root.transform);
+            CaosAmbience.Ensure(root.transform, 20261128, AmbientBiome.Pradera,
+                new Vector2(13.5f, 13.5f), 0f, false, GetAmbientMaterial());
             BuildProps(root.transform);
             BuildStairsAndHighPlatform(root.transform);
             BuildMovingPlatforms(root.transform);
@@ -359,6 +362,30 @@ namespace Caos.EditorTools
             material.SetFloat("_FadeStart", 18f);
             material.SetFloat("_FadeEnd", 34f);
 
+            AssetDatabase.CreateAsset(material, path);
+            return material;
+        }
+
+        /// <summary>
+        /// Material base del ambiente (hierba, lluvia y luciérnagas). Se guarda
+        /// como asset y se referencia desde la escena para que el build no
+        /// elimine el shader Caos/Ambient por stripping.
+        /// </summary>
+        public static Material GetAmbientMaterial()
+        {
+            const string path = MaterialFolder + "Ambient.mat";
+            var material = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (material != null) return material;
+
+            var shader = Shader.Find("Caos/Ambient");
+            if (shader == null)
+            {
+                Debug.LogWarning("[Caos] No se encontró el shader Caos/Ambient.");
+                return GetMaterial("Neon");
+            }
+
+            material = new Material(shader);
+            material.SetColor("_BaseColor", Color.white);
             AssetDatabase.CreateAsset(material, path);
             return material;
         }

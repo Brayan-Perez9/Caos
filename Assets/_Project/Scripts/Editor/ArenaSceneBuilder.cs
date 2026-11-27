@@ -56,6 +56,8 @@ namespace Caos.EditorTools
             spawn.transform.position = new Vector3(0f, -0.25f, -18f);
 
             BuildFloors(root.transform);
+            CaosAmbience.Ensure(root.transform, 20261126, AmbientBiome.Neon,
+                new Vector2(21f, 21f), 0f, true, SandboxSceneBuilder.GetAmbientMaterial());
             BuildCover(root.transform);
             BuildWeapons(root.transform);
             BuildPlayer(root.transform, spawn.transform);

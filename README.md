@@ -65,6 +65,8 @@ Cada arma tiene un color y un elemento:
 
 Los mapas usan un shader URP procedural (`Caos/NeonGrid`) para el suelo: rejilla en coordenadas de mundo, pulso suave y penumbra hacia el borde, sin texturas ni assets externos. Hay niebla ligera, puntos de luz por elemento y **franjas guía** que llevan del spawn a la escalera, de la escalera al jefe y, en Caos Express, de cada estación a la siguiente. El hueco sur de Caos Express está marcado con una franja roja.
 
+El ambiente se genera en runtime con `CaosAmbience`: **árboles con copas que se mecen, arbustos redondos, hierba que ondea, nubes que derivan, luciérnagas parpadeantes y lluvia** (Arena y Caos Express), todo con primitivas y mallas propias, sin Animator ni arte externo. Cada mapa usa una semilla fija y flujos de RNG independientes por sistema, así que la decoración siempre sale igual y cambiar la lluvia no reordena los árboles. Los árboles se colocan solo en el borde, lejos del pasillo central y del spawn, para no tapar la ruta.
+
 El diseño se ha revisado con las métricas reales del controlador: salto de **1,15 m** y alcance de unos **4,2 m** corriendo. Los peldaños suben **0,28 m** (por debajo del `stepOffset` de 0,35/0,42), la meseta superior empieza en **4,25 m** y hay puentes a ambos lados: la ruta crítica no exige saltos imposibles ni callejones sin salida. Las dianas de Caos Express se cuentan como tumbadas si se lanzan lejos, así que no pueden bloquear la misión.
 
 Los impactos tienen feedback por capas (chispas, rebote, destello corto y sacudida de cámara con `trauma²` que decae con tiempo real). La pausa incluye **CÁMARA: MENOS MOVIMIENTO** y **DESTELLOS: REDUCIDOS** para quien prefiera menos movimiento o menos brillo. Ningún efecto mueve colisiones ni cambia la cadencia de disparo.

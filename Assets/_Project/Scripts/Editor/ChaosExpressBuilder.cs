@@ -58,6 +58,8 @@ namespace Caos.EditorTools
             spawn.transform.position = new Vector3(0f, 0.2f, -12f);
 
             BuildArena(root.transform);
+            CaosAmbience.Ensure(root.transform, 20261127, AmbientBiome.Candy,
+                new Vector2(13.5f, 13.5f), 0f, true, SandboxSceneBuilder.GetAmbientMaterial());
             BuildCargoStation(root.transform);
             BuildTargetStation(root.transform);
             BuildParcelStation(root.transform);
